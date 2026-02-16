@@ -635,6 +635,54 @@
             background: #f0f7ff;
             border: 1px dashed #007aff;
         }
+
+        /* [修改] 协议统计标签栏样式 - 精致小字版 */
+        .proto-stats-bar {
+            display: flex; 
+            flex-wrap: wrap; 
+            justify-content: center; /* 居中对齐 */
+            gap: 8px;                /* 缩小间距以匹配更小的字号 */
+            margin-top: 15px; 
+            padding-top: 15px; 
+            border-top: 1px dashed #eee; 
+        }
+
+        .proto-badge {
+            background: #f5f5f7; 
+            border-radius: 6px;      /* 圆角稍微调小 */
+            /* 上右下左 padding，整体更紧凑 */
+            padding: 3px 3px 3px 8px; 
+            font-size: 12px;         /* [修改] 字号从 13px 缩小到 11px */
+            color: #666;             /* 颜色稍微调淡一点点，更显精致 */
+            font-weight: 400;        /* [修改] 取消加粗 (原为 600) */
+            display: flex; 
+            align-items: center; 
+            border: 1px solid transparent; 
+            transition: all 0.2s ease;
+            cursor: default;
+        }
+
+        .proto-badge:hover {
+            background: #eef0f5;
+            border-color: #e1e1e8;
+            transform: translateY(-1px); 
+        }
+
+        /* 数字计数器：白色立体内嵌框 (适配小字号) */
+        .proto-count {
+            background-color: #ffffff; 
+            color: #1d1d1f;            
+            font-weight: 700;          /* 数字保持适当加粗以保证可读性 */
+            font-size: 11px;           /* [修改] 数字也缩小到 11px */
+            padding: 1px 5px;          /* 缩小内边距 */
+            border-radius: 4px;        /* 缩小圆角 */
+            margin-left: 6px;          /* 缩小间距 */
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08); /* 阴影调淡 */
+            min-width: 18px;           /* 最小宽度调小 */
+            text-align: center;
+            height: 18px;              /* 固定高度确保对齐 */
+            line-height: 16px;         /* 垂直居中 */
+        }
     </style>
 </head>
 <body>
@@ -677,14 +725,36 @@
         <div class="top-section-grid">
             <div class="sub-card">
                 <div class="card-header"><span class="card-title">📊 节点总览</span></div>
+                
                 <div class="stats-grid">
-                    <div class="stat-item"><div class="stat-num text-blue">18</div><div class="stat-label">总节点数</div></div>
-                    <div class="stat-item"><div class="stat-num text-green">12</div><div class="stat-label">直连节点</div></div>
-                    <div class="stat-item"><div class="stat-num text-yellow">6</div><div class="stat-label">落地节点</div></div>
-                    <div class="stat-item"><div class="stat-num text-red">0</div><div class="stat-label">异常节点</div></div>
+                    <div class="stat-item">
+                        <div class="stat-num text-blue">{{.Stats.Total}}</div>
+                        <div class="stat-label">可用总数</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num text-green">{{.Stats.Direct}}</div>
+                        <div class="stat-label">直连节点</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num text-yellow">{{.Stats.Landing}}</div>
+                        <div class="stat-label">落地节点</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-num text-red">{{.Stats.Blocked}}</div>
+                        <div class="stat-label">屏蔽节点</div>
+                    </div>
+                </div>
+
+                <div class="proto-stats-bar">
+                    {{range .ProtoStats}}
+                    <div class="proto-badge">
+                        {{.Name}} <span class="proto-count">{{.Count}}</span>
+                    </div>
+                    {{else}}
+                    <div style="font-size: 12px; color: #ccc; padding-left: 5px;">暂无协议数据</div>
+                    {{end}}
                 </div>
             </div>
-            
             <div class="sub-card">
                 <div class="card-header">
                     <span class="card-title">⚙️ 快捷操作</span>

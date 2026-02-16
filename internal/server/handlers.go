@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"nodectl/internal/database"
@@ -94,11 +95,90 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	// SupportedProtocols 注入到模板数据中
+
+	// 1. 获取所有节点数据
+	var nodes []database.NodePool
+	if err := database.DB.Find(&nodes).Error; err != nil {
+		logger.Log.Error("获取节点统计失败", "err", err.Error())
+	}
+
+	// 2. 初始化基础统计
+	stats := map[string]int{
+		"Total":   0,
+		"Direct":  0,
+		"Landing": 0,
+		"Blocked": 0,
+	}
+	stats["Total"] = len(nodes)
+
+	// 3. [核心修改] 动态统计协议数量
+	// 定义一个临时 map 用于统计所有出现的协议次数
+	rawProtoCounts := make(map[string]int)
+
+	for _, node := range nodes {
+		// --- 基础分类统计 ---
+		if node.IsBlocked {
+			stats["Blocked"]++
+		} else {
+			if node.RoutingType == 1 {
+				stats["Direct"]++
+			} else if node.RoutingType == 2 {
+				stats["Landing"]++
+			}
+		}
+
+		// --- 协议统计 ---
+		// 遍历该节点包含的所有链接
+		for protoKey := range node.Links {
+			// 兼容处理: 数据库可能存的是 socks5，但定义列表里可能是 socks
+			// 简单统一化：如果是 socks5 视作 socks
+			if protoKey == "socks5" {
+				rawProtoCounts["socks"]++
+			} else {
+				rawProtoCounts[protoKey]++
+			}
+		}
+	}
+
+	// 4. [核心修改] 根据 defaults.SupportedProtocols 生成有序的显示列表
+	type ProtoStatItem struct {
+		Name  string
+		Count int
+	}
+	var displayProtoStats []ProtoStatItem
+
+	// 按照 defaults.go 中定义的顺序遍历
+	for _, proto := range database.SupportedProtocols {
+		count := rawProtoCounts[proto]
+
+		// 只有数量 > 0 才显示
+		if count > 0 {
+			// 格式化显示名称 (例如: ss -> Shadowsocks, hy2 -> Hysteria2)
+			// 这里简单处理：转大写，特殊名称特殊处理
+			displayName := strings.ToUpper(proto)
+			switch proto {
+			case "ss":
+				displayName = "Shadowsocks"
+			case "hy2":
+				displayName = "Hysteria2"
+			case "socks":
+				displayName = "Socks5" // 显示更友好的名字
+			}
+
+			displayProtoStats = append(displayProtoStats, ProtoStatItem{
+				Name:  displayName,
+				Count: count,
+			})
+		}
+	}
+
+	// 5. 注入数据到模板
 	data := map[string]interface{}{
-		"Title":     "Nodectl 总览",
-		"Protocols": database.SupportedProtocols,
-		"Version":   version.Version, // [新增] 将版本号传递给前端模板
+		"Title":      "Nodectl 总览",
+		"Protocols":  database.SupportedProtocols,
+		"Version":    version.Version,
+		"Stats":      stats,
+		"ProtoStats": displayProtoStats, // 传递生成的切片
 	}
 	tmpl.ExecuteTemplate(w, "index.html", data)
 }
@@ -117,8 +197,8 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 		IsBlocked     bool              `json:"is_blocked"`
 		Links         map[string]string `json:"links"`
 		DisabledLinks []string          `json:"disabled_links"`
-		IPV4          string            `json:"ipv4"` // [新增] 接收 IPv4
-		IPV6          string            `json:"ipv6"` // [新增] 接收 IPv6
+		IPV4          string            `json:"ipv4"`
+		IPV6          string            `json:"ipv6"`
 	}
 
 	// 解析 JSON
@@ -132,7 +212,7 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// [修改] 调用 Service 时传入 req.IPV4 和 req.IPV6
+	// 调用 Service 更新
 	err := service.UpdateNode(req.UUID, req.Name, req.RoutingType, req.Links, req.IsBlocked, req.DisabledLinks, req.IPV4, req.IPV6)
 	if err != nil {
 		logger.Log.Error("更新节点失败", "err", err.Error())
