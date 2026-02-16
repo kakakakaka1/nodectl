@@ -1,0 +1,182 @@
+{{define "system_settings_modal.html"}}
+<style>
+    /* 遮罩层 */
+    .sys-modal-overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.4); 
+        backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+        z-index: 3000; align-items: center; justify-content: center;
+        opacity: 0; transition: opacity 0.3s ease;
+    }
+    .sys-modal-overlay.active { display: flex; opacity: 1; }
+    
+    /* 卡片容器 */
+    .sys-modal-card {
+        background: #ffffff; 
+        width: 100%; max-width: 420px; 
+        border-radius: 16px; 
+        box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        transform: scale(0.95); transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sys-modal-overlay.active .sys-modal-card { transform: scale(1); }
+
+    .sys-header { padding: 20px 25px 15px; background: #ffffff; }
+    .sys-title { font-size: 18px; color: #1d1d1f; font-weight: 700; }
+
+    .sys-body { padding: 0 25px 20px; }
+
+    .sys-field { margin-bottom: 20px; }
+    .sys-field:last-child { margin-bottom: 0; }
+    
+    .sys-label { 
+        display: block; font-size: 12px; font-weight: 600; 
+        color: #86868b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .sys-desc {
+        font-size: 11px; color: #999; margin-top: 6px; line-height: 1.4;
+    }
+
+    .sys-input {
+        width: 100%; padding: 10px 12px; border: 1px solid #d1d1d6; border-radius: 8px;
+        font-size: 13px; color: #1d1d1f; outline: none; transition: border 0.2s; background: #fafbfc;
+        font-family: Menlo, Monaco, "Courier New", monospace;
+    }
+    .sys-input:focus { border-color: #007aff; background: #fff; }
+
+    .sys-input-group { display: flex; gap: 8px; }
+    .sys-input-group .sys-input { flex: 1; }
+    
+    .btn-sys-regen {
+        background: #f0f7ff; border: 1px solid #cce4ff; color: #007aff;
+        padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 600; 
+        cursor: pointer; transition: 0.2s; white-space: nowrap;
+    }
+    .btn-sys-regen:hover { background: #e0efff; border-color: #b3d7ff; }
+
+    /* 底部按钮区 */
+    .sys-footer { 
+        padding: 15px 25px 20px 25px; border-top: 1px solid #eee; background: #fff;
+        display: flex; justify-content: flex-end; gap: 12px;
+    }
+    .btn-sys-cancel {
+        background: #f5f5f7; border: none; color: #666;
+        padding: 9px 22px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-sys-cancel:hover { background: #e5e5ea; color: #333; }
+    .btn-sys-save {
+        background: #6c5ce7; border: none; color: white;
+        padding: 9px 22px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-sys-save:hover { background: #5a4bcf; }
+</style>
+
+<div class="sys-modal-overlay" id="systemSettingsModal">
+    <div class="sys-modal-card">
+        <div class="sys-header">
+            <div class="sys-title">⚙️ 系统设置</div>
+        </div>
+        
+        <div class="sys-body">
+            
+            <div class="sys-field">
+                <label class="sys-label">面板外部访问地址 (Panel URL)</label>
+                <input type="text" id="sys_panel_url" class="sys-input" placeholder="例如: https://www.yourdomain.com:8092">
+                <div class="sys-desc">用于脚本一键部署时的回调状态上报，以及订阅链接的生成基地址。</div>
+            </div>
+
+            <div class="sys-field">
+                <label class="sys-label">订阅安全凭证 (Sub Token)</label>
+                <div class="sys-input-group">
+                    <input type="text" id="sys_sub_token" class="sys-input" placeholder="用于拉取订阅的安全校验码">
+                    <button type="button" class="btn-sys-regen" onclick="generateNewSubToken()">重新生成</button>
+                </div>
+                <div class="sys-desc">这是您的核心订阅鉴权标识。如遭泄露，请点击重新生成并保存，旧链接将立即失效。</div>
+            </div>
+
+        </div>
+
+        <div class="sys-footer">
+            <button class="btn-sys-cancel" onclick="closeSystemSettingsModal()">取消</button>
+            <button class="btn-sys-save" onclick="saveSystemSettings()" id="btnSaveSys">保存设置</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const sysModal = document.getElementById('systemSettingsModal');
+
+    // 随机生成 Token 逻辑
+    function generateNewSubToken() {
+        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let token = '';
+        for (let i = 0; i < 32; i++) {
+            token += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        document.getElementById('sys_sub_token').value = token;
+    }
+
+    async function openSystemSettingsModal() {
+        sysModal.classList.add('active');
+        const btnSave = document.getElementById('btnSaveSys');
+        btnSave.innerText = "加载中...";
+        btnSave.disabled = true;
+
+        try {
+            const res = await fetch('/api/get-settings');
+            const result = await res.json();
+            if(result.status === 'success') {
+                const data = result.data;
+                document.getElementById('sys_panel_url').value = data.panel_url || '';
+                document.getElementById('sys_sub_token').value = data.sub_token || '';
+            }
+        } catch(e) {
+            console.error("加载配置失败", e);
+        } finally {
+            btnSave.innerText = "保存设置";
+            btnSave.disabled = false;
+        }
+    }
+
+    function closeSystemSettingsModal() {
+        sysModal.classList.remove('active');
+    }
+
+    async function saveSystemSettings() {
+        const payload = {
+            "panel_url": document.getElementById('sys_panel_url').value.trim(),
+            "sub_token": document.getElementById('sys_sub_token').value.trim()
+        };
+
+        if(!payload.sub_token) {
+            alert("订阅 Token 不能为空");
+            return;
+        }
+
+        const btnSave = document.getElementById('btnSaveSys');
+        btnSave.innerText = "保存中...";
+        btnSave.disabled = true;
+
+        try {
+            const response = await fetch('/api/update-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                // 同步更新全局的 URL 缓存，让其它组件(如节点安装脚本)能立刻用上新地址
+                window.panelUrl = payload.panel_url; 
+                closeSystemSettingsModal();
+            } else {
+                alert("保存失败: " + result.message);
+            }
+        } catch (error) {
+            alert('网络错误，请稍后重试');
+        } finally {
+            btnSave.innerText = "保存设置";
+            btnSave.disabled = false;
+        }
+    }
+</script>
+{{end}}

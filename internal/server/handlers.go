@@ -398,8 +398,9 @@ func apiGetSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var configs []database.SysConfig
+	// [修改] 在 IN 查询列表中加入 "sub_token"
 	database.DB.Where("key IN ?", []string{
-		"panel_url", "proxy_port_ss", "proxy_port_hy2", "proxy_port_tuic",
+		"panel_url", "sub_token", "proxy_port_ss", "proxy_port_hy2", "proxy_port_tuic",
 		"proxy_port_reality", "proxy_reality_sni", "proxy_ss_method",
 		"proxy_port_socks5", "proxy_socks5_user", "proxy_socks5_pass",
 	}).Find(&configs)
@@ -428,9 +429,9 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 遍历保存，增加简单的白名单过滤防止污染数据库其他配置项
+	// [修改] 在白名单中加入 "sub_token"
 	validKeys := map[string]bool{
-		"panel_url": true, "proxy_port_ss": true, "proxy_port_hy2": true,
+		"panel_url": true, "sub_token": true, "proxy_port_ss": true, "proxy_port_hy2": true,
 		"proxy_port_tuic": true, "proxy_port_reality": true, "proxy_reality_sni": true,
 		"proxy_ss_method": true, "proxy_port_socks5": true, "proxy_socks5_user": true, "proxy_socks5_pass": true,
 	}

@@ -27,9 +27,14 @@ func initDefaultConfigs() {
 }
 
 func initBasicSettings() {
+	// 生成一个随机的 32 位 Hex 字符串作为默认的订阅 Token
+	secureBytes := make([]byte, 16)
+	rand.Read(secureBytes)
+	defaultToken := hex.EncodeToString(secureBytes)
+
 	defaultConfigs := []SysConfig{
-		// [新增] 面板的外部访问地址，用于脚本向上级回传状态
 		{Key: "panel_url", Value: "", Description: "面板外部访问地址"},
+		{Key: "sub_token", Value: defaultToken, Description: "订阅访问 Token"}, // [新增] 订阅 Token 初始化
 	}
 
 	for _, config := range defaultConfigs {

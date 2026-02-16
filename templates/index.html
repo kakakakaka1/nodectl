@@ -680,7 +680,7 @@
                 <div class="card-header">
                     <span class="card-title">⚙️ 快捷操作</span>
                     <div style="display: flex; gap: 10px;">
-                        <a href="/subscription/settings" class="btn-custom-common btn-color-purple">订阅设置</a>
+                        <a href="javascript:void(0)" onclick="openSystemSettingsModal()" class="btn-custom-common btn-color-purple">系统设置</a>
                         <a href="/cache/refresh" class="btn-custom-common btn-color-orange">刷新缓存</a>
                     </div>
                 </div>
@@ -1001,6 +1001,7 @@
     {{template "edit_node_modal.html" .}}
     {{template "install_script_modal.html" .}}
     {{template "global_settings_modal.html" .}}
+    {{template "system_settings_modal.html" .}}
 
 </body>
 </html>
