@@ -20,16 +20,23 @@ type RuleModule struct {
 	Icon string `json:"icon"`
 }
 
-// SupportedClashModules 定义所有支持的按需分流模块
+// [修复] 补全所有的 18 个分流模块
 var SupportedClashModules = []RuleModule{
 	{ID: "XiaoHongShu", Name: "小红书", Icon: "📕"},
 	{ID: "DouYin", Name: "抖音", Icon: "🎵"},
 	{ID: "BiliBili", Name: "BiliBili", Icon: "📺"},
 	{ID: "Steam", Name: "Steam", Icon: "🎮"},
+	{ID: "Apple", Name: "Apple", Icon: "🍎"},
+	{ID: "Microsoft", Name: "Microsoft", Icon: "🪟"},
 	{ID: "Telegram", Name: "Telegram", Icon: "✈️"},
+	{ID: "Discord", Name: "Discord", Icon: "💬"},
 	{ID: "Spotify", Name: "Spotify", Icon: "🎧"},
+	{ID: "TikTok", Name: "TikTok", Icon: "📱"},
 	{ID: "YouTube", Name: "YouTube", Icon: "▶️"},
 	{ID: "Netflix", Name: "Netflix", Icon: "🎬"},
+	{ID: "Google", Name: "Google", Icon: "🔍"},
+	{ID: "GoogleFCM", Name: "GoogleFCM", Icon: "🔔"},
+	{ID: "Facebook", Name: "Facebook", Icon: "📘"},
 	{ID: "OpenAI", Name: "OpenAI", Icon: "🤖"},
 	{ID: "GitHub", Name: "GitHub", Icon: "🐙"},
 	{ID: "Twitter", Name: "Twitter(X)", Icon: "🐦"},
@@ -47,7 +54,7 @@ func GetActiveClashModules() []string {
 	var conf database.SysConfig
 	err := database.DB.Where("key = ?", "clash_active_modules").First(&conf).Error
 	if err != nil || conf.Value == "" {
-		return []string{} // 默认返回空或你想要的默认选中项
+		return []string{}
 	}
 	return strings.Split(conf.Value, ",")
 }
@@ -56,8 +63,6 @@ func GetActiveClashModules() []string {
 func SaveActiveClashModules(modules []string) error {
 	val := strings.Join(modules, ",")
 
-	// 使用 FirstOrCreate 配合 Updates，或者直接用 Save
-	// 这里用 Assign 来实现优雅的 Upsert
 	err := database.DB.Where(database.SysConfig{Key: "clash_active_modules"}).
 		Assign(database.SysConfig{Value: val}).
 		FirstOrCreate(&database.SysConfig{}).Error
@@ -89,10 +94,15 @@ func RenderClashConfig(relayURL, exitURL string) (string, error) {
 		return "", fmt.Errorf("渲染 Clash 模板失败: %v", err)
 	}
 
-	// [修改这里] 清洗模板产生的大量多余空行
-	// 原理：将 3 个或以上连续的换行符（中间可能夹带空格制表符），强制压缩为 2 个换行符 (保留一个正常空行)
-	re := regexp.MustCompile(`(\r?\n[ \t]*){3,}`)
-	cleanYAML := re.ReplaceAllString(buf.String(), "\n\n")
+	// [修复] 绝对安全的空行清理逻辑
+	// 步骤 1: 将只有空格或制表符的“假空行”清理干净，变为纯粹的换行符
+	re1 := regexp.MustCompile(`(?m)^[ \t]+$`)
+	step1 := re1.ReplaceAllString(buf.String(), "")
+
+	// 步骤 2: 将连续 3 个及以上的纯换行符，压缩为 2 个换行符 (保留一个正常空隙)
+	// 这样绝对不会吃掉带有文字行的前置缩进
+	re2 := regexp.MustCompile(`(\r?\n){3,}`)
+	cleanYAML := re2.ReplaceAllString(step1, "\n\n")
 
 	return cleanYAML, nil
 }
