@@ -482,6 +482,12 @@ func parseSS(link, proxyName string) *ClashNode {
 		userInfo := parts[0]
 		hostPart := parts[1]
 
+		// ✨ 修复点：先尝试进行 URL Decode 解码 (解决 %3A, %2F, %3D 等 URL 转义字符问题)
+		if unescaped, err := url.QueryUnescape(userInfo); err == nil && strings.Contains(unescaped, ":") {
+			userInfo = unescaped
+		}
+
+		// 如果 URL 解码后仍然没有冒号，说明可能是旧版的 Base64 格式，尝试 Base64 解码
 		if !strings.Contains(userInfo, ":") {
 			if decodedUser := safeBase64Decode(userInfo); decodedUser != "" {
 				userInfo = decodedUser
