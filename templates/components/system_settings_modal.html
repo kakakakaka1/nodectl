@@ -9,7 +9,7 @@
     }
     .sys-modal-overlay.active { display: flex; opacity: 1; }
     
-    /* 统一尺寸与动画：窄模式 420px，高度 620px */
+    /* 统一尺寸与动画：窄模式 420px，高度 550px */
     .sys-modal-card {
         background: #ffffff; width: 100%; max-width: 420px; height: 550px; border-radius: 12px; 
         box-shadow: 0 20px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden;
@@ -193,11 +193,11 @@
                     <div class="geo-info-card">
                         <div class="geo-row">
                             <span class="geo-key">本地版本</span>
-                            <span class="geo-value" id="geoLocalTime">--</span>
+                            <span class="geo-value" id="geoLocalVersion">--</span>
                         </div>
                         <div class="geo-row">
                             <span class="geo-key">最新版本</span>
-                            <span class="geo-value" id="geoRemoteTime">--</span>
+                            <span class="geo-value" id="geoRemoteVersion">--</span>
                         </div>
                     </div>
                 </div>
@@ -206,7 +206,7 @@
                     <label class="sys-label">状态与操作</label>
                     <button type="button" id="btnGeoUpdate" class="btn-geo-action btn-geo-loading" onclick="handleGeoBtnClick()">
                         <svg class="spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-                        正在检查更新...
+                        正在比对版本...
                     </button>
                     <div class="sys-desc" id="geoActionDesc" style="text-align: center; background: transparent; border: none; padding: 0;">连接 GitHub API 获取版本信息中...</div>
                 </div>
@@ -224,7 +224,6 @@
     let hasCheckedGeo = false; 
     let geoState = 'checking'; 
 
-    // Tab 切换逻辑
     function switchSysTab(tabName) {
         const btns = document.querySelectorAll('.sys-tab-btn');
         btns.forEach(btn => btn.classList.remove('active'));
@@ -248,7 +247,7 @@
             token += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         document.getElementById('sys_sub_token').value = token;
-        triggerSysAutoSave(); // 触发静默保存
+        triggerSysAutoSave(); 
     }
 
     async function openSystemSettingsModal() {
@@ -275,7 +274,6 @@
         sysModal.classList.remove('active');
     }
 
-    // 全自动静默保存引擎 (防抖 0.6 秒)
     let sysAutoSaveTimer = null;
     function triggerSysAutoSave() {
         clearTimeout(sysAutoSaveTimer);
@@ -314,7 +312,6 @@
         }, 600);
     }
 
-    // ================= Geo 更新逻辑 =================
     async function checkGeoStatus() {
         hasCheckedGeo = true;
         renderGeoBtn('checking');
@@ -325,11 +322,11 @@
             
             if(result.status === 'success') {
                 const data = result.data;
-                const local = data.local_time.startsWith('0001') ? '未下载' : data.local_time;
-                const remote = data.remote_time.startsWith('0001') ? '未知' : data.remote_time;
+                const local = data.local_version || '未下载';
+                const remote = data.remote_version || '未知';
                 
-                document.getElementById('geoLocalTime').innerText = local;
-                document.getElementById('geoRemoteTime').innerText = remote;
+                document.getElementById('geoLocalVersion').innerText = local;
+                document.getElementById('geoRemoteVersion').innerText = remote;
                 
                 let uiState = 'error';
                 if (data.state === 'latest') uiState = 'latest';
@@ -341,7 +338,7 @@
                 throw new Error(result.message);
             }
         } catch(e) {
-            document.getElementById('geoRemoteTime').innerText = "网络错误";
+            document.getElementById('geoRemoteVersion').innerText = "网络错误";
             renderGeoBtn('error');
         }
     }
@@ -352,20 +349,21 @@
     }
 
     async function updateGeoDatabase() {
-        if(!confirm("确定要下载更新 GeoIP 数据库吗？\n这可能需要几十秒的时间。")) return;
+        if(!confirm("确定要下载并更新 GeoIP 数据库吗？\n这可能需要几十秒的时间。")) return;
 
         const btn = document.getElementById('btnGeoUpdate');
         btn.className = 'btn-geo-action btn-geo-loading';
-        btn.innerHTML = '<svg class="spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> 正在后台更新...';
+        btn.innerHTML = '<svg class="spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> 正在后台下载更新...';
         btn.style.cursor = 'default';
 
         try {
             const response = await fetch('/api/update-geoip', { method: 'POST' });
             const result = await response.json();
             if(result.status === 'success') {
+                // 等待后台几秒钟下载完成，然后刷新状态
                 setTimeout(() => {
                     checkGeoStatus(); 
-                }, 2000);
+                }, 3000);
             } else {
                 alert("指令发送失败: " + result.message);
                 renderGeoBtn('update');
@@ -380,13 +378,13 @@
         geoState = state;
         const btn = document.getElementById('btnGeoUpdate');
         const desc = document.getElementById('geoActionDesc');
-        const rTime = document.getElementById('geoRemoteTime');
+        const rVer = document.getElementById('geoRemoteVersion');
 
         if (state === 'checking') {
             btn.className = 'btn-geo-action btn-geo-loading';
-            btn.innerHTML = '<svg class="spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> 正在检查更新...';
+            btn.innerHTML = '<svg class="spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> 正在比对版本...';
             desc.innerText = '正在连接 GitHub API 获取版本信息...';
-            if(rTime.innerText === '--') rTime.innerText = '检查中...';
+            if(rVer.innerText === '--') rVer.innerText = '检查中...';
         
         } else if (state === 'latest') {
             btn.className = 'btn-geo-action btn-geo-latest';

@@ -631,39 +631,35 @@ func apiUpdateGeoIP(w http.ResponseWriter, r *http.Request) {
 }
 
 func apiGetGeoStatus(w http.ResponseWriter, r *http.Request) {
-	clientIP := r.RemoteAddr
-	reqPath := r.URL.Path
-
 	if r.Method != http.MethodGet {
-		logger.Log.Warn("非法请求方法", "method", r.Method, "ip", clientIP, "path", reqPath)
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	localTime, errLocal := service.GlobalGeoIP.GetLocalDBTime()
-	remoteTime, errRemote := service.GlobalGeoIP.CheckRemoteDBTime()
+	localVersion := service.GlobalGeoIP.GetLocalVersion()
+	remoteVersion, errRemote := service.GlobalGeoIP.GetRemoteVersion()
 
 	status := "unknown"
 	msg := ""
 
-	if errLocal != nil {
-		status = "not_found"
-	} else if errRemote == nil && remoteTime.After(localTime.Add(24*time.Hour)) {
-		status = "update_available"
-	} else if errRemote == nil {
-		status = "latest"
+	// 字符串精确比对逻辑
+	if localVersion == "" {
+		status = "not_found" // 数据库没有记录，视为未下载
+	} else if errRemote == nil && remoteVersion != "" && remoteVersion != localVersion {
+		status = "update_available" // 版本字符串不一致，提示更新
+	} else if errRemote == nil && remoteVersion == localVersion {
+		status = "latest" // 完全一致，已是最新
 	} else {
 		status = "check_failed"
-		logger.Log.Warn("获取远程 GeoIP 版本信息失败", "error", errRemote, "ip", clientIP, "path", reqPath)
 	}
 
 	resp := map[string]interface{}{
 		"status": "success",
 		"data": map[string]interface{}{
-			"local_time":  localTime.Format("2006-01-02"),
-			"remote_time": remoteTime.Format("2006-01-02"),
-			"state":       status,
-			"error":       msg,
+			"local_version":  localVersion,
+			"remote_version": remoteVersion,
+			"state":          status,
+			"error":          msg,
 		},
 	}
 

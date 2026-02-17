@@ -39,6 +39,7 @@ func initBasicSettings() {
 		{Key: "clash_active_modules", Value: "", Description: "Clash 分流规则启用列表"},
 		{Key: "pref_use_emoji_flag", Value: "true", Description: "订阅节点是否添加国旗前缀"},
 		{Key: "sub_custom_name", Value: "NodeCTL", Description: "自定义订阅名称"},
+		{Key: "geo_db_version", Value: "", Description: "GeoIP 数据库版本号"},
 	}
 
 	for _, config := range defaultConfigs {
