@@ -21,8 +21,6 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 		cookie, err := r.Cookie("nodectl_token")
 		if err != nil {
 			// 没有带 Cookie，说明未登录，重定向到登录页。
-			// 【优化】为了防止浏览器自动探测背景资源 (如 favicon, 浏览器插件探针) 造成 Warn 刷屏，
-			// 我们只在明确是核心业务路径 (根目录 或 /api/) 时，才记录安全拦截日志。
 			if reqPath == "/" || reqPath == "/index.html" || strings.HasPrefix(reqPath, "/api/") {
 				logger.Log.Warn("未授权访问拦截",
 					"reason", "请求缺少 nodectl_token Cookie",
@@ -50,7 +48,7 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 		// 3. 解析并校验 JWT
 		tokenString := cookie.Value
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			// 确保签名算法是我们预期的 HMAC
+
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				algoErr := fmt.Errorf("非法的签名算法: %v", token.Header["alg"])
 				logger.Log.Warn("Token 校验警告",
@@ -70,7 +68,7 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 				"ip", clientIP,
 				"path", reqPath,
 			)
-			// Token 失效或被篡改，清除失效的 Cookie 并重定向
+
 			http.SetCookie(w, &http.Cookie{
 				Name:     "nodectl_token",
 				Value:    "",
@@ -83,10 +81,6 @@ func Auth(next http.HandlerFunc) http.HandlerFunc {
 		}
 
 		// 4. Token 校验通过，放行请求。
-		// 【优化】移除了原先高频刷屏的 "鉴权放行" Debug 日志。
-		// 成功的鉴权属于中间件的静默常态行为，不应该产生任何日志噪音。
-
-		// 将控制权交还给最终的 Handler
 		next.ServeHTTP(w, r)
 	}
 }
