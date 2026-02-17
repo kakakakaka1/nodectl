@@ -155,8 +155,8 @@ func RenderClashConfig(relayURL, exitURL, baseURL, token string) (string, error)
 	dnsPolicyStr := strings.Join(dnsPolicyList, ",")
 
 	data := ClashTemplateData{
-		RelaySubURL:             relayURL,
-		ExitSubURL:              exitURL,
+		RelaySubURL:             exitURL,
+		ExitSubURL:              relayURL,
 		ActiveModules:           finalActiveMods,
 		BaseURL:                 baseURL,
 		Token:                   token,
