@@ -27,10 +27,10 @@ global-client-fingerprint: chrome
 #此为地址替换识别符号，请勿更改格式
 # —————————
 proxy-providers:
-  中转机场:
+  直连机场:
     type: http
     interval: 86400
-    url: "{{.RelaySubURL}}"
+    url: "{{.ExitSubURL}}"
     path: ./proxy_providers/clash-node.yaml
     health-check:
       enable: false
@@ -39,14 +39,14 @@ proxy-providers:
   落地机场:
     type: http
     interval: 86400
-    url: "{{.ExitSubURL}}"
+    url: "{{.RelaySubURL}}"
     path: ./proxy_providers/exit.yaml
     health-check:
       enable: false
       url: https://www.gstatic.com/generate_204
       interval: 300
     override:
-      dialer-proxy: '💠 中转选择'
+      dialer-proxy: '💠 直连选择'
       skip-proxy: false
 
 profile: # ← 此函数位置请勿变动！此为模块更新时备份恢复订阅变量范围 
@@ -127,7 +127,7 @@ proxy_groups: &proxy_groups
     - 🇨🇳 大陆
     - ⛔️ 拒绝连接
   use: 
-    - 中转机场
+    - 直连机场
     - 落地机场
 
 # -------------------- 策略组定义 --------------------
@@ -138,13 +138,13 @@ proxy-groups:
     proxies:
       - 🇨🇳 大陆
     use:
-      - 中转机场
+      - 直连机场
       - 落地机场
 
-  - name: '💠 中转选择'
+  - name: '💠 直连选择'
     type: select
     use:
-      - 中转机场
+      - 直连机场
 
   - name: 订阅更新
     icon: "https://cdn.jsdelivr.net/gh/GitMetaio/Surfing@rm/Home/icon/Update.svg"
