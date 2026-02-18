@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
@@ -12,15 +11,16 @@ import (
 )
 
 // ---------------------------------------------------------
-// 1. 结构体定义 (严格保证 YAML 字段的输出顺序和数据类型)
+// 1. 数据结构定义
 // ---------------------------------------------------------
 
-// ClashNode 统一节点结构体，强制规范 YAML 输出
+// ClashNode 统一节点结构体，强制规范 YAML 输出格式
 type ClashNode struct {
 	Name                 string                 `yaml:"name"`
 	Type                 string                 `yaml:"type"`
 	Server               string                 `yaml:"server"`
 	Port                 int                    `yaml:"port"`
+	Username             string                 `yaml:"username,omitempty"`
 	Password             string                 `yaml:"password,omitempty"`
 	UUID                 string                 `yaml:"uuid,omitempty"`
 	Cipher               string                 `yaml:"cipher,omitempty"`
@@ -34,619 +34,389 @@ type ClashNode struct {
 	ALPN                 []string               `yaml:"alpn,omitempty"`
 	Flow                 string                 `yaml:"flow,omitempty"`
 	PacketEncoding       string                 `yaml:"packet-encoding,omitempty"`
-	RealityOpts          map[string]interface{} `yaml:"reality-opts,omitempty"`
 	ClientFingerprint    string                 `yaml:"client-fingerprint,omitempty"`
+	Plugin               string                 `yaml:"plugin,omitempty"`
+	PluginOpts           map[string]interface{} `yaml:"plugin-opts,omitempty"`
 	WSOpts               map[string]interface{} `yaml:"ws-opts,omitempty"`
-	GRPCOpts             map[string]interface{} `yaml:"grpc-opts,omitempty"`
 	H2Opts               map[string]interface{} `yaml:"h2-opts,omitempty"`
-	HTTPOpts             map[string]interface{} `yaml:"http-opts,omitempty"`
-	Obfs                 string                 `yaml:"obfs,omitempty"`
-	ObfsPassword         string                 `yaml:"obfs-password,omitempty"`
-	Ports                string                 `yaml:"ports,omitempty"`
+	GRPCOpts             map[string]interface{} `yaml:"grpc-opts,omitempty"`
+	RealityOpts          map[string]interface{} `yaml:"reality-opts,omitempty"`
 	Up                   int                    `yaml:"up,omitempty"`
 	Down                 int                    `yaml:"down,omitempty"`
-	DisableSNI           bool                   `yaml:"disable-sni,omitempty"`
+	Obfs                 string                 `yaml:"obfs,omitempty"`
+	ObfsPassword         string                 `yaml:"obfs-password,omitempty"`
 	CongestionController string                 `yaml:"congestion-controller,omitempty"`
 	UDPRelayMode         string                 `yaml:"udp-relay-mode,omitempty"`
 	ReduceRTT            bool                   `yaml:"reduce-rtt,omitempty"`
-	ZeroRTT              bool                   `yaml:"zero-rtt,omitempty"`
-	TFO                  bool                   `yaml:"tfo,omitempty"`
-	Username             string                 `yaml:"username,omitempty"`
+
+	// 扩展字段: 用于支持 SSR 和 Hysteria v1 等特殊协议
+	Protocol      string `yaml:"protocol,omitempty"`
+	ProtocolParam string `yaml:"protocol-param,omitempty"`
+	ObfsParam     string `yaml:"obfs-param,omitempty"`
+	AuthStr       string `yaml:"auth-str,omitempty"`
+}
+
+// vmessJSON 定义 VMess 协议特有的 JSON 结构
+type vmessJSON struct {
+	V    interface{} `json:"v"`
+	Ps   string      `json:"ps"`
+	Add  string      `json:"add"`
+	Port interface{} `json:"port"`
+	Id   string      `json:"id"`
+	Aid  interface{} `json:"aid"`
+	Scy  string      `json:"scy"`
+	Net  string      `json:"net"`
+	Type string      `json:"type"`
+	Host interface{} `json:"host"`
+	Path string      `json:"path"`
+	Tls  string      `json:"tls"`
+	Sni  string      `json:"sni"`
+	Alpn string      `json:"alpn"`
+	Fp   string      `json:"fp"`
 }
 
 // ---------------------------------------------------------
-// 2. 基础工具函数
+// 2. 通用辅助函数
 // ---------------------------------------------------------
 
-func getEmojiFlag(region string) string {
-	if region == "" {
-		return "🌐"
+// parseInt 统一处理解析引擎中可能是 interface{} 或 string 的端口类型
+func parseInt(port interface{}) int {
+	if port == nil {
+		return 0
 	}
-	region = strings.ToUpper(strings.TrimSpace(region))
-	if len(region) == 2 {
-		const offset = 127397
-		return string(rune(region[0])+offset) + string(rune(region[1])+offset)
+	switch v := port.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	case string:
+		i, _ := strconv.Atoi(v)
+		return i
+	default:
+		return 0
 	}
-	return region
 }
 
-func safeBase64Decode(s string) string {
-	s = strings.TrimSpace(s)
-	s = strings.ReplaceAll(s, "-", "+")
-	s = strings.ReplaceAll(s, "_", "/")
-	if padding := len(s) % 4; padding > 0 {
-		s += strings.Repeat("=", 4-padding)
+// safeBase64Decode 尝试多种 Base64 补齐和解码方式，增强容错率
+func safeBase64Decode(str string) string {
+	str = strings.ReplaceAll(str, "-", "+")
+	str = strings.ReplaceAll(str, "_", "/")
+	pads := len(str) % 4
+	if pads > 0 {
+		str += strings.Repeat("=", 4-pads)
 	}
-	decoded, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		logger.Log.Warn("Base64 节点解码失败", "error", err)
-		return ""
+	decoded, err := base64.StdEncoding.DecodeString(str)
+	if err == nil {
+		return string(decoded)
 	}
-	return string(decoded)
-}
-
-func getBool(query url.Values, keys ...string) bool {
-	for _, k := range keys {
-		val := strings.ToLower(query.Get(k))
-		if val == "1" || val == "true" || val == "yes" || val == "on" {
-			return true
-		}
-	}
-	return false
-}
-
-func getString(m map[string]interface{}, key string) string {
-	if val, ok := m[key]; ok && val != nil {
-		switch v := val.(type) {
-		case string:
-			return v
-		case float64:
-			return strconv.FormatFloat(v, 'f', -1, 64)
-		}
+	decoded, err = base64.URLEncoding.DecodeString(str)
+	if err == nil {
+		return string(decoded)
 	}
 	return ""
 }
 
-func getInt(m map[string]interface{}, key string) int {
-	if val, ok := m[key]; ok && val != nil {
-		switch v := val.(type) {
-		case float64:
-			return int(v)
+// ---------------------------------------------------------
+// 3. 核心分发调度中心
+// ---------------------------------------------------------
+
+// ParseLinkToClashNode 将分享链接解析并映射为 Clash 节点对象
+func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
+	lowerLink := strings.ToLower(link)
+
+	// [1] 处理 VMess 协议 (JSON over Base64)
+	if strings.HasPrefix(lowerLink, "vmess://") {
+		body := safeBase64Decode(link[8:])
+		if body == "" {
+			return nil
+		}
+		var vj vmessJSON
+		if err := json.Unmarshal([]byte(body), &vj); err != nil {
+			return nil
+		}
+		node := &ClashNode{
+			Name:              vj.Ps + nameSuffix,
+			Type:              "vmess",
+			Server:            vj.Add,
+			Port:              parseInt(vj.Port),
+			UUID:              vj.Id,
+			AlterId:           parseInt(vj.Aid),
+			Cipher:            vj.Scy,
+			Network:           vj.Net,
+			ServerName:        vj.Sni,
+			ClientFingerprint: vj.Fp,
+			UDP:               true,
+		}
+		if vj.Tls == "tls" {
+			node.TLS = true
+		}
+		if vj.Alpn != "" {
+			node.ALPN = strings.Split(vj.Alpn, ",")
+		}
+		// 智能解析 host 字段（可能是字符串或数组）
+		hostStr := ""
+		switch v := vj.Host.(type) {
 		case string:
-			if i, err := strconv.Atoi(v); err == nil {
-				return i
+			hostStr = v
+		case []interface{}:
+			if len(v) > 0 {
+				if s, ok := v[0].(string); ok {
+					hostStr = s
+				}
 			}
 		}
-	}
-	return 0
-}
 
-// ---------------------------------------------------------
-// 3. 协议转换统一入口
-// ---------------------------------------------------------
-
-func ParseProxyLink(link, baseName, region string, useFlag bool) *ClashNode {
-	link = strings.TrimSpace(link)
-	if link == "" {
-		return nil
-	}
-
-	finalName := baseName
-	if useFlag && region != "" {
-		flag := getEmojiFlag(region)
-		finalName = fmt.Sprintf("%s %s", flag, strings.ReplaceAll(baseName, flag, ""))
-	}
-	finalName = strings.TrimSpace(finalName)
-
-	lowerLink := strings.ToLower(link)
-	var node *ClashNode
-
-	if strings.HasPrefix(lowerLink, "vmess://") {
-		node = parseVmess(link, finalName)
-	} else if strings.HasPrefix(lowerLink, "vless://") {
-		node = parseVless(link, finalName)
-	} else if strings.HasPrefix(lowerLink, "trojan://") {
-		node = parseTrojan(link, finalName)
-	} else if strings.HasPrefix(lowerLink, "hy2://") || strings.HasPrefix(lowerLink, "hysteria2://") {
-		node = parseHysteria2(link, finalName)
-	} else if strings.HasPrefix(lowerLink, "tuic://") {
-		node = parseTuic(link, finalName)
-	} else if strings.HasPrefix(lowerLink, "ss://") {
-		node = parseSS(link, finalName)
-	} else if strings.HasPrefix(lowerLink, "socks5://") {
-		node = parseSocks5(link, finalName)
-	} else {
-		// 记录未知的协议头，截取前部分避免记录长文本
-		prefix := strings.Split(lowerLink, "://")[0]
-		logger.Log.Warn("不支持的代理协议", "name", finalName, "protocol", prefix)
-		return nil
-	}
-
-	if node != nil {
-		logger.Log.Debug("节点解析成功", "name", node.Name, "type", node.Type)
-	} else {
-		logger.Log.Warn("节点链接解析异常或格式损坏", "name", finalName)
-	}
-
-	return node
-}
-
-// ---------------------------------------------------------
-// 4. 各协议独立解析逻辑
-// ---------------------------------------------------------
-
-func parseVless(link, proxyName string) *ClashNode {
-	parsed, err := url.Parse(link)
-	if err != nil {
-		logger.Log.Warn("VLESS 链接 URL 解析失败", "error", err, "name", proxyName)
-		return nil
-	}
-
-	portInt, _ := strconv.Atoi(parsed.Port())
-	query := parsed.Query()
-	network := query.Get("type")
-	if network == "" {
-		network = "tcp"
-	}
-
-	node := &ClashNode{
-		Name:           proxyName,
-		Type:           "vless",
-		Server:         parsed.Hostname(),
-		Port:           portInt,
-		UUID:           parsed.User.Username(),
-		Network:        network,
-		UDP:            true,
-		TFO:            getBool(query, "fast-open"),
-		SkipCertVerify: getBool(query, "insecure", "skip-cert-verify", "allowInsecure"),
-		ServerName:     query.Get("sni"),
-		Flow:           query.Get("flow"),
-	}
-
-	if alpn := query.Get("alpn"); alpn != "" {
-		node.ALPN = strings.Split(alpn, ",")
-	}
-
-	security := query.Get("security")
-	if security == "reality" {
-		node.TLS = true
-		node.RealityOpts = map[string]interface{}{
-			"public-key": query.Get("pbk"),
-			"short-id":   query.Get("sid"),
+		if node.Network == "ws" {
+			node.WSOpts = map[string]interface{}{"path": vj.Path}
+			if hostStr != "" {
+				node.WSOpts["headers"] = map[string]string{"Host": hostStr}
+			}
+		} else if node.Network == "grpc" {
+			node.GRPCOpts = map[string]interface{}{"grpc-service-name": vj.Path}
+		} else if node.Network == "h2" {
+			node.H2Opts = map[string]interface{}{"path": vj.Path}
+			if hostStr != "" {
+				node.H2Opts["host"] = []string{hostStr}
+			}
 		}
-		if fp := query.Get("fp"); fp != "" {
-			node.ClientFingerprint = fp
-		} else {
-			node.ClientFingerprint = "chrome"
+		return node
+	}
+
+	// [2] 处理 Trojan 协议
+	if strings.HasPrefix(lowerLink, "trojan://") {
+		u, err := url.Parse(link)
+		if err != nil {
+			return nil
 		}
-	} else if security == "tls" || getBool(query, "tls") {
-		node.TLS = true
-		if fp := query.Get("fp"); fp != "" {
-			node.ClientFingerprint = fp
+		port, _ := strconv.Atoi(u.Port())
+		pass := u.User.Username()
+		if pass == "" {
+			pass, _ = u.User.Password()
 		}
-	}
-
-	applyTransportOpts(node, network, query)
-	return node
-}
-
-func parseTrojan(link, proxyName string) *ClashNode {
-	parsed, err := url.Parse(link)
-	if err != nil {
-		logger.Log.Warn("Trojan 链接 URL 解析失败", "error", err, "name", proxyName)
-		return nil
-	}
-
-	portInt, _ := strconv.Atoi(parsed.Port())
-	query := parsed.Query()
-	network := query.Get("type")
-	if network == "" {
-		network = "tcp"
-	}
-
-	node := &ClashNode{
-		Name:           proxyName,
-		Type:           "trojan",
-		Server:         parsed.Hostname(),
-		Port:           portInt,
-		Password:       parsed.User.Username(),
-		Network:        network,
-		UDP:            true,
-		TFO:            getBool(query, "fast-open"),
-		SkipCertVerify: getBool(query, "insecure", "skip-cert-verify"),
-		SNI:            query.Get("sni"),
-	}
-
-	if alpn := query.Get("alpn"); alpn != "" {
-		node.ALPN = strings.Split(alpn, ",")
-	}
-	if fp := query.Get("fp"); fp != "" {
-		node.ClientFingerprint = fp
-	}
-
-	if query.Get("security") == "reality" {
-		node.RealityOpts = map[string]interface{}{
-			"public-key": query.Get("pbk"),
-			"short-id":   query.Get("sid"),
+		node := &ClashNode{
+			Name:              u.Fragment + nameSuffix,
+			Type:              "trojan",
+			Server:            u.Hostname(),
+			Port:              port,
+			Password:          pass,
+			UDP:               true,
+			SNI:               u.Query().Get("sni"),
+			ClientFingerprint: u.Query().Get("fp"),
+			Network:           u.Query().Get("type"),
 		}
-	}
-
-	applyTransportOpts(node, network, query)
-	return node
-}
-
-func parseHysteria2(link, proxyName string) *ClashNode {
-	parsed, err := url.Parse(link)
-	if err != nil {
-		logger.Log.Warn("Hysteria2 链接 URL 解析失败", "error", err, "name", proxyName)
-		return nil
-	}
-
-	portInt, _ := strconv.Atoi(parsed.Port())
-	query := parsed.Query()
-	password := parsed.User.Username()
-	if password == "" {
-		password = query.Get("auth")
-	}
-
-	node := &ClashNode{
-		Name:           proxyName,
-		Type:           "hysteria2",
-		Server:         parsed.Hostname(),
-		Port:           portInt,
-		Password:       password,
-		UDP:            true,
-		SkipCertVerify: getBool(query, "insecure", "skip-cert-verify", "allowInsecure"),
-	}
-
-	sni := query.Get("sni")
-	if sni == "" {
-		sni = query.Get("peer")
-	}
-	node.SNI = sni
-
-	if alpn := query.Get("alpn"); alpn != "" {
-		node.ALPN = strings.Split(alpn, ",")
-	}
-	if obfs := query.Get("obfs"); obfs != "" {
-		node.Obfs = obfs
-		node.ObfsPassword = query.Get("obfs-password")
-	}
-	if ports := query.Get("ports"); ports != "" {
-		node.Ports = ports
-	}
-
-	up := query.Get("up")
-	if up == "" {
-		up = query.Get("upmbps")
-	}
-	if upInt, _ := strconv.Atoi(up); upInt > 0 {
-		node.Up = upInt
-	}
-
-	down := query.Get("down")
-	if down == "" {
-		down = query.Get("downmbps")
-	}
-	if downInt, _ := strconv.Atoi(down); downInt > 0 {
-		node.Down = downInt
-	}
-
-	return node
-}
-
-func parseTuic(link, proxyName string) *ClashNode {
-	parsed, err := url.Parse(link)
-	if err != nil {
-		logger.Log.Warn("TUIC 链接 URL 解析失败", "error", err, "name", proxyName)
-		return nil
-	}
-
-	portInt, _ := strconv.Atoi(parsed.Port())
-	query := parsed.Query()
-	password, _ := parsed.User.Password()
-
-	node := &ClashNode{
-		Name:                 proxyName,
-		Type:                 "tuic",
-		Server:               parsed.Hostname(),
-		Port:                 portInt,
-		UUID:                 parsed.User.Username(),
-		Password:             password,
-		TLS:                  true,
-		UDP:                  true,
-		DisableSNI:           getBool(query, "disable-sni"),
-		SkipCertVerify:       getBool(query, "insecure", "skip-cert-verify", "allowInsecure") || true,
-		CongestionController: query.Get("congestion_controller"),
-		UDPRelayMode:         query.Get("udp-relay-mode"),
-		ReduceRTT:            getBool(query, "reduce-rtt"),
-		ZeroRTT:              getBool(query, "zero-rtt"),
-	}
-
-	if node.CongestionController == "" {
-		node.CongestionController = "bbr"
-	}
-	if node.UDPRelayMode == "" {
-		node.UDPRelayMode = "native"
-	}
-
-	if alpn := query.Get("alpn"); alpn != "" {
-		node.ALPN = strings.Split(alpn, ",")
-	} else {
-		node.ALPN = []string{"h3"}
-	}
-
-	if sni := query.Get("sni"); sni != "" {
-		node.SNI = sni
-		node.ServerName = sni
-	}
-
-	return node
-}
-
-func parseVmess(link, proxyName string) *ClashNode {
-	b64Part := link[8:]
-	if idx := strings.Index(b64Part, "#"); idx != -1 {
-		b64Part = b64Part[:idx]
-	}
-
-	decoded := safeBase64Decode(b64Part)
-	if decoded == "" {
-		logger.Log.Warn("VMess 链接 Base64 解码为空", "name", proxyName)
-		return nil
-	}
-
-	var v map[string]interface{}
-	if err := json.Unmarshal([]byte(decoded), &v); err != nil {
-		logger.Log.Warn("VMess 链接 JSON 反序列化失败", "error", err, "name", proxyName)
-		return nil
-	}
-
-	serverAddr := getString(v, "add")
-	if strings.Contains(serverAddr, ":") && !strings.HasPrefix(serverAddr, "[") {
-		serverAddr = "[" + serverAddr + "]"
-	}
-
-	node := &ClashNode{
-		Name:    proxyName,
-		Type:    "vmess",
-		Server:  serverAddr,
-		Port:    getInt(v, "port"),
-		UUID:    getString(v, "id"),
-		AlterId: getInt(v, "aid"),
-		Cipher:  getString(v, "scy"),
-		UDP:     true,
-	}
-
-	if node.Cipher == "" {
-		node.Cipher = "auto"
-	}
-
-	tlsVal := getString(v, "tls")
-	if tlsVal != "" && strings.ToLower(tlsVal) != "none" {
-		node.TLS = true
-		if sni := getString(v, "sni"); sni != "" {
-			node.ServerName = sni
+		if node.SNI == "" {
+			node.SNI = u.Query().Get("peer")
 		}
-		if v["skip-cert-verify"] == true || v["insecure"] == true || getString(v, "insecure") == "1" {
+		if insecure := u.Query().Get("allowInsecure"); insecure == "1" || insecure == "true" {
 			node.SkipCertVerify = true
 		}
-	}
-
-	net := getString(v, "net")
-	if net == "" {
-		net = "tcp"
-	}
-	typeField := getString(v, "type")
-	if typeField == "" {
-		typeField = net
-	}
-
-	query := url.Values{}
-	if path := getString(v, "path"); path != "" {
-		query.Set("path", path)
-	}
-	if host := getString(v, "host"); host != "" {
-		query.Set("host", host)
-	} else if sni := getString(v, "sni"); sni != "" {
-		query.Set("host", sni)
-	}
-
-	if net == "http" || (net == "tcp" && typeField == "http") {
-		net = "http"
-	}
-
-	node.Network = net
-	applyTransportOpts(node, net, query)
-
-	return node
-}
-
-func parseSS(link, proxyName string) *ClashNode {
-	body := link[5:]
-	if idx := strings.Index(body, "#"); idx != -1 {
-		body = body[:idx]
-	}
-	if idx := strings.Index(body, "?"); idx != -1 {
-		body = body[:idx]
-	}
-
-	if !strings.Contains(body, "@") {
-		if decoded := safeBase64Decode(body); decoded != "" {
-			body = decoded
+		if alpn := u.Query().Get("alpn"); alpn != "" {
+			node.ALPN = strings.Split(alpn, ",")
 		}
-	}
-
-	if strings.Contains(body, "@") {
-		parts := strings.SplitN(body, "@", 2)
-		userInfo := parts[0]
-		hostPart := parts[1]
-
-		// ✨ 修复点：先尝试进行 URL Decode 解码 (解决 %3A, %2F, %3D 等 URL 转义字符问题)
-		if unescaped, err := url.QueryUnescape(userInfo); err == nil && strings.Contains(unescaped, ":") {
-			userInfo = unescaped
-		}
-
-		// 如果 URL 解码后仍然没有冒号，说明可能是旧版的 Base64 格式，尝试 Base64 解码
-		if !strings.Contains(userInfo, ":") {
-			if decodedUser := safeBase64Decode(userInfo); decodedUser != "" {
-				userInfo = decodedUser
+		if node.Network == "ws" {
+			node.WSOpts = map[string]interface{}{"path": u.Query().Get("path")}
+			if host := u.Query().Get("host"); host != "" {
+				node.WSOpts["headers"] = map[string]string{"Host": host}
 			}
+		} else if node.Network == "grpc" {
+			node.GRPCOpts = map[string]interface{}{"grpc-service-name": u.Query().Get("serviceName")}
 		}
+		return node
+	}
 
-		if strings.Contains(userInfo, ":") {
-			userParts := strings.SplitN(userInfo, ":", 2)
-			method := userParts[0]
-			password := userParts[1]
-
-			lastColon := strings.LastIndex(hostPart, ":")
-			if lastColon != -1 {
-				server := hostPart[:lastColon]
-				portInt, _ := strconv.Atoi(hostPart[lastColon+1:])
-
-				if strings.Contains(server, ":") && !strings.HasPrefix(server, "[") {
-					server = "[" + server + "]"
+	// [3] 处理 SSR (ShadowsocksR) 协议
+	if strings.HasPrefix(lowerLink, "ssr://") {
+		decoded := safeBase64Decode(link[6:])
+		if decoded == "" {
+			return nil
+		}
+		parts := strings.SplitN(decoded, "/?", 2)
+		mainPart := parts[0]
+		queryPart := ""
+		if len(parts) > 1 {
+			queryPart = parts[1]
+		}
+		params := strings.Split(mainPart, ":")
+		if len(params) >= 6 {
+			port, _ := strconv.Atoi(params[1])
+			node := &ClashNode{
+				Type:     "ssr",
+				Server:   params[0],
+				Port:     port,
+				Protocol: params[2],
+				Cipher:   params[3],
+				Obfs:     params[4],
+				Password: safeBase64Decode(params[5]),
+				UDP:      true,
+			}
+			// 解析查询参数中的名称和混淆
+			if queryPart != "" {
+				q, _ := url.ParseQuery(queryPart)
+				if obfsparam := q.Get("obfsparam"); obfsparam != "" {
+					node.ObfsParam = safeBase64Decode(obfsparam)
 				}
-
-				return &ClashNode{
-					Name:     proxyName,
-					Type:     "ss",
-					Server:   server,
-					Port:     portInt,
-					Cipher:   method,
-					Password: password,
-					UDP:      true,
+				if protoparam := q.Get("protoparam"); protoparam != "" {
+					node.ProtocolParam = safeBase64Decode(protoparam)
+				}
+				if remarks := q.Get("remarks"); remarks != "" {
+					node.Name = safeBase64Decode(remarks) + nameSuffix
 				}
 			}
+			if node.Name == "" {
+				node.Name = node.Server + ":" + strconv.Itoa(port) + nameSuffix
+			}
+			return node
 		}
-	}
-
-	logger.Log.Warn("Shadowsocks 链接格式无法识别", "name", proxyName)
-	return nil
-}
-
-func parseSocks5(link, proxyName string) *ClashNode {
-	parsed, err := url.Parse(link)
-	if err != nil {
-		logger.Log.Warn("Socks5 链接 URL 解析失败", "error", err, "name", proxyName)
 		return nil
 	}
 
-	portInt, _ := strconv.Atoi(parsed.Port())
-	if portInt == 0 {
-		portInt = 1080
-	}
-	query := parsed.Query()
-	password, _ := parsed.User.Password()
-
-	node := &ClashNode{
-		Name:           proxyName,
-		Type:           "socks5",
-		Server:         parsed.Hostname(),
-		Port:           portInt,
-		Username:       parsed.User.Username(),
-		Password:       password,
-		UDP:            true,
-		SkipCertVerify: getBool(query, "insecure", "skip-cert-verify"),
-	}
-
-	if getBool(query, "tls") {
-		node.TLS = true
-		if sni := query.Get("sni"); sni != "" {
-			node.ServerName = sni
+	// [4] 处理 VLESS 协议
+	if strings.HasPrefix(lowerLink, "vless://") {
+		u, err := url.Parse(link)
+		if err != nil {
+			return nil
 		}
-	}
-
-	return node
-}
-
-// ---------------------------------------------------------
-// 5. 通用传输层 (Transport) 参数挂载
-// ---------------------------------------------------------
-func applyTransportOpts(node *ClashNode, network string, query url.Values) {
-	if network == "ws" {
-		node.WSOpts = map[string]interface{}{
-			"path":    "/",
-			"headers": map[string]string{},
+		port, _ := strconv.Atoi(u.Port())
+		node := &ClashNode{
+			Name:       u.Fragment + nameSuffix,
+			Type:       "vless",
+			Server:     u.Hostname(),
+			Port:       port,
+			UUID:       u.User.Username(),
+			UDP:        true,
+			Network:    u.Query().Get("type"),
+			ServerName: u.Query().Get("sni"),
 		}
-		if p := query.Get("path"); p != "" {
-			node.WSOpts["path"] = p
+		if flow := u.Query().Get("flow"); flow != "" {
+			node.Flow = flow
 		}
-		if h := query.Get("host"); h != "" {
-			node.WSOpts["headers"].(map[string]string)["Host"] = h
+		if pe := u.Query().Get("packetEncoding"); pe != "" {
+			node.PacketEncoding = pe
 		}
-	} else if network == "grpc" {
-		node.GRPCOpts = map[string]interface{}{
-			"grpc-service-name": "",
+		if alpn := u.Query().Get("alpn"); alpn != "" {
+			node.ALPN = strings.Split(alpn, ",")
 		}
-		if s := query.Get("serviceName"); s != "" {
-			node.GRPCOpts["grpc-service-name"] = s
+		if u.Query().Get("security") == "tls" || u.Query().Get("security") == "reality" {
+			node.TLS = true
 		}
-	} else if network == "h2" {
-		node.H2Opts = map[string]interface{}{}
-		if p := query.Get("path"); p != "" {
-			node.H2Opts["path"] = strings.Split(p, ",")
-		} else {
-			node.H2Opts["path"] = []string{"/"}
-		}
-		if h := query.Get("host"); h != "" {
-			node.H2Opts["host"] = strings.Split(h, ",")
-		}
-	} else if network == "http" {
-		node.HTTPOpts = map[string]interface{}{
-			"method": "GET",
-		}
-		if p := query.Get("path"); p != "" {
-			node.HTTPOpts["path"] = strings.Split(p, ",")
-		} else {
-			node.HTTPOpts["path"] = []string{"/"}
-		}
-		if h := query.Get("host"); h != "" {
-			node.HTTPOpts["headers"] = map[string]interface{}{
-				"Host": strings.Split(h, ","),
+		if u.Query().Get("security") == "reality" {
+			node.RealityOpts = map[string]interface{}{
+				"public-key": u.Query().Get("pbk"),
+				"short-id":   u.Query().Get("sid"),
 			}
 		}
-	}
-}
-
-// ReplaceLinkIP 替换原始协议链接中的 IP 或域名
-func ReplaceLinkIP(link, newIP string) string {
-	if newIP == "" {
-		return link
-	}
-
-	// 格式化 IPv6 加上方括号
-	ipForURL := newIP
-	if strings.Contains(ipForURL, ":") && !strings.HasPrefix(ipForURL, "[") {
-		ipForURL = "[" + ipForURL + "]"
-	}
-
-	lowerLink := strings.ToLower(link)
-
-	// 1. 处理 VMess (Base64 JSON)
-	if strings.HasPrefix(lowerLink, "vmess://") {
-		b64Part := link[8:]
-		decoded := safeBase64Decode(b64Part)
-		if decoded == "" {
-			return link
+		if u.Query().Get("fp") != "" {
+			node.ClientFingerprint = u.Query().Get("fp")
 		}
-		var v map[string]interface{}
-		if err := json.Unmarshal([]byte(decoded), &v); err != nil {
-			return link
+		if node.Network == "ws" {
+			node.WSOpts = map[string]interface{}{
+				"path": u.Query().Get("path"),
+				"headers": map[string]string{
+					"Host": u.Query().Get("host"),
+				},
+			}
+		} else if node.Network == "grpc" {
+			node.GRPCOpts = map[string]interface{}{
+				"grpc-service-name": u.Query().Get("serviceName"),
+			}
 		}
-		v["add"] = newIP // VMess JSON 中通常不需要方括号
-		newJSON, _ := json.Marshal(v)
-		return "vmess://" + base64.StdEncoding.EncodeToString(newJSON)
+		return node
 	}
 
-	// 2. 处理 Shadowsocks (Base64 + @host:port)
+	// [5] 处理 Hysteria 协议 (兼容 v1 和 v2 别名)
+	if strings.HasPrefix(lowerLink, "hy2://") || strings.HasPrefix(lowerLink, "hysteria2://") {
+		u, err := url.Parse(link)
+		if err != nil {
+			return nil
+		}
+		port, _ := strconv.Atoi(u.Port())
+		pass := u.User.Username()
+		if pass == "" {
+			pass, _ = u.User.Password()
+		}
+		node := &ClashNode{
+			Name:     u.Fragment + nameSuffix,
+			Type:     "hysteria2",
+			Server:   u.Hostname(),
+			Port:     port,
+			Password: pass,
+			SNI:      u.Query().Get("sni"),
+		}
+		if node.SNI == "" {
+			node.SNI = u.Query().Get("peer")
+		}
+		if alpn := u.Query().Get("alpn"); alpn != "" {
+			node.ALPN = strings.Split(alpn, ",")
+		}
+		if insecure := u.Query().Get("insecure"); insecure == "1" {
+			node.SkipCertVerify = true
+		}
+		if obfs := u.Query().Get("obfs"); obfs != "" && obfs != "none" {
+			node.Obfs = obfs
+			node.ObfsPassword = u.Query().Get("obfs-password")
+		}
+		return node
+	} else if strings.HasPrefix(lowerLink, "hy://") || strings.HasPrefix(lowerLink, "hysteria://") {
+		u, err := url.Parse(link)
+		if err != nil {
+			return nil
+		}
+		port, _ := strconv.Atoi(u.Port())
+		node := &ClashNode{
+			Name:    u.Fragment + nameSuffix,
+			Type:    "hysteria",
+			Server:  u.Hostname(),
+			Port:    port,
+			SNI:     u.Query().Get("peer"),
+			AuthStr: u.Query().Get("auth"),
+			Up:      parseInt(u.Query().Get("upmbps")),
+			Down:    parseInt(u.Query().Get("downmbps")),
+		}
+		if insecure := u.Query().Get("insecure"); insecure == "1" {
+			node.SkipCertVerify = true
+		}
+		if alpn := u.Query().Get("alpn"); alpn != "" {
+			node.ALPN = strings.Split(alpn, ",")
+		}
+		return node
+	}
+
+	// [6] 处理 TUIC 协议
+	if strings.HasPrefix(lowerLink, "tuic://") {
+		u, err := url.Parse(link)
+		if err != nil {
+			return nil
+		}
+		port, _ := strconv.Atoi(u.Port())
+		pass, _ := u.User.Password()
+		node := &ClashNode{
+			Name:                 u.Fragment + nameSuffix,
+			Type:                 "tuic",
+			Server:               u.Hostname(),
+			Port:                 port,
+			UUID:                 u.User.Username(),
+			Password:             pass,
+			SNI:                  u.Query().Get("sni"),
+			CongestionController: u.Query().Get("congestion_control"),
+			UDPRelayMode:         u.Query().Get("udp_relay_mode"),
+		}
+		if alpn := u.Query().Get("alpn"); alpn != "" {
+			node.ALPN = strings.Split(alpn, ",")
+		}
+		if insecure := u.Query().Get("allow_insecure"); insecure == "1" || insecure == "true" {
+			node.SkipCertVerify = true
+		}
+		return node
+	}
+
+	// [7] 处理 Shadowsocks (SS) 协议
 	if strings.HasPrefix(lowerLink, "ss://") {
 		body := link[5:]
 		if !strings.Contains(body, "@") {
 			if decoded := safeBase64Decode(body); decoded != "" {
 				body = decoded
 			} else {
-				return link
+				return nil
 			}
 		}
 		if lastColon := strings.LastIndex(body, ":"); lastColon != -1 {
@@ -655,13 +425,18 @@ func ReplaceLinkIP(link, newIP string) string {
 				portInfo := body[lastColon+1:]
 
 				port := portInfo
-				nameSuffix := ""
+				name := ""
+				if queryIdx := strings.Index(portInfo, "/?"); queryIdx != -1 {
+					portInfo = portInfo[:queryIdx] + portInfo[strings.Index(portInfo, "#"):]
+				}
 				if hashIdx := strings.Index(portInfo, "#"); hashIdx != -1 {
 					port = portInfo[:hashIdx]
-					nameSuffix = portInfo[hashIdx:]
+					name = portInfo[hashIdx+1:]
 				}
-
-				// 还原出原始的 method:password
+				port = strings.Trim(port, "/")
+				if unescaped, err := url.QueryUnescape(name); err == nil && unescaped != "" {
+					name = unescaped
+				}
 				if unescaped, err := url.QueryUnescape(userInfo); err == nil && strings.Contains(unescaped, ":") {
 					userInfo = unescaped
 				}
@@ -670,23 +445,217 @@ func ReplaceLinkIP(link, newIP string) string {
 						userInfo = decoded
 					}
 				}
+				b64UserInfo := userInfo
+				if decoded := safeBase64Decode(userInfo); decoded != "" {
+					b64UserInfo = decoded
+				}
 
-				b64UserInfo := base64.StdEncoding.EncodeToString([]byte(userInfo))
-				return "ss://" + b64UserInfo + "@" + ipForURL + ":" + port + nameSuffix
+				methodPass := strings.SplitN(b64UserInfo, ":", 2)
+				if len(methodPass) == 2 {
+					p, _ := strconv.Atoi(port)
+					return &ClashNode{
+						Name:     name + nameSuffix,
+						Type:     "ss",
+						Server:   body[atIndex+1 : lastColon],
+						Port:     p,
+						Cipher:   methodPass[0],
+						Password: methodPass[1],
+						UDP:      true,
+					}
+				}
 			}
 		}
 	}
 
-	// 3. 处理标准 URL (Vless, Trojan, Hy2, Tuic, Socks5 等)
-	u, err := url.Parse(link)
-	if err == nil && u.Host != "" {
-		port := u.Port()
-		if port != "" {
-			u.Host = ipForURL + ":" + port
-		} else {
-			u.Host = ipForURL
+	// [8] 处理 Socks5 协议
+	if strings.HasPrefix(lowerLink, "socks5://") {
+		body := link[9:]
+		if !strings.Contains(body, "@") {
+			if decoded := safeBase64Decode(body); decoded != "" {
+				body = decoded
+			}
 		}
+		parsedURL, err := url.Parse("socks5://" + body)
+		if err != nil {
+			return nil
+		}
+		portStr := parsedURL.Port()
+		if portStr == "" {
+			portStr = "1080"
+		}
+		port, _ := strconv.Atoi(portStr)
+		pass, _ := parsedURL.User.Password()
+		node := &ClashNode{
+			Name:     parsedURL.Fragment + nameSuffix,
+			Type:     "socks5",
+			Server:   parsedURL.Hostname(),
+			Port:     port,
+			Username: parsedURL.User.Username(),
+			Password: pass,
+			UDP:      true,
+		}
+		return node
+	}
+
+	// [9] 处理 AnyTLS 协议 (新增支持)
+	if strings.HasPrefix(lowerLink, "anytls://") {
+		u, err := url.Parse(link)
+		if err != nil {
+			return nil
+		}
+		portStr := u.Port()
+		if portStr == "" {
+			portStr = "443"
+		}
+		port, _ := strconv.Atoi(portStr)
+
+		// 尝试获取密码，如果为空则尝试使用 Username 字段
+		pass, _ := u.User.Password()
+		if pass == "" {
+			pass = u.User.Username()
+		}
+
+		node := &ClashNode{
+			Name:              u.Fragment + nameSuffix,
+			Type:              "anytls",
+			Server:            u.Hostname(),
+			Port:              port,
+			Password:          pass,
+			SNI:               u.Query().Get("sni"),
+			ClientFingerprint: u.Query().Get("fp"),
+		}
+		if skip := u.Query().Get("insecure"); skip == "1" || skip == "true" {
+			node.SkipCertVerify = true
+		}
+		return node
+	}
+
+	// [10] 处理 HTTP/HTTPS 代理协议
+	if strings.HasPrefix(lowerLink, "http://") || strings.HasPrefix(lowerLink, "https://") {
+		u, err := url.Parse(link)
+		if err != nil {
+			return nil
+		}
+		portStr := u.Port()
+		if portStr == "" {
+			if strings.HasPrefix(lowerLink, "https") {
+				portStr = "443"
+			} else {
+				portStr = "80"
+			}
+		}
+		port, _ := strconv.Atoi(portStr)
+		pass, _ := u.User.Password()
+		node := &ClashNode{
+			Name:     u.Fragment + nameSuffix,
+			Type:     "http",
+			Server:   u.Hostname(),
+			Port:     port,
+			Username: u.User.Username(),
+			Password: pass,
+		}
+		if strings.HasPrefix(lowerLink, "https") {
+			node.TLS = true
+			if skip := u.Query().Get("skip-cert-verify"); skip == "true" || skip == "1" {
+				node.SkipCertVerify = true
+			}
+			if sni := u.Query().Get("sni"); sni != "" {
+				node.SNI = sni
+			}
+		}
+		return node
+	}
+
+	logger.Log.Warn("遇到未受支持的协议，跳过解析", "link", link)
+	return nil
+}
+
+// ---------------------------------------------------------
+// 4. 节点重命名引擎
+// ---------------------------------------------------------
+
+// RenameNodeLink 修改节点分享链接的名字后缀 (#name)
+// 智能重命名引擎：已支持解析各种 Base64 嵌套进行安全重命名
+func RenameNodeLink(link string, newName string) string {
+	lowerLink := strings.ToLower(link)
+
+	// 处理 VMess (JSON 修改并重新 Base64 编码)
+	if strings.HasPrefix(lowerLink, "vmess://") {
+		body := safeBase64Decode(link[8:])
+		if body == "" {
+			return link
+		}
+		var vj map[string]interface{}
+		if err := json.Unmarshal([]byte(body), &vj); err == nil {
+			vj["ps"] = newName
+			if newBody, err := json.Marshal(vj); err == nil {
+				return "vmess://" + base64.StdEncoding.EncodeToString(newBody)
+			}
+		}
+		return link
+	}
+
+	// 处理 SSR (复杂查询参数和 Base64 编码)
+	if strings.HasPrefix(lowerLink, "ssr://") {
+		decoded := safeBase64Decode(link[6:])
+		if decoded == "" {
+			return link
+		}
+		// SSR 格式: host:port:protocol:method:obfs:base64pass/?obfsparam=...&remarks=base64(name)
+		if strings.Contains(decoded, "remarks=") {
+			parts := strings.Split(decoded, "remarks=")
+			prefix := parts[0]
+			suffix := parts[1]
+			// 去掉旧的 remarks 值 (直到下一个 & 或结尾)
+			if idx := strings.Index(suffix, "&"); idx != -1 {
+				suffix = suffix[idx:]
+			} else {
+				suffix = ""
+			}
+			newDecoded := prefix + "remarks=" + base64.RawURLEncoding.EncodeToString([]byte(newName)) + suffix
+			return "ssr://" + base64.RawURLEncoding.EncodeToString([]byte(newDecoded))
+		}
+		// 如果没有 remarks 参数，追加上去
+		sep := "/?"
+		if strings.Contains(decoded, "/?") {
+			sep = "&"
+		}
+		newDecoded := decoded + sep + "remarks=" + base64.RawURLEncoding.EncodeToString([]byte(newName))
+		return "ssr://" + base64.RawURLEncoding.EncodeToString([]byte(newDecoded))
+	}
+
+	// 处理 SS 纯 Base64 格式的特殊情况
+	if strings.HasPrefix(lowerLink, "ss://") {
+		u, err := url.Parse(link)
+		if err != nil || u.Host == "" {
+			encoded := strings.TrimPrefix(link, "ss://")
+			hashIdx := strings.LastIndex(encoded, "#")
+			if hashIdx != -1 {
+				encoded = encoded[:hashIdx]
+			}
+			return "ss://" + encoded + "#" + url.PathEscape(newName)
+		}
+		u.Fragment = newName
 		return u.String()
+	}
+
+	// 处理其他标准 URI 格式协议 (包含新增的 anytls)
+	if strings.HasPrefix(lowerLink, "vless://") ||
+		strings.HasPrefix(lowerLink, "trojan://") ||
+		strings.HasPrefix(lowerLink, "hy2://") ||
+		strings.HasPrefix(lowerLink, "hysteria2://") ||
+		strings.HasPrefix(lowerLink, "hy://") ||
+		strings.HasPrefix(lowerLink, "hysteria://") ||
+		strings.HasPrefix(lowerLink, "tuic://") ||
+		strings.HasPrefix(lowerLink, "socks5://") ||
+		strings.HasPrefix(lowerLink, "anytls://") ||
+		strings.HasPrefix(lowerLink, "http://") ||
+		strings.HasPrefix(lowerLink, "https://") {
+		u, err := url.Parse(link)
+		if err == nil {
+			u.Fragment = newName
+			return u.String()
+		}
 	}
 
 	return link

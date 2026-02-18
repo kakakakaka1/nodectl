@@ -222,3 +222,60 @@ func determineIPs(node database.NodePool, strategy string) []IPOption {
 	}
 	return ips
 }
+
+// ---------------------------------------------------------
+// 缺失的辅助函数 (补充)
+// ---------------------------------------------------------
+
+// ParseProxyLink 解析链接并强制覆盖合并后的完美名称
+func ParseProxyLink(link string, baseName string, region string, useFlag bool) *ClashNode {
+	finalName := baseName
+	if useFlag && region != "" {
+		flag := getEmojiFlag(region)
+		if flag != "" {
+			finalName = flag + " " + finalName
+		}
+	}
+
+	// 调用 links.go 里的核心解析函数
+	node := ParseLinkToClashNode(link, "")
+	if node != nil {
+		node.Name = finalName // 直接强行覆盖为组合好的名字
+	}
+	return node
+}
+
+// getEmojiFlag 根据 2 位国家/地区代码智能生成 Emoji 国旗
+func getEmojiFlag(region string) string {
+	if len(region) != 2 {
+		return ""
+	}
+	region = strings.ToUpper(region)
+	flag := ""
+	for _, char := range region {
+		// A 的 ASCII 码是 65，区域指示符 A 是 127462 (0x1F1E6)
+		// 127462 - 65 = 127397 (这就是精确的偏移量)
+		flag += string(rune(char) + 127397)
+	}
+	return flag
+}
+
+// ReplaceLinkIP 安全替换标准 URI 链接中的 IP / 域名 (不破坏端口和其他参数)
+func ReplaceLinkIP(link string, newIP string) string {
+	if newIP == "" {
+		return link
+	}
+	u, err := url.Parse(link)
+	if err != nil || u.Host == "" {
+		return link // 解析失败或极其特殊的格式，原样返回防报错
+	}
+
+	port := u.Port()
+	if port != "" {
+		u.Host = newIP + ":" + port
+	} else {
+		u.Host = newIP
+	}
+
+	return u.String()
+}
