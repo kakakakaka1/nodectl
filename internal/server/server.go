@@ -73,9 +73,10 @@ func Start(tmplFS embed.FS) {
 	mux.HandleFunc("/api/reorder-nodes", withAuthAndSecure(apiReorderNodes))
 
 	// 证书与重启 (关键接口)
-	mux.HandleFunc("/api/save-cert", withAuthAndSecure(apiSaveCert))   // 手动上传证书
-	mux.HandleFunc("/api/apply-cert", withAuthAndSecure(apiApplyCert)) // 申请证书
-	mux.HandleFunc("/api/restart", withAuthAndSecure(apiRestartCore))  // 热重启核心
+	mux.HandleFunc("/api/save-cert", withAuthAndSecure(apiSaveCert))    // 手动上传证书
+	mux.HandleFunc("/api/apply-cert", withAuthAndSecure(apiApplyCert))  // 申请证书
+	mux.HandleFunc("/api/cert-logs", withAuthAndSecure(apiGetCertLogs)) // ✨ 新增：拉取实时申请日志
+	mux.HandleFunc("/api/restart", withAuthAndSecure(apiRestartCore))   // 热重启核心
 
 	// Clash 与规则管理
 	mux.HandleFunc("/api/clash/settings", withAuthAndSecure(apiGetClashSettings))

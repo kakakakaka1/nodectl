@@ -8,9 +8,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/certificate"
 	"github.com/go-acme/lego/v4/lego"
+	legolog "github.com/go-acme/lego/v4/log"
 	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/go-acme/lego/v4/registration"
 )
@@ -165,79 +168,6 @@ func (u *acmeUser) GetEmail() string                        { return u.Email }
 func (u *acmeUser) GetRegistration() *registration.Resource { return u.Registration }
 func (u *acmeUser) GetPrivateKey() crypto.PrivateKey        { return u.key }
 
-// ApplyCloudflareCert 使用 Cloudflare DNS 验证申请 Let's Encrypt 证书
-func ApplyCloudflareCert(email, apiKey, domain string) error {
-	logger.Log.Info("开始执行 ACME 证书申请任务", "domain", domain, "email", email)
-
-	// 1. 生成 ACME 账号私钥
-	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return fmt.Errorf("生成账号私钥失败: %v", err)
-	}
-
-	myUser := acmeUser{
-		Email: email,
-		key:   privateKey,
-	}
-
-	// 2. 初始化 Lego 客户端配置
-	config := lego.NewConfig(&myUser)
-
-	// 使用 Let's Encrypt 生产环境 API
-	// 如果你频繁测试导致被限制，可以将这里换成 staging API: https://acme-staging-v02.api.letsencrypt.org/directory
-	config.CADirURL = lego.LEDirectoryProduction
-	config.Certificate.KeyType = certcrypto.RSA2048
-
-	client, err := lego.NewClient(config)
-	if err != nil {
-		return fmt.Errorf("初始化 ACME 客户端失败: %v", err)
-	}
-
-	// 3. 配置 Cloudflare DNS Provider
-	cfConfig := cloudflare.NewDefaultConfig()
-	cfConfig.AuthEmail = email
-	cfConfig.AuthKey = apiKey
-	// 避免 DNS 缓存传播延迟导致验证失败，设置等待时间
-	cfConfig.PropagationTimeout = 2 * time.Minute
-
-	cfProvider, err := cloudflare.NewDNSProviderConfig(cfConfig)
-	if err != nil {
-		return fmt.Errorf("配置 CF API 失败: %v", err)
-	}
-
-	err = client.Challenge.SetDNS01Provider(cfProvider)
-	if err != nil {
-		return fmt.Errorf("设置 DNS Provider 失败: %v", err)
-	}
-
-	// 4. 注册 ACME 账号 (同意 Let's Encrypt 协议)
-	logger.Log.Info("正在向 Let's Encrypt 注册账号...")
-	reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
-	if err != nil {
-		return fmt.Errorf("ACME 账号注册失败: %v", err)
-	}
-	myUser.Registration = reg
-
-	// 5. 发起证书申请
-	logger.Log.Info("账号注册成功，正在下发 DNS TXT 记录进行域名验证 (这通常需要几十秒)...")
-	request := certificate.ObtainRequest{
-		Domains: []string{domain},
-		Bundle:  true, // 捆绑颁发机构的证书链
-	}
-	certificates, err := client.Certificate.Obtain(request)
-	if err != nil {
-		return fmt.Errorf("证书获取失败: %v", err)
-	}
-
-	// 6. 申请成功，复用已有的上传逻辑将证书写入磁盘并热加载
-	logger.Log.Info("✅ 证书获取成功！正在写入系统...")
-	if err := SaveUploadedCert(certificates.Certificate, certificates.PrivateKey); err != nil {
-		return fmt.Errorf("新证书应用失败: %v", err)
-	}
-
-	return nil
-}
-
 // startAutoRenewalTask 启动后台静默定时续期任务
 func startAutoRenewalTask() {
 	go func() {
@@ -263,13 +193,21 @@ func checkAndRenewCert() {
 		return
 	}
 
-	// 计算剩余有效期，如果大于 30 天则跳过
+	// 计算剩余有效期，如果大于 7 天则跳过
 	daysLeft := time.Until(x509Cert.NotAfter).Hours() / 24
-	if daysLeft > 30 {
+	if daysLeft > 7 {
 		return
 	}
 
-	logger.Log.Info("SSL 证书剩余有效期不足 30 天，开始后台自动续期...", "days_left", int(daysLeft))
+	logger.Log.Info("SSL 证书剩余有效期不足 7 天，准备触发续期检查...", "days_left", int(daysLeft))
+
+	// 检查用户是否开启了自动续订
+	var autoRenew database.SysConfig
+	database.DB.Where("key = ?", "cf_auto_renew").First(&autoRenew)
+	if autoRenew.Value == "false" {
+		logger.Log.Info("用户已在面板关闭了自动续期，跳过此次操作。")
+		return
+	}
 
 	// 从数据库读取 CF 配置
 	var email, apiKey, domain database.SysConfig
@@ -288,4 +226,134 @@ func checkAndRenewCert() {
 	} else {
 		logger.Log.Info("🎉 证书自动续期成功！新证书已无感热加载生效。")
 	}
+}
+
+// ------------------- [日志拦截与翻译引擎] -------------------
+
+var (
+	certLogBuffer []string
+	certLogMutex  sync.Mutex
+)
+
+// ClearCertLogs 清空日志缓冲
+func ClearCertLogs() {
+	certLogMutex.Lock()
+	certLogBuffer = []string{}
+	certLogMutex.Unlock()
+}
+
+// AddCertLog 写入一条新日志
+func AddCertLog(msg string) {
+	certLogMutex.Lock()
+	// 拼接 1Panel 风格的时间前缀
+	certLogBuffer = append(certLogBuffer, time.Now().Format("2006/01/02 15:04:05")+" "+msg)
+	certLogMutex.Unlock()
+}
+
+// GetCertLogs 供外部读取所有日志
+func GetCertLogs() []string {
+	certLogMutex.Lock()
+	defer certLogMutex.Unlock()
+	return append([]string(nil), certLogBuffer...)
+}
+
+// legoLogWriter 实现 io.Writer，拦截 lego 的输出并翻译
+type legoLogWriter struct{}
+
+func (w *legoLogWriter) Write(p []byte) (n int, err error) {
+	msg := strings.TrimSpace(string(p))
+
+	// 进行中英文翻译替换
+	msg = strings.Replace(msg, "Obtaining bundled SAN certificate", "正在获取 SAN 证书捆绑包", 1)
+	msg = strings.Replace(msg, "Could not find solver for", "跳过不支持的验证方式:", 1)
+	msg = strings.Replace(msg, "use dns-01 solver", "采用 dns-01 验证方式", 1)
+	msg = strings.Replace(msg, "Preparing to solve DNS-01", "准备执行 DNS-01 验证", 1)
+	msg = strings.Replace(msg, "Trying to solve DNS-01", "尝试下发 TXT 记录解决 DNS-01 验证", 1)
+	msg = strings.Replace(msg, "Checking DNS record propagation", "正在检查 DNS 记录是否生效", 1)
+	msg = strings.Replace(msg, "Wait for propagation", "等待 DNS 传播", 1)
+	msg = strings.Replace(msg, "The server validated our request", "CA 服务器已成功验证我们的请求", 1)
+	msg = strings.Replace(msg, "Cleaning DNS-01 challenge", "正在清理 DNS-01 验证产生的 TXT 记录", 1)
+	msg = strings.Replace(msg, "Validations succeeded; requesting certificates", "所有验证成功！正在请求签发证书...", 1)
+	msg = strings.Replace(msg, "Server responded with a certificate", "CA 服务器已响应并下发证书", 1)
+	msg = strings.Replace(msg, "cloudflare: new record for", "Cloudflare: 成功添加 TXT 记录用于", 1)
+
+	AddCertLog("[INFO] " + msg)
+	return len(p), nil
+}
+
+// ApplyCloudflareCert 使用 Cloudflare DNS 验证申请 Let's Encrypt 证书
+func ApplyCloudflareCert(email, apiKey, domain string) error {
+	// 初始化日志
+	ClearCertLogs()
+	AddCertLog(fmt.Sprintf("开始申请证书，域名 [%s] 申请方式 [DNS 自动] 通信邮箱 [%s] 厂商 [CloudFlare]", domain, email))
+
+	// ✨ 核心：接管并替换 lego 的全局日志输出模块
+	legolog.Logger = log.New(&legoLogWriter{}, "", 0)
+
+	// 1. 生成 ACME 账号私钥
+	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		AddCertLog("[ERROR] 生成账号私钥失败: " + err.Error())
+		return fmt.Errorf("生成账号私钥失败: %v", err)
+	}
+
+	myUser := acmeUser{Email: email, key: privateKey}
+
+	// 2. 初始化 Lego 客户端配置
+	config := lego.NewConfig(&myUser)
+	config.CADirURL = lego.LEDirectoryProduction
+	config.Certificate.KeyType = certcrypto.RSA2048
+
+	client, err := lego.NewClient(config)
+	if err != nil {
+		AddCertLog("[ERROR] 初始化 ACME 客户端失败: " + err.Error())
+		return fmt.Errorf("初始化 ACME 客户端失败: %v", err)
+	}
+
+	// 3. 配置 Cloudflare DNS Provider
+	cfConfig := cloudflare.NewDefaultConfig()
+	cfConfig.AuthToken = apiKey
+	cfConfig.PropagationTimeout = 2 * time.Minute
+
+	cfProvider, err := cloudflare.NewDNSProviderConfig(cfConfig)
+	if err != nil {
+		AddCertLog("[ERROR] 配置 CF API 失败 (请检查Token权限): " + err.Error())
+		return fmt.Errorf("配置 CF API 失败: %v", err)
+	}
+
+	err = client.Challenge.SetDNS01Provider(cfProvider)
+	if err != nil {
+		return fmt.Errorf("设置 DNS Provider 失败: %v", err)
+	}
+
+	// 4. 注册 ACME 账号 (同意 Let's Encrypt 协议)
+	AddCertLog("[INFO] 正在向 Let's Encrypt 注册 ACME 账号...")
+	reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+	if err != nil {
+		AddCertLog("[ERROR] ACME 账号注册失败: " + err.Error())
+		return fmt.Errorf("ACME 账号注册失败: %v", err)
+	}
+	myUser.Registration = reg
+
+	// 5. 发起证书申请
+	AddCertLog("[INFO] 账号注册成功，即将开始 DNS 验证流程...")
+	request := certificate.ObtainRequest{
+		Domains: []string{domain},
+		Bundle:  true, // 捆绑颁发机构的证书链
+	}
+	certificates, err := client.Certificate.Obtain(request)
+	if err != nil {
+		AddCertLog("[ERROR] 证书获取失败: " + err.Error())
+		return fmt.Errorf("证书获取失败: %v", err)
+	}
+
+	// 6. 申请成功，复用已有的上传逻辑将证书写入磁盘并热加载
+	AddCertLog("[INFO] 正在将新证书写入系统并热加载...")
+	if err := SaveUploadedCert(certificates.Certificate, certificates.PrivateKey); err != nil {
+		AddCertLog("[ERROR] 新证书应用失败: " + err.Error())
+		return fmt.Errorf("新证书应用失败: %v", err)
+	}
+
+	AddCertLog(fmt.Sprintf("申请 [%s] 证书成功！！", domain))
+	return nil
 }

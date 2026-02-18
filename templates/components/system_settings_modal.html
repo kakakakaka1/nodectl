@@ -440,7 +440,7 @@
                                     </div>
                                     <div style="display: flex; flex-direction: column; gap: 6px;">
                                         <span style="font-size: 12px; font-weight: 600; color: #555;">🔑 私钥文件</span>
-                                        <input type="file" id="fileKey" accept=".key" class="sys-file-upload">
+                                        <input type="file" id="fileKey" accept=".key,.pem" class="sys-file-upload">
                                     </div>
                                 </form>
                             </div>
@@ -469,14 +469,26 @@
                                 <input type="text" id="sys_cf_email" class="sys-input" placeholder="例如: user@example.com" oninput="triggerSysAutoSave()">
                             </div>
                             <div class="sys-field">
-                                <label class="sys-label">Global API Key</label>
-                                <input type="password" id="sys_cf_api_key" class="sys-input" placeholder="输入 CF Global Key" oninput="triggerSysAutoSave()">
+                                <label class="sys-label">CF API 令牌 (API Token)</label>
+                                <input type="password" id="sys_cf_api_key" class="sys-input" placeholder="输入具备 DNS 编辑权限的 API Token" oninput="triggerSysAutoSave()">
                             </div>
                             <div class="sys-field">
                                 <label class="sys-label">证书绑定域名</label>
                                 <input type="text" id="sys_cf_domain" class="sys-input" placeholder="例如: node.example.com" oninput="triggerSysAutoSave()">
                             </div>
-                            <button type="button" class="btn-sys-regen" style="margin-top:10px; width:100%; padding:10px;" onclick="applyCfCert()">
+                            
+                            <div class="sys-pref-row" style="padding: 10px 15px; margin-top: 10px; margin-bottom: 15px; border-radius: 8px;">
+                                <div class="sys-pref-info">
+                                    <span class="sys-pref-title" style="font-size: 13px;">🔄 开启自动续订</span>
+                                    <span class="sys-pref-desc" style="font-size: 11px; margin-top: 2px;">有效期不足 7 天时自动续期</span>
+                                </div>
+                                <label class="sys-toggle-switch">
+                                    <input type="checkbox" id="sys_cf_auto_renew" onchange="triggerSysAutoSave()">
+                                    <span class="sys-toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <button type="button" id="btnApplyCf" class="btn-sys-regen" style="width:100%; padding:10px;" onclick="applyCfCert()">
                                 🚀 提交申请任务
                             </button>
                             <div id="cfLogBox" class="sys-log-box"></div>
@@ -779,6 +791,8 @@
                 document.getElementById('sys_cf_email').value = data.cf_email || '';
                 document.getElementById('sys_cf_api_key').value = data.cf_api_key || '';
                 document.getElementById('sys_cf_domain').value = data.cf_domain || '';
+                // ✨ 新增：读取自动续期状态 (默认开启)
+                document.getElementById('sys_cf_auto_renew').checked = (data.cf_auto_renew !== 'false');
 
                 // 3. 渲染证书有效性及重启按钮控制
                 const restartBtn = document.getElementById('btnRestartCore');
@@ -793,14 +807,28 @@
                     validDisplay.className = 'cert-val secure';
 
                     restartBtn.disabled = false;
-                    restartBtn.innerHTML = '🔄 立即重启面板核心 (应用证书切换)';
-                    restartBtn.style.background = '#fff0f0';
-                    restartBtn.style.borderColor = '#ffcdd2';
-                    restartBtn.style.color = '#d32f2f';
                     restartBtn.style.cursor = 'pointer';
-                    restartDesc.innerText = '注意：成功配置证书后，必须点击此按钮重启网络核心，HTTPS 才会真正生效。';
-                    restartDesc.style.color = '#d32f2f';
-                    restartDesc.style.background = '#fff5f5';
+                    
+                    // ✨ 核心优化：根据当前协议状态智能切换按钮颜色和文案
+                    if (isHttp) {
+                        // HTTP 模式：依然保持红色警告色，催促用户切换到安全的 HTTPS
+                        restartBtn.innerHTML = '✅ 证书已就绪，立即重启核心切换 HTTPS';
+                        restartBtn.style.background = '#fff0f0';
+                        restartBtn.style.borderColor = '#ffcdd2';
+                        restartBtn.style.color = '#d32f2f';
+                        restartDesc.innerText = '注意：成功配置证书后，必须点击此按钮重启网络核心，HTTPS 才会真正生效。';
+                        restartDesc.style.color = '#d32f2f';
+                        restartDesc.style.background = '#fff5f5';
+                    } else {
+                        // HTTPS 模式：改为让人安心的绿色，并优化提示语
+                        restartBtn.innerHTML = '🔄 立即重启面板核心';
+                        restartBtn.style.background = '#eafff1';
+                        restartBtn.style.borderColor = '#bbf7d0';
+                        restartBtn.style.color = '#16a34a';
+                        restartDesc.innerText = '当前已在 HTTPS 安全模式下运行。如您更换了新证书，点击此处重启即可应用生效。';
+                        restartDesc.style.color = '#15803d';
+                        restartDesc.style.background = '#fafffc';
+                    }
                 } else {
                     document.getElementById('certDomainDisplay').innerText = '--';
                     document.getElementById('certExpireDisplay').innerText = '--';
@@ -871,6 +899,7 @@
                 "cf_email": document.getElementById('sys_cf_email').value,
                 "cf_api_key": document.getElementById('sys_cf_api_key').value,
                 "cf_domain": document.getElementById('sys_cf_domain').value,
+                "cf_auto_renew": document.getElementById('sys_cf_auto_renew').checked ? 'true' : 'false', // ✨ 新增
             };
 
             if(!payload.sub_token) {
@@ -1128,7 +1157,8 @@
         }
     }
 
-    // [新增] CF 申请逻辑 (带滚动日志输出)
+    // [新增] CF 申请逻辑 (1Panel 风格的真实日志流式拉取)
+    let logPollInterval;
     async function applyCfCert() {
         const email = document.getElementById('sys_cf_email').value;
         const key = document.getElementById('sys_cf_api_key').value;
@@ -1141,33 +1171,40 @@
 
         if(!confirm(`确认使用域名 ${domain} 申请证书吗？\n这可能需要几十秒时间，请耐心等待。`)) return;
 
-        const btn = document.querySelector('#sys-form-cert details:last-child button');
+        const btn = document.getElementById('btnApplyCf');
         const logBox = document.getElementById('cfLogBox');
         
         btn.innerText = '⏳ 正在处理中...';
         btn.disabled = true;
         
-        // 显示并清空日志框
         logBox.style.display = 'block';
-        logBox.innerHTML = '';
+        logBox.innerHTML = '<div><span style="color:#888;">正在连接核心终端拉取日志...</span></div>';
         
-        // 内部日志追加助手函数
-        const appendLog = (msg, type = '') => {
-            const time = new Date().toLocaleTimeString();
-            let colorClass = '';
-            if (type === 'error') colorClass = 'log-err';
-            else if (type === 'info') colorClass = 'log-info';
-            else if (type === 'warn') colorClass = 'log-warn';
-            
-            logBox.innerHTML += `<div><span style="color:#888;">[${time}]</span> <span class="${colorClass}">${msg}</span></div>`;
-            logBox.scrollTop = logBox.scrollHeight; // 自动滚动到底部
+        // 核心轮询器：每秒去后端取一次最新数组并渲染
+        const fetchLogs = async () => {
+            try {
+                const res = await fetch('/api/cert-logs');
+                const json = await res.json();
+                if (json.status === 'success' && json.data) {
+                    let html = '';
+                    json.data.forEach(line => {
+                        let colorClass = 'log-info';
+                        // 智能赋予颜色
+                        if (line.includes('[ERROR]') || line.includes('失败')) colorClass = 'log-err';
+                        else if (line.includes('成功！！')) colorClass = 'log-info'; // 沿用原本绿色
+                        
+                        html += `<div><span class="${colorClass}">${line}</span></div>`;
+                    });
+                    logBox.innerHTML = html;
+                    logBox.scrollTop = logBox.scrollHeight; // 保持底部滚动
+                }
+            } catch(e){}
         };
 
-        appendLog('初始化 Cloudflare ACME 申请任务...', 'info');
-        appendLog(`目标域名: ${domain}`, 'info');
-        appendLog(`通信邮箱: ${email}`, 'info');
-        appendLog('正在向后端发送请求，请耐心等待...', 'warn');
+        // 启动轮询器 (每 1000 毫秒执行一次)
+        logPollInterval = setInterval(fetchLogs, 1000);
 
+        // 发送阻塞的申请请求
         try {
             const res = await fetch('/api/apply-cert', {
                 method: 'POST',
@@ -1176,18 +1213,24 @@
             });
             const json = await res.json();
             
+            // 请求结束后清除定时器，并做最后一次拉取以防漏字
+            clearInterval(logPollInterval);
+            await fetchLogs(); 
+            
             if (json.status === 'success') {
-                appendLog('✅ ' + json.message, 'success');
-                appendLog('请点击下方的“立即重启面板核心”以应用新证书。', 'info');
+                logBox.innerHTML += `<div><span style="color:#a6e22e;">[提示] 证书已成功应用！请点击下方的“立即重启面板核心”切换 HTTPS。</span></div>`;
+                await loadAllSystemSettings(); // ✨ 核心修复：申请成功后立刻静默拉取最新状态以解锁重启按钮
             } else {
-                appendLog('❌ ' + json.message, 'error'); // 这里将精准打印你后端代码留的未集成报错
+                logBox.innerHTML += `<div><span class="log-err">❌ 任务执行中断: ${json.message}</span></div>`;
             }
+            logBox.scrollTop = logBox.scrollHeight;
+
         } catch (e) {
-            appendLog('❌ 网络请求失败或后端无响应', 'error');
+            clearInterval(logPollInterval);
+            logBox.innerHTML += `<div><span class="log-err">❌ 网络请求失败或后端断开连接</span></div>`;
         } finally {
             btn.innerText = '🚀 重新提交申请';
             btn.disabled = false;
-            appendLog('任务流程结束。', 'info');
         }
     }
 </script>

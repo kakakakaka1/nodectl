@@ -48,8 +48,9 @@ func initBasicSettings() {
 		{Key: "sys_force_http", Value: "false", Description: "是否强制允许 HTTP (忽略安全)"},
 		// [新增] Cloudflare API 配置预留
 		{Key: "cf_email", Value: "", Description: "Cloudflare 账号邮箱"},
-		{Key: "cf_api_key", Value: "", Description: "Cloudflare Global API Key"},
+		{Key: "cf_api_key", Value: "", Description: "Cloudflare API Token"},
 		{Key: "cf_domain", Value: "", Description: "证书绑定的主域名"},
+		{Key: "cf_auto_renew", Value: "true", Description: "是否开启证书自动续期"},
 	}
 
 	for _, config := range defaultConfigs {

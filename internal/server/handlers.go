@@ -675,7 +675,7 @@ func apiGetSettings(w http.ResponseWriter, r *http.Request) {
 		"panel_url", "sub_token", "proxy_port_ss", "proxy_port_hy2", "proxy_port_tuic",
 		"proxy_port_reality", "proxy_reality_sni", "proxy_ss_method",
 		"proxy_port_socks5", "proxy_socks5_user", "proxy_socks5_pass", "pref_use_emoji_flag", "sub_custom_name", "pref_ip_strategy",
-		"sys_force_http", "cf_email", "cf_api_key", "cf_domain",
+		"sys_force_http", "cf_email", "cf_api_key", "cf_domain", "cf_auto_renew",
 	}).Find(&configs).Error; err != nil {
 		logger.Log.Error("读取系统配置失败", "error", err, "ip", clientIP, "path", reqPath)
 	}
@@ -717,7 +717,7 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		"proxy_port_tuic": true, "proxy_port_reality": true, "proxy_reality_sni": true,
 		"proxy_ss_method": true, "proxy_port_socks5": true, "proxy_socks5_user": true, "proxy_socks5_pass": true, "pref_use_emoji_flag": true,
 		"sub_custom_name": true, "pref_ip_strategy": true,
-		"sys_force_http": true, "cf_email": true, "cf_api_key": true, "cf_domain": true,
+		"sys_force_http": true, "cf_email": true, "cf_api_key": true, "cf_domain": true, "cf_auto_renew": true,
 	}
 
 	for k, v := range req {
@@ -1165,7 +1165,7 @@ func apiSaveCert(w http.ResponseWriter, r *http.Request) {
 	// 读取 .key 文件
 	fileKey, _, err := r.FormFile("key_file")
 	if err != nil {
-		sendJSON(w, "error", "缺少私钥文件 (.key)")
+		sendJSON(w, "error", "缺少私钥文件 (.key / .pem)")
 		return
 	}
 	defer fileKey.Close()
@@ -1231,4 +1231,13 @@ func apiRestartCore(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(1 * time.Second)
 		TriggerRestart() // 调用 server.go 中的重启触发器
 	}()
+}
+
+// apiGetCertLogs 获取证书申请的实时日志供前端黑框展示
+func apiGetCertLogs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	sendJSON(w, "success", service.GetCertLogs())
 }
