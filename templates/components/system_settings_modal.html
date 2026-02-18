@@ -266,6 +266,18 @@
     details[open] summary.sys-summary::after { content: '−'; transform: rotate(180deg); color: #007aff; }
     
     .sys-details-content { padding: 20px; border-top: 1px solid #f0f0f5; background: #fff; }
+    
+    /* 终端日志黑框样式 */
+    .sys-log-box {
+        background: #1e1e1e; color: #a6e22e; font-family: monospace; font-size: 12px;
+        padding: 12px; border-radius: 8px; margin-top: 15px; max-height: 180px;
+        overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+        border: 1px solid #000; line-height: 1.5; display: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .sys-log-box span.log-err { color: #f92672; }
+    .sys-log-box span.log-info { color: #66d9ef; }
+    .sys-log-box span.log-warn { color: #fd971f; }
+    
     /* ================= 证书上传 Tab 样式 ================= */
     .sys-tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
     .sys-tab-btn { background: none; border: none; font-size: 13px; font-weight: 600; color: #888; cursor: pointer; padding: 6px 12px; transition: 0.2s; border-radius: 6px; }
@@ -399,7 +411,7 @@
                         </div>
                     </div>
 
-                    <div class="sys-pref-row">
+                    <div class="sys-pref-row" id="rowForceHttp">
                         <div class="sys-pref-info">
                             <span class="sys-pref-title" style="color:#d73a49;">强制使用 HTTP (忽略安全)</span>
                             <span class="sys-pref-desc">忽略 HTTPS 强制跳转，允许纯明文访问</span>
@@ -467,6 +479,7 @@
                             <button type="button" class="btn-sys-regen" style="margin-top:10px; width:100%; padding:10px;" onclick="applyCfCert()">
                                 🚀 提交申请任务
                             </button>
+                            <div id="cfLogBox" class="sys-log-box"></div>
                         </div>
                     </details>
 
@@ -758,6 +771,10 @@
                 document.getElementById('rowCertDomain').style.display = isHttp ? 'none' : 'flex';
                 document.getElementById('rowCertExpire').style.display = isHttp ? 'none' : 'flex';
                 document.getElementById('rowCertValid').style.display = isHttp ? 'none' : 'flex';
+                
+                // ✨ 新增：HTTPS 模式下直接隐藏“强制 HTTP”风险开关
+                const forceHttpRow = document.getElementById('rowForceHttp');
+                if (forceHttpRow) forceHttpRow.style.display = isHttp ? 'flex' : 'none';
 
                 document.getElementById('sys_cf_email').value = data.cf_email || '';
                 document.getElementById('sys_cf_api_key').value = data.cf_api_key || '';
@@ -1111,7 +1128,7 @@
         }
     }
 
-    // [新增] CF 申请逻辑
+    // [新增] CF 申请逻辑 (带滚动日志输出)
     async function applyCfCert() {
         const email = document.getElementById('sys_cf_email').value;
         const key = document.getElementById('sys_cf_api_key').value;
@@ -1125,8 +1142,31 @@
         if(!confirm(`确认使用域名 ${domain} 申请证书吗？\n这可能需要几十秒时间，请耐心等待。`)) return;
 
         const btn = document.querySelector('#sys-form-cert details:last-child button');
-        btn.innerText = '⏳ 正在申请中...';
+        const logBox = document.getElementById('cfLogBox');
+        
+        btn.innerText = '⏳ 正在处理中...';
         btn.disabled = true;
+        
+        // 显示并清空日志框
+        logBox.style.display = 'block';
+        logBox.innerHTML = '';
+        
+        // 内部日志追加助手函数
+        const appendLog = (msg, type = '') => {
+            const time = new Date().toLocaleTimeString();
+            let colorClass = '';
+            if (type === 'error') colorClass = 'log-err';
+            else if (type === 'info') colorClass = 'log-info';
+            else if (type === 'warn') colorClass = 'log-warn';
+            
+            logBox.innerHTML += `<div><span style="color:#888;">[${time}]</span> <span class="${colorClass}">${msg}</span></div>`;
+            logBox.scrollTop = logBox.scrollHeight; // 自动滚动到底部
+        };
+
+        appendLog('初始化 Cloudflare ACME 申请任务...', 'info');
+        appendLog(`目标域名: ${domain}`, 'info');
+        appendLog(`通信邮箱: ${email}`, 'info');
+        appendLog('正在向后端发送请求，请耐心等待...', 'warn');
 
         try {
             const res = await fetch('/api/apply-cert', {
@@ -1135,12 +1175,19 @@
                 body: JSON.stringify({ email, api_key: key, domain })
             });
             const json = await res.json();
-            alert(json.message);
+            
+            if (json.status === 'success') {
+                appendLog('✅ ' + json.message, 'success');
+                appendLog('请点击下方的“立即重启面板核心”以应用新证书。', 'info');
+            } else {
+                appendLog('❌ ' + json.message, 'error'); // 这里将精准打印你后端代码留的未集成报错
+            }
         } catch (e) {
-            alert("网络请求失败");
+            appendLog('❌ 网络请求失败或后端无响应', 'error');
         } finally {
-            btn.innerText = '🚀 提交申请任务';
+            btn.innerText = '🚀 重新提交申请';
             btn.disabled = false;
+            appendLog('任务流程结束。', 'info');
         }
     }
 </script>
