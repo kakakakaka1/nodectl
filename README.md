@@ -18,6 +18,8 @@ NodeCtl 旨在提供一个简洁直观的界面和稳定安全的后台，帮助
 
 https://demo.hobin.net/
 
+账号admin 密码admin
+
 ## 🚀 快速部署
 
 我们推荐使用 Docker 进行部署，这是最简单、最快捷且保持环境干净的方式。
