@@ -221,6 +221,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 // ------------------- [API 异步接口逻辑] -------------------
 
 // apiUpdateNode 更新节点信息
+// 功能：接收前端请求，更新节点的基础信息和协议链接，包含演示模式下对内置节点核心资产的保护与专业提示
 func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 	clientIP := r.RemoteAddr
 	reqPath := r.URL.Path
@@ -232,7 +233,7 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 2. 先从数据库查出真实存在的节点 (确保拿到主键 ID)
+	// 2. 先从数据库查出真实存在的节点 (确保拿到主键 ID 和 原有数据)
 	var targetNode database.NodePool
 	if err := database.DB.First(&targetNode, "uuid = ?", req.UUID).Error; err != nil {
 		logger.Log.Warn("更新失败: 节点不存在", "uuid", req.UUID, "ip", clientIP)
@@ -240,15 +241,50 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	demoPath := filepath.Join("data", "debug", "demo")
+	if _, err := os.Stat(demoPath); err == nil {
+		// 判定条件：节点创建时间早于程序启动时间 (内置节点)
+		if targetNode.CreatedAt.Before(AppStartTime) {
+
+			// 保护 1: 禁止修改或删除 IPv4 和 IPv6
+			if targetNode.IPV4 != req.IPV4 || targetNode.IPV6 != req.IPV6 {
+				logger.Log.Warn("演示模式拦截: 尝试修改或删除内置节点 IP", "uuid", req.UUID, "ip", clientIP)
+				// [优化] 更专业的提示语
+				sendJSON(w, "error", "【演示模式保护】禁止修改或清空。如需体验修改功能，请新建节点。")
+				return
+			}
+
+			// 保护 2: 禁止删除、清空或修改已有的协议链接
+			for protoKey, oldVal := range targetNode.Links {
+				newVal, exists := req.Links[protoKey]
+
+				// 如果前端传来的数据中没有这个协议，或者内容为空，说明尝试删除
+				if !exists || newVal == "" {
+					logger.Log.Warn("演示模式拦截: 尝试删除内置节点协议", "uuid", req.UUID, "protocol", protoKey, "ip", clientIP)
+					// [优化] 更专业的提示语
+					sendJSON(w, "error", "【演示模式保护】内置预设节点的基础协议配置已被锁定，禁止删除。")
+					return
+				}
+
+				// 如果前端传来的值与数据库原有值不同 (并且排除了系统占位符 "__KEEP_EXISTING__")，说明尝试修改
+				if newVal != oldVal && newVal != "__KEEP_EXISTING__" {
+					logger.Log.Warn("演示模式拦截: 尝试修改内置节点协议内容", "uuid", req.UUID, "protocol", protoKey, "ip", clientIP)
+					// [优化] 更专业的提示语
+					sendJSON(w, "error", "【演示模式保护】禁止修改内容。如需体验完整编辑功能，请新建节点。")
+					return
+				}
+			}
+		}
+	}
+	// ---------------- [新增：演示模式严密保护逻辑 结束] ----------------
+
 	// 3. 将前端请求的基础字段更新到数据库对象上
-	// 注意：不要直接覆盖 targetNode = req，因为那样会丢失 ID
 	targetNode.Name = req.Name
 	targetNode.RoutingType = req.RoutingType
 	targetNode.IsBlocked = req.IsBlocked
 	targetNode.DisabledLinks = req.DisabledLinks
 	targetNode.IPV4 = req.IPV4
 	targetNode.IPV6 = req.IPV6
-	// 如果你的结构体有 Region 字段且前端不传，这里保持原样即可，或者根据 IP 重新解析
 
 	// 4. 安全检查：判断是否处于安全环境
 	isSecure := service.CheckRequestSecure(r)
@@ -262,9 +298,7 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 
 	// 5. 根据安全状态执行智能合并或全量覆盖
 	if !isSecure {
-		// [受限的 HTTP 模式] 执行智能合并策略 (禁止编辑链接)
 		safeLinks := make(map[string]string)
-
 		for k, v := range req.Links {
 			if v == "__KEEP_EXISTING__" {
 				if oldVal, ok := targetNode.Links[k]; ok {
@@ -272,18 +306,14 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 				}
 			} else {
 				if _, exists := targetNode.Links[k]; exists {
-					// 数据库已有 -> 试图修改 -> 驳回，强制使用旧值
 					safeLinks[k] = targetNode.Links[k]
 				} else {
-					// 数据库没有 -> 新增 -> 允许写入
 					safeLinks[k] = v
 				}
 			}
 		}
 		targetNode.Links = safeLinks
-
 	} else {
-		// [HTTPS 模式 或 强制 HTTP 模式] 允许自由编辑，但必须拦截前端未刷新时发来的占位符
 		safeLinks := make(map[string]string)
 		for k, v := range req.Links {
 			if v == "__KEEP_EXISTING__" {
@@ -291,13 +321,13 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 					safeLinks[k] = oldVal
 				}
 			} else {
-				safeLinks[k] = v // 允许自由覆盖或新增
+				safeLinks[k] = v
 			}
 		}
 		targetNode.Links = safeLinks
 	}
 
-	// 6. 保存更新 (因为 targetNode 包含 ID，GORM 会正确执行 UPDATE)
+	// 6. 保存更新
 	if err := database.DB.Save(&targetNode).Error; err != nil {
 		logger.Log.Error("更新节点数据库失败", "error", err, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "数据库更新失败")
@@ -517,6 +547,8 @@ func apiReorderNodes(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, "success", "排序已更新")
 }
 
+// apiDeleteNode 处理节点删除请求
+// 功能：验证请求参数并从数据库中删除指定 UUID 的节点，支持演示模式下对内置节点的保护与专业拦截提示
 func apiDeleteNode(w http.ResponseWriter, r *http.Request) {
 	clientIP := r.RemoteAddr
 	reqPath := r.URL.Path
@@ -542,6 +574,25 @@ func apiDeleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 检查是否处于演示模式 (存在 data/debug/demo 文件)
+	demoPath := filepath.Join("data", "debug", "demo")
+	if _, err := os.Stat(demoPath); err == nil {
+		// 1. 先查询该节点的详细信息
+		var targetNode database.NodePool
+		if err := database.DB.Where("uuid = ?", req.UUID).First(&targetNode).Error; err != nil {
+			logger.Log.Warn("删除拦截: 节点不存在", "uuid", req.UUID, "ip", clientIP)
+			sendJSON(w, "error", "节点不存在")
+			return
+		}
+
+		if targetNode.CreatedAt.Before(AppStartTime) {
+			logger.Log.Warn("尝试在演示模式下删除初始节点，已被拦截", "uuid", req.UUID, "name", targetNode.Name, "ip", clientIP)
+			// [优化] 更专业的提示语
+			sendJSON(w, "error", "【演示模式保护】禁止删除。您可自由测试并删除您自行创建的节点。")
+			return
+		}
+	}
+
 	result := database.DB.Where("uuid = ?", req.UUID).Delete(&database.NodePool{})
 	if result.Error != nil {
 		logger.Log.Error("删除节点失败", "error", result.Error, "uuid", req.UUID, "ip", clientIP, "path", reqPath)
@@ -557,7 +608,6 @@ func apiPublicScript(w http.ResponseWriter, r *http.Request) {
 	clientIP := r.RemoteAddr
 	reqPath := r.URL.Path
 
-	// ---------------- [新增验证逻辑 开始] ----------------
 	// 1. 获取 URL 中的 id 参数
 	installID := r.URL.Query().Get("id")
 	if installID == "" {

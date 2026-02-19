@@ -1,6 +1,35 @@
+# NodeCtl
+
+> 一个轻量、高效的个人订阅节点管理工具。
+
+## 📖 项目简介
+NodeCtl 旨在提供一个简洁直观的界面和稳定安全的后台，帮助你集中管理自建节点和机场订阅、在保证设置不过于复杂的前提下，拥有极高自定义能力。支持通过 Docker 快速部署，配合 SQLite 数据库和 YAML 配置实现轻量化的数据持久化。
+
+## 特点
+1、内置模板基于链式代理，无感替换节点的链路位置 \n
+2、内置节点一键安装脚本，部署节点仅需复制命令即可自动回传链接到面板 \n
+3、支持机场订阅加入到自建订阅，实现通过机场节点中转或者落地。
+4、安全性，所有代码开源，在声明本项目后可随意修改发布。
+
+## 🎨 演示 (Demo)
+
+https://demo.hobin.net/
+
+## 🚀 快速部署
+
+我们推荐使用 Docker 进行部署，这是最简单、最快捷且保持环境干净的方式。
+
+### 方式一：Docker Run (快捷命令)
+
+你可以直接运行以下命令拉取并启动容器：
+
+
+```bash
 docker run -d \
-  --name nodectl \
+  --name nodectl-demo \
   --restart unless-stopped \
-  -p 18080:8080 \
-  -v /opt/1panel/apps/nodectl/data:/app/data \
+  -p 7878:8080 \
+  -v /opt/1panel/apps/nodectl-demo:/app/data \
   ghcr.io/hobin66/nodectl:latest
+```
+

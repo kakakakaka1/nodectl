@@ -224,7 +224,7 @@
                 <div class="edit-left-col no-scrollbar">
                     <div class="edit-section">
                         <label class="section-label">节点名称</label>
-                        <input type="text" id="editNodeName" class="title-input" placeholder="例如：独角鲸-香港" oninput="triggerNodeAutoSave()">
+                        <input type="text" id="editNodeName" class="title-input" placeholder="例如：HK-CN2" oninput="triggerNodeAutoSave()">
                     </div>
 
                     <div class="edit-section">
@@ -560,7 +560,8 @@
                     
                     if (typeof loadNodesList === 'function') loadNodesList();
                 } else {
-                    indicator.innerHTML = '<span style="color:#ff3b30;">保存失败</span>';
+                    // 🚨关键修复：读取并展示后端的 res.message 错误详情
+                    indicator.innerHTML = `<span style="color:#ff3b30;">保存失败: ${res.message || '未知错误'}</span>`;
                 }
             } catch (err) {
                 indicator.innerHTML = '<span style="color:#ff3b30;">网络错误</span>';
