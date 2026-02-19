@@ -9,11 +9,10 @@
     }
     .sys-modal-overlay.active { display: flex; opacity: 1; }
     
-    /* 默认窄模式 320px，展开后 900px (与 Clash 模板尺寸对齐) */
+    /* 直接固定宽度为 900px，高度为 85vh */
     .sys-modal-card {
-        background: #ffffff; width: 100%; max-width: 320px; height: 85vh; border-radius: 12px; 
+        background: #ffffff; width: 100%; max-width: 900px; height: 85vh; border-radius: 12px; 
         box-shadow: 0 20px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden;
-        transition: max-width 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     .sys-modal-card.has-content { max-width: 900px; }
 
@@ -542,6 +541,16 @@
                             <option value="ipv6_only">仅限 IPv6</option>
                         </select>
                     </div>
+
+                    <div class="sys-pref-row" style="align-items: center;">
+                        <div class="sys-pref-info">
+                            <span class="sys-pref-title">🗑️ 剔除机场无效节点</span>
+                        </div>
+                        <label class="sys-toggle-switch">
+                            <input type="checkbox" id="sys_airport_filter_invalid" onchange="triggerSysAutoSave()">
+                            <span class="sys-toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="sys-form-section" id="sys-form-geo" style="display:none;">
@@ -775,6 +784,7 @@
                 document.getElementById('sys_sub_token').value = data.sub_token || '';
                 document.getElementById('sys_pref_flag').checked = data.pref_use_emoji_flag !== 'false';
                 document.getElementById('sys_pref_ip_strategy').value = data.pref_ip_strategy || 'ipv4_prefer';
+                document.getElementById('sys_airport_filter_invalid').checked = (data.airport_filter_invalid === 'true');
 
                 // 2. 证书与高级配置
                 document.getElementById('sys_force_http').checked = (data.sys_force_http === 'true');
@@ -899,6 +909,7 @@
                 "sub_token": document.getElementById('sys_sub_token').value.trim(),
                 "pref_use_emoji_flag": document.getElementById('sys_pref_flag').checked ? "true" : "false",
                 "pref_ip_strategy": document.getElementById('sys_pref_ip_strategy').value,
+                "airport_filter_invalid": document.getElementById('sys_airport_filter_invalid').checked ? "true" : "false", // ✨ 新增：提交剔除无效节点开关
                 "sys_force_http": document.getElementById('sys_force_http').checked ? 'true' : 'false',
                 "cf_email": document.getElementById('sys_cf_email').value,
                 "cf_api_key": document.getElementById('sys_cf_api_key').value,

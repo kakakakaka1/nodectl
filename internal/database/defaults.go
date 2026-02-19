@@ -51,6 +51,7 @@ func initBasicSettings() {
 		{Key: "cf_api_key", Value: "", Description: "Cloudflare API Token"},
 		{Key: "cf_domain", Value: "", Description: "证书绑定的主域名"},
 		{Key: "cf_auto_renew", Value: "true", Description: "是否开启证书自动续期"},
+		{Key: "airport_filter_invalid", Value: "false", Description: "是否剔除机场订阅中的无效节点"},
 	}
 
 	for _, config := range defaultConfigs {

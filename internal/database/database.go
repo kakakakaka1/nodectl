@@ -75,6 +75,49 @@ func (SysConfig) TableName() string {
 	return "sys_config"
 }
 
+// ------------------- [新增：机场订阅相关模型] -------------------
+
+// AirportSub 机场订阅源表
+type AirportSub struct {
+	ID        string    `gorm:"primaryKey;type:varchar(36)" json:"id"`
+	Name      string    `gorm:"type:varchar(64)" json:"name"` // 机场名称
+	URL       string    `gorm:"type:text" json:"url"`         // 订阅链接
+	UpdatedAt time.Time `gorm:"column:updated_at" json:"updated_at"`
+}
+
+func (AirportSub) TableName() string {
+	return "airport_subs"
+}
+
+func (s *AirportSub) BeforeCreate(tx *gorm.DB) (err error) {
+	if s.ID == "" {
+		s.ID = uuid.New().String()
+	}
+	return
+}
+
+// AirportNode 机场节点表 (关联 AirportSub)
+type AirportNode struct {
+	ID            string `gorm:"primaryKey;type:varchar(36)" json:"id"`
+	SubID         string `gorm:"index;type:varchar(36)" json:"sub_id"` // 外键关联 AirportSub
+	Name          string `gorm:"index" json:"name"`                    // 节点名称
+	Protocol      string `gorm:"type:varchar(32)" json:"protocol"`     // 协议类型 (新增)
+	Link          string `gorm:"type:text" json:"link"`                // 原始链接 (vmess://, ss:// 等)
+	RoutingType   int    `gorm:"default:0" json:"routing_type"`        // 0=不启用, 1=直连, 2=落地
+	OriginalIndex int    `gorm:"default:0" json:"original_index"`      // 原始排序索引
+}
+
+func (AirportNode) TableName() string {
+	return "airport_nodes"
+}
+
+func (n *AirportNode) BeforeCreate(tx *gorm.DB) (err error) {
+	if n.ID == "" {
+		n.ID = uuid.New().String()
+	}
+	return
+}
+
 // ------------------- [数据库初始化] -------------------
 
 // InitDB 初始化数据库连接并同步表结构
@@ -108,7 +151,9 @@ func InitDB() {
 	// 3. 自动迁移所有的表
 	err = db.AutoMigrate(
 		&NodePool{},
-		&SysConfig{}, // 写入新的配置表
+		&SysConfig{},
+		&AirportSub{},
+		&AirportNode{},
 	)
 	if err != nil {
 		logger.Log.Error("自动同步表结构失败", "err", err.Error())

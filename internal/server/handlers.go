@@ -685,7 +685,7 @@ func apiGetSettings(w http.ResponseWriter, r *http.Request) {
 		"panel_url", "sub_token", "proxy_port_ss", "proxy_port_hy2", "proxy_port_tuic",
 		"proxy_port_reality", "proxy_reality_sni", "proxy_ss_method",
 		"proxy_port_socks5", "proxy_socks5_user", "proxy_socks5_pass", "pref_use_emoji_flag", "sub_custom_name", "pref_ip_strategy",
-		"sys_force_http", "cf_email", "cf_api_key", "cf_domain", "cf_auto_renew",
+		"sys_force_http", "cf_email", "cf_api_key", "cf_domain", "cf_auto_renew", "airport_filter_invalid",
 	}).Find(&configs).Error; err != nil {
 		logger.Log.Error("读取系统配置失败", "error", err, "ip", clientIP, "path", reqPath)
 	}
@@ -732,6 +732,7 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		"proxy_ss_method": true, "proxy_port_socks5": true, "proxy_socks5_user": true, "proxy_socks5_pass": true, "pref_use_emoji_flag": true,
 		"sub_custom_name": true, "pref_ip_strategy": true,
 		"sys_force_http": true, "cf_email": true, "cf_api_key": true, "cf_domain": true, "cf_auto_renew": true,
+		"airport_filter_invalid": true,
 	}
 
 	for k, v := range req {
@@ -1263,4 +1264,222 @@ func apiGetCertLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sendJSON(w, "success", service.GetCertLogs())
+}
+
+// ------------------- [机场订阅相关 API] -------------------
+
+// apiAirportList 获取订阅源列表
+func apiAirportList(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var subs []database.AirportSub
+	if err := database.DB.Order("updated_at DESC").Find(&subs).Error; err != nil {
+		logger.Log.Error("获取机场订阅列表失败", "error", err)
+		sendJSON(w, "error", "获取列表失败")
+		return
+	}
+
+	sendJSON(w, "success", subs)
+}
+
+// apiAirportAdd 添加新订阅
+func apiAirportAdd(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, "error", "格式错误")
+		return
+	}
+
+	if req.Name == "" || req.URL == "" {
+		sendJSON(w, "error", "名称和链接不能为空")
+		return
+	}
+
+	sub := database.AirportSub{
+		Name: req.Name,
+		URL:  req.URL,
+	}
+
+	if err := database.DB.Create(&sub).Error; err != nil {
+		logger.Log.Error("添加订阅失败", "error", err)
+		sendJSON(w, "error", "数据库写入失败")
+		return
+	}
+
+	// 自动触发一次同步
+	go service.SyncAirportSubscription(sub.ID)
+
+	sendJSON(w, "success", "添加成功，后台正在尝试同步节点...")
+}
+
+// apiAirportUpdate 手动更新订阅
+func apiAirportUpdate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, "error", "格式错误")
+		return
+	}
+
+	// 调用 service 层逻辑进行同步 (包含保留状态逻辑)
+	if err := service.SyncAirportSubscription(req.ID); err != nil {
+		logger.Log.Error("更新订阅失败", "id", req.ID, "error", err)
+		sendJSON(w, "error", "更新失败: "+err.Error())
+		return
+	}
+
+	sendJSON(w, "success", "订阅已更新")
+}
+
+// apiAirportDelete 删除订阅
+func apiAirportDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID string `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, "error", "格式错误")
+		return
+	}
+
+	tx := database.DB.Begin()
+	// 1. 删除关联的节点
+	if err := tx.Where("sub_id = ?", req.ID).Delete(&database.AirportNode{}).Error; err != nil {
+		tx.Rollback()
+		sendJSON(w, "error", "删除节点失败")
+		return
+	}
+	// 2. 删除订阅本身
+	if err := tx.Where("id = ?", req.ID).Delete(&database.AirportSub{}).Error; err != nil {
+		tx.Rollback()
+		sendJSON(w, "error", "删除订阅失败")
+		return
+	}
+	tx.Commit()
+
+	sendJSON(w, "success", "删除成功")
+}
+
+// apiAirportNodes 获取指定订阅的节点列表
+func apiAirportNodes(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	subID := r.URL.Query().Get("id")
+	if subID == "" {
+		sendJSON(w, "error", "缺少订阅ID")
+		return
+	}
+
+	var nodes []database.AirportNode
+	// 按启用状态(倒序, 启用在前) -> 原始索引(正序) 排序
+	if err := database.DB.Where("sub_id = ?", subID).
+		Order("routing_type DESC, original_index ASC").
+		Find(&nodes).Error; err != nil {
+		sendJSON(w, "error", "获取节点失败")
+		return
+	}
+
+	sendJSON(w, "success", map[string]interface{}{
+		"nodes": nodes,
+	})
+}
+
+// apiAirportNodeRouting 修改单个节点的路由策略 (三态切换)
+func apiAirportNodeRouting(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID          string `json:"id"`
+		RoutingType int    `json:"routing_type"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, "error", "格式错误")
+		return
+	}
+
+	// 0=禁用, 1=直连, 2=落地
+	if err := database.DB.Model(&database.AirportNode{}).
+		Where("id = ?", req.ID).
+		Update("routing_type", req.RoutingType).Error; err != nil {
+
+		logger.Log.Error("修改节点状态失败", "id", req.ID, "error", err)
+		sendJSON(w, "error", "数据库更新失败")
+		return
+	}
+
+	sendJSON(w, "success", "状态已更新")
+}
+
+// apiAirportEdit 编辑订阅信息 (名称和URL)
+func apiAirportEdit(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		URL  string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, "error", "格式错误")
+		return
+	}
+
+	if req.ID == "" {
+		sendJSON(w, "error", "订阅ID不能为空")
+		return
+	}
+
+	// 准备更新的数据
+	updates := make(map[string]interface{})
+	if req.Name != "" {
+		updates["name"] = req.Name
+	}
+	if req.URL != "" {
+		updates["url"] = req.URL
+	}
+
+	if len(updates) == 0 {
+		sendJSON(w, "error", "没有检测到变更内容")
+		return
+	}
+
+	// 执行数据库更新
+	if err := database.DB.Model(&database.AirportSub{}).Where("id = ?", req.ID).Updates(updates).Error; err != nil {
+		logger.Log.Error("编辑订阅失败", "id", req.ID, "error", err)
+		sendJSON(w, "error", "数据库更新失败")
+		return
+	}
+
+	logger.Log.Info("订阅信息已修改", "id", req.ID, "updates", updates)
+	sendJSON(w, "success", "修改成功")
 }

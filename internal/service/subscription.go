@@ -63,6 +63,29 @@ func GenerateRawNodesYAML(routingType int, useFlag bool) (string, error) {
 		}
 	}
 
+	// -----------------------------------------------------------------------
+	// [新增逻辑] 注入机场订阅节点 (Airport Nodes)
+	// -----------------------------------------------------------------------
+	var airportNodes []database.AirportNode
+	// 根据 routingType (1=直连, 2=落地) 获取启用的机场节点，并按订阅源和原始顺序排序
+	if err := database.DB.Where("routing_type = ?", routingType).
+		Order("sub_id, original_index ASC").Find(&airportNodes).Error; err == nil {
+
+		for _, anode := range airportNodes {
+			// 解析机场原始链接 (vmess://, ss:// 等) 为 Clash 对象
+			// 注意：这里不需要 suffix，直接使用原始链接解析
+			proxyNode := ParseLinkToClashNode(anode.Link, "")
+
+			if proxyNode != nil {
+				// 强制使用数据库中保存的名称 (用户可能重命名过，且用于去重/管理)
+				proxyNode.Name = anode.Name
+
+				// 机场节点通常自带 IP 或域名，直接加入列表
+				proxyList = append(proxyList, proxyNode)
+			}
+		}
+	}
+
 	// [新增修复逻辑] ---------------------------------------------------------
 	// 如果遍历完数据库后，proxyList 依然为空（说明用户没配节点，或节点都被禁用了）
 	// 强制插入一个 "直连" 类型的占位节点，防止客户端报错，并实现自动直连
@@ -164,6 +187,24 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 
 				lines = append(lines, fmt.Sprintf("%s#%s", targetLink, safeName))
 			}
+		}
+	}
+
+	// -----------------------------------------------------------------------
+	// [新增逻辑] 注入机场订阅节点 (Airport Nodes)
+	// -----------------------------------------------------------------------
+	var airportNodes []database.AirportNode
+	// 获取所有启用的机场节点 (包括直连1 和 落地2)
+	if err := database.DB.Where("routing_type IN ?", []int{1, 2}).
+		Order("sub_id, original_index ASC").Find(&airportNodes).Error; err == nil {
+
+		for _, anode := range airportNodes {
+			// 核心：使用重命名引擎，确保订阅出来的链接名称与数据库中一致
+			// RenameNodeLink 函数位于 links.go 中
+			finalLink := RenameNodeLink(anode.Link, anode.Name)
+
+			// 追加到订阅列表
+			lines = append(lines, finalLink)
 		}
 	}
 

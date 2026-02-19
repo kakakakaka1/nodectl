@@ -102,6 +102,15 @@ func Start(tmplFS embed.FS) {
 	mux.HandleFunc("/sub/rules/direct", withSecure(apiSubRuleList))
 	mux.HandleFunc("/sub/rules/proxy/", withSecure(apiSubRuleList))
 
+	// ========== 机场订阅管理 ==========
+	mux.HandleFunc("/api/airport/list", withAuthAndSecure(apiAirportList))                // 获取订阅列表
+	mux.HandleFunc("/api/airport/add", withAuthAndSecure(apiAirportAdd))                  // 添加订阅
+	mux.HandleFunc("/api/airport/update", withAuthAndSecure(apiAirportUpdate))            // 更新订阅(同步)
+	mux.HandleFunc("/api/airport/edit", withAuthAndSecure(apiAirportEdit))                // ✨ 新增：编辑订阅(名称/URL)
+	mux.HandleFunc("/api/airport/delete", withAuthAndSecure(apiAirportDelete))            // 删除订阅
+	mux.HandleFunc("/api/airport/nodes", withAuthAndSecure(apiAirportNodes))              // 获取订阅下节点
+	mux.HandleFunc("/api/airport/node/routing", withAuthAndSecure(apiAirportNodeRouting)) // 修改节点状态
+
 	// 4. 进入服务守护主循环 (实现热重启的核心逻辑)
 	for {
 		// 每次进入循环前，尝试加载证书
