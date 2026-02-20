@@ -2,390 +2,1125 @@
 <style>
     /* ================= 统一弹窗基础框架 (严格隔离前缀 sys-) ================= */
     .sys-modal-overlay {
-        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-        z-index: 3000; align-items: center; justify-content: center;
-        opacity: 0; transition: opacity 0.3s ease;
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 3000;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
-    .sys-modal-overlay.active { display: flex; opacity: 1; }
-    
+
+    .sys-modal-overlay.active {
+        display: flex;
+        opacity: 1;
+    }
+
     /* 直接固定宽度为 900px，高度为 85vh */
     .sys-modal-card {
-        background: #ffffff; width: 100%; max-width: 900px; height: 85vh; border-radius: 12px; 
-        box-shadow: 0 20px 40px rgba(0,0,0,0.15); display: flex; flex-direction: column; overflow: hidden;
+        background: #ffffff;
+        width: 100%;
+        max-width: 900px;
+        height: 85vh;
+        border-radius: 12px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
     }
-    .sys-modal-card.has-content { max-width: 900px; }
+
+    .sys-modal-card.has-content {
+        max-width: 900px;
+    }
 
     /* 统一 Header 样式 */
-    .sys-header { 
-        background: #f5f5f7; border-bottom: 1px solid #e5e5ea; 
-        padding: 15px 20px 15px 25px; display: flex; align-items: center; justify-content: space-between; 
+    .sys-header {
+        background: #f5f5f7;
+        border-bottom: 1px solid #e5e5ea;
+        padding: 15px 20px 15px 25px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
-    .sys-title-area { display: flex; flex-direction: column; }
-    .sys-title { font-size: 15px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px; margin: 0; }
-    
+
+    .sys-title-area {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .sys-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+    }
+
     .sys-save-indicator {
-        font-size: 12px; font-weight: 600; color: #34c759; opacity: 0; transition: opacity 0.3s;
-        display: flex; align-items: center; gap: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #34c759;
+        opacity: 0;
+        transition: opacity 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
 
     /* 主内容区 */
-    .sys-body { flex: 1; display: flex; flex-direction: row; background: #fff; overflow: hidden; }
-    .sys-no-scrollbar { overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
-    .sys-no-scrollbar::-webkit-scrollbar { display: none; }
+    .sys-body {
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    .sys-no-scrollbar {
+        overflow-y: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .sys-no-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
 
     /* ================= 左侧分类导航面板 ================= */
     .sys-left-col {
-        width: 320px; flex-shrink: 0; padding: 20px 25px;
-        border-right: 1px solid transparent; transition: border-color 0.3s;
+        width: 320px;
+        flex-shrink: 0;
+        padding: 20px 25px;
+        border-right: 1px solid transparent;
+        transition: border-color 0.3s;
     }
-    .sys-modal-card.has-content .sys-left-col { width: 320px; border-right-color: #f5f5f7; }
 
-    .sys-section-label { display: block; font-size: 13px; font-weight: 600; color: #888; margin-bottom: 12px; }
+    .sys-modal-card.has-content .sys-left-col {
+        width: 320px;
+        border-right-color: #f5f5f7;
+    }
+
+    .sys-section-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #888;
+        margin-bottom: 12px;
+    }
 
     /* 导航卡片 */
     .sys-nav-card {
-        border: 1px solid #e5e5ea; border-radius: 10px; background: #fff; margin-bottom: 10px;
-        padding: 12px 14px; user-select: none; cursor: pointer; transition: all 0.2s;
-        display: flex; align-items: center; justify-content: space-between;
+        border: 1px solid #e5e5ea;
+        border-radius: 10px;
+        background: #fff;
+        margin-bottom: 10px;
+        padding: 12px 14px;
+        user-select: none;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
-    .sys-nav-card:hover { border-color: #d1d1d6; background: #fafafa; }
-    .sys-nav-card.active { border-color: #007aff; background: #f0f7ff; }
-    
-    .sys-nav-name { font-size: 14px; font-weight: 600; color: #1d1d1f; transition: color 0.2s; }
-    .sys-nav-card.active .sys-nav-name { color: #007aff; }
 
-    .sys-expand-indicator { color: #ccc; transition: all 0.2s; display: flex; align-items: center;}
-    .sys-nav-card:hover .sys-expand-indicator { color: #86868b; transform: translateX(2px); }
-    .sys-nav-card.active .sys-expand-indicator { color: #007aff; }
+    .sys-nav-card:hover {
+        border-color: #d1d1d6;
+        background: #fafafa;
+    }
+
+    .sys-nav-card.active {
+        border-color: #007aff;
+        background: #f0f7ff;
+    }
+
+    .sys-nav-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1d1d1f;
+        transition: color 0.2s;
+    }
+
+    .sys-nav-card.active .sys-nav-name {
+        color: #007aff;
+    }
+
+    .sys-expand-indicator {
+        color: #ccc;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+    }
+
+    .sys-nav-card:hover .sys-expand-indicator {
+        color: #86868b;
+        transform: translateX(2px);
+    }
+
+    .sys-nav-card.active .sys-expand-indicator {
+        color: #007aff;
+    }
 
     /* ================= 右侧/内联详情面板 ================= */
     .sys-right-col {
-        flex: 1; padding: 20px 25px; display: none; background: #fff;
+        flex: 1;
+        padding: 20px 25px;
+        display: none;
+        background: #fff;
     }
-    .sys-modal-card.has-content .sys-right-col { display: block; animation: sysFadeIn 0.3s ease; }
-    @keyframes sysFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .sys-modal-card.has-content .sys-right-col {
+        display: block;
+        animation: sysFadeIn 0.3s ease;
+    }
+
+    @keyframes sysFadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
 
     /* 表单组件 */
-    .sys-field { margin-bottom: 24px; }
-    .sys-label { display: block; font-size: 12px; font-weight: 600; color: #86868b; margin-bottom: 8px; text-transform: uppercase;}
-    .sys-desc { font-size: 12px; color: #888; margin-top: 8px; line-height: 1.5; background: #f9f9fc; padding: 10px; border-radius: 8px; border: 1px solid #eee; }
-
-    .sys-input, .sys-select {
-        width: 100%; padding: 10px 12px; border: 1px solid #d1d1d6; border-radius: 8px;
-        font-size: 13px; color: #1d1d1f; outline: none; transition: 0.2s; background: #fafbfc;
-        font-family: monospace; box-sizing: border-box;
+    .sys-field {
+        margin-bottom: 24px;
     }
-    .sys-input:focus, .sys-select:focus { border-color: #007aff; background: #fff; box-shadow: 0 0 0 2px rgba(0,122,255,0.1); }
-    
+
+    .sys-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 600;
+        color: #86868b;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .sys-desc {
+        font-size: 12px;
+        color: #888;
+        margin-top: 8px;
+        line-height: 1.5;
+        background: #f9f9fc;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #eee;
+    }
+
+    .sys-input,
+    .sys-select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #d1d1d6;
+        border-radius: 8px;
+        font-size: 13px;
+        color: #1d1d1f;
+        outline: none;
+        transition: 0.2s;
+        background: #fafbfc;
+        font-family: monospace;
+        box-sizing: border-box;
+    }
+
+    .sys-input:focus,
+    .sys-select:focus {
+        border-color: #007aff;
+        background: #fff;
+        box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.1);
+    }
+
     /* 美化 Select 组件 (隐藏原生箭头，使用自定义 SVG 箭头) */
-    select.sys-select { 
-        font-family: inherit; cursor: pointer; appearance: none; -webkit-appearance: none;
+    select.sys-select {
+        font-family: inherit;
+        cursor: pointer;
+        appearance: none;
+        -webkit-appearance: none;
         background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-        background-repeat: no-repeat; background-position: right 12px center; background-size: 16px;
-        padding-right: 36px; font-weight: 500;
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 16px;
+        padding-right: 36px;
+        font-weight: 500;
     }
 
     /* ================= 悬浮提示框 (Tooltip) 样式 ================= */
     .sys-info-tooltip-wrap {
-        position: relative; display: inline-flex; align-items: center; cursor: pointer; outline: none;
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        outline: none;
     }
-    .sys-info-tooltip-wrap svg { color: #a1a1aa; transition: color 0.2s; }
-    .sys-info-tooltip-wrap:hover svg, .sys-info-tooltip-wrap:focus svg { color: #007aff; }
-    
+
+    .sys-info-tooltip-wrap svg {
+        color: #a1a1aa;
+        transition: color 0.2s;
+    }
+
+    .sys-info-tooltip-wrap:hover svg,
+    .sys-info-tooltip-wrap:focus svg {
+        color: #007aff;
+    }
+
     /* 优化：改为从下方展开并靠左对齐，完美避开滚动容器的顶部裁切 */
     .sys-tooltip-content {
-        position: absolute; top: 140%; left: -10px; transform: translateY(-5px);
-        background: rgba(29, 29, 31, 0.95); color: #fff; padding: 12px; border-radius: 8px;
-        font-size: 12px; font-weight: normal; letter-spacing: 0.2px; white-space: normal; width: 250px;
-        opacity: 0; visibility: hidden; transition: all 0.2s; pointer-events: none; z-index: 1000;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.15); line-height: 1.6; text-align: left;
+        position: absolute;
+        top: 140%;
+        left: -10px;
+        transform: translateY(-5px);
+        background: rgba(29, 29, 31, 0.95);
+        color: #fff;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: normal;
+        letter-spacing: 0.2px;
+        white-space: normal;
+        width: 250px;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s;
+        pointer-events: none;
+        z-index: 1000;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        line-height: 1.6;
+        text-align: left;
     }
+
     /* 倒三角箭头指向也同步反转，指向图标正中央 */
     .sys-tooltip-content::after {
-        content: ''; position: absolute; bottom: 100%; left: 14px;
-        border-width: 5px; border-style: solid; border-color: transparent transparent rgba(29, 29, 31, 0.95) transparent;
+        content: '';
+        position: absolute;
+        bottom: 100%;
+        left: 14px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: transparent transparent rgba(29, 29, 31, 0.95) transparent;
     }
-    
+
     /* 鼠标悬浮(PC) 或 点击获取焦点(手机) 时平滑显示 */
-    .sys-info-tooltip-wrap:hover .sys-tooltip-content, .sys-info-tooltip-wrap:focus .sys-tooltip-content {
-        opacity: 1; visibility: visible; transform: translateY(0);
+    .sys-info-tooltip-wrap:hover .sys-tooltip-content,
+    .sys-info-tooltip-wrap:focus .sys-tooltip-content {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
     }
 
     /* 移动端 Tooltip 位置微调 */
     @media (max-width: 768px) {
-        .sys-tooltip-content { left: -20px; width: 240px; }
-        .sys-tooltip-content::after { left: 24px; }
+        .sys-tooltip-content {
+            left: -20px;
+            width: 240px;
+        }
+
+        .sys-tooltip-content::after {
+            left: 24px;
+        }
     }
 
-    .sys-input-group { display: flex; gap: 8px; }
-    .sys-input-group .sys-input { flex: 1; }
-    
-    .btn-sys-regen {
-        background: #f0f7ff; border: 1px solid #cce4ff; color: #007aff;
-        padding: 0 14px; border-radius: 8px; font-size: 12px; font-weight: 600; 
-        cursor: pointer; transition: 0.2s; white-space: nowrap;
+    .sys-input-group {
+        display: flex;
+        gap: 8px;
     }
-    .btn-sys-regen:hover { background: #e0efff; border-color: #b3d7ff; }
+
+    .sys-input-group .sys-input {
+        flex: 1;
+    }
+
+    .btn-sys-regen {
+        background: #f0f7ff;
+        border: 1px solid #cce4ff;
+        color: #007aff;
+        padding: 0 14px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s;
+        white-space: nowrap;
+    }
+
+    .btn-sys-regen:hover {
+        background: #e0efff;
+        border-color: #b3d7ff;
+    }
 
     /* 开关组件 */
     .sys-pref-row {
-        display: flex; justify-content: space-between; align-items: center;
-        padding: 15px; background: #f9f9fc; border: 1px solid #eee; border-radius: 12px;
-        margin-bottom: 15px; transition: 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        background: #f9f9fc;
+        border: 1px solid #eee;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        transition: 0.2s;
     }
-    .sys-pref-row:hover { background: #f0f0f5; }
-    .sys-pref-info { display: flex; flex-direction: column; gap: 4px; }
-    .sys-pref-title { font-size: 14px; font-weight: 600; color: #333; }
-    .sys-pref-desc { font-size: 12px; color: #888; line-height: 1.4; }
 
-    .sys-toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-    .sys-toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .sys-pref-row:hover {
+        background: #f0f0f5;
+    }
+
+    .sys-pref-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .sys-pref-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .sys-pref-desc {
+        font-size: 12px;
+        color: #888;
+        line-height: 1.4;
+    }
+
+    .sys-toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
+    }
+
+    .sys-toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+
     .sys-toggle-slider {
-        position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-        background-color: #e5e5ea; transition: .3s; border-radius: 24px;
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #e5e5ea;
+        transition: .3s;
+        border-radius: 24px;
     }
+
     .sys-toggle-slider:before {
-        position: absolute; content: ""; height: 20px; width: 20px;
-        left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        position: absolute;
+        content: "";
+        height: 20px;
+        width: 20px;
+        left: 2px;
+        bottom: 2px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
-    .sys-toggle-switch input:checked + .sys-toggle-slider { background-color: #34c759; }
-    .sys-toggle-switch input:checked + .sys-toggle-slider:before { transform: translateX(20px); }
+
+    .sys-toggle-switch input:checked+.sys-toggle-slider {
+        background-color: #34c759;
+    }
+
+    .sys-toggle-switch input:checked+.sys-toggle-slider:before {
+        transform: translateX(20px);
+    }
 
     /* ================= ✨ 系统监控专属样式 ================= */
-    .sys-mon-header-info { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
-    .sys-mon-badge { 
-        padding: 3px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; font-family: monospace; 
+    .sys-mon-header-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 20px;
     }
-    .sys-mon-badge-green { background: #eafff1; color: #16a34a; border: 1px solid #bbf7d0; }
-    .sys-mon-badge-purple { background: #f3e8ff; color: #7c3aed; border: 1px solid #e9d5ff; }
+
+    .sys-mon-badge {
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        font-family: monospace;
+    }
+
+    .sys-mon-badge-green {
+        background: #eafff1;
+        color: #16a34a;
+        border: 1px solid #bbf7d0;
+    }
+
+    .sys-mon-badge-purple {
+        background: #f3e8ff;
+        color: #7c3aed;
+        border: 1px solid #e9d5ff;
+    }
 
     .sys-mon-grid {
-        display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+        margin-bottom: 20px;
     }
+
     .sys-mon-card {
-        padding: 16px; border-radius: 12px; border: 1px solid #f0f0f5; 
-        display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden;
+        padding: 16px;
+        border-radius: 12px;
+        border: 1px solid #f0f0f5;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+        overflow: hidden;
     }
-    .sys-mon-purple { background: #fdfaff; border-color: #f3e8ff; }
-    .sys-mon-green { background: #fafffc; border-color: #dcfce7; }
-    .sys-mon-yellow { background: #fffcf5; border-color: #fef08a; }
-    .sys-mon-blue { background: #f5fbff; border-color: #e0f2fe; }
 
-    .sys-mon-card-title { font-size: 12px; font-weight: 600; color: #666; display: flex; align-items: center; gap: 6px; margin-bottom: 4px;}
-    .sys-mon-card-val { font-size: 24px; font-weight: 700; color: #333; font-family: monospace; letter-spacing: -0.5px;}
-    .sys-mon-purple .sys-mon-card-val { color: #7c3aed; }
-    .sys-mon-green .sys-mon-card-val { color: #16a34a; }
-    .sys-mon-yellow .sys-mon-card-val { color: #d97706; }
-    .sys-mon-blue .sys-mon-card-val { color: #0284c7; }
+    .sys-mon-purple {
+        background: #fdfaff;
+        border-color: #f3e8ff;
+    }
 
-    .sys-mon-card-sub { font-size: 11px; color: #888; display: flex; justify-content: space-between; margin-top: 4px;}
-    
-    .sys-mon-progress-bg { width: 100%; height: 4px; background: rgba(0,0,0,0.05); border-radius: 2px; margin-top: auto; overflow: hidden; }
-    .sys-mon-progress { height: 100%; border-radius: 2px; transition: width 0.5s ease-out; }
-    .sys-mon-purple .sys-mon-progress { background: #a78bfa; }
-    .sys-mon-green .sys-mon-progress { background: #4ade80; }
+    .sys-mon-green {
+        background: #fafffc;
+        border-color: #dcfce7;
+    }
+
+    .sys-mon-yellow {
+        background: #fffcf5;
+        border-color: #fef08a;
+    }
+
+    .sys-mon-blue {
+        background: #f5fbff;
+        border-color: #e0f2fe;
+    }
+
+    .sys-mon-card-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #666;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+    }
+
+    .sys-mon-card-val {
+        font-size: 24px;
+        font-weight: 700;
+        color: #333;
+        font-family: monospace;
+        letter-spacing: -0.5px;
+    }
+
+    .sys-mon-purple .sys-mon-card-val {
+        color: #7c3aed;
+    }
+
+    .sys-mon-green .sys-mon-card-val {
+        color: #16a34a;
+    }
+
+    .sys-mon-yellow .sys-mon-card-val {
+        color: #d97706;
+    }
+
+    .sys-mon-blue .sys-mon-card-val {
+        color: #0284c7;
+    }
+
+    .sys-mon-card-sub {
+        font-size: 11px;
+        color: #888;
+        display: flex;
+        justify-content: space-between;
+        margin-top: 4px;
+    }
+
+    .sys-mon-progress-bg {
+        width: 100%;
+        height: 4px;
+        background: rgba(0, 0, 0, 0.05);
+        border-radius: 2px;
+        margin-top: auto;
+        overflow: hidden;
+    }
+
+    .sys-mon-progress {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.5s ease-out;
+    }
+
+    .sys-mon-purple .sys-mon-progress {
+        background: #a78bfa;
+    }
+
+    .sys-mon-green .sys-mon-progress {
+        background: #4ade80;
+    }
 
     /* 详情列表 */
     .sys-mon-details-box {
-        background: #fafbfc; border: 1px solid #e5e5ea; border-radius: 12px; padding: 16px;
+        background: #fafbfc;
+        border: 1px solid #e5e5ea;
+        border-radius: 12px;
+        padding: 16px;
     }
-    .sys-mon-details-title { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;}
+
+    .sys-mon-details-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
     .sys-mon-details-grid {
-        display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 20px;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px 20px;
     }
+
     .sys-mon-detail-row {
-        display: flex; justify-content: space-between; align-items: center; font-size: 12px; border-bottom: 1px dashed #f0f0f5; padding-bottom: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12px;
+        border-bottom: 1px dashed #f0f0f5;
+        padding-bottom: 6px;
     }
-    .sys-mon-detail-row:last-child, .sys-mon-detail-row:nth-last-child(2) { border-bottom: none; padding-bottom: 0; }
-    .sys-mon-detail-key { color: #666; }
-    .sys-mon-detail-val { font-weight: 600; color: #d73a49; font-family: monospace; }
-    .sys-mon-detail-val.blue { color: #0366d6; }
-    .sys-mon-detail-val.green { color: #22863a; }
+
+    .sys-mon-detail-row:last-child,
+    .sys-mon-detail-row:nth-last-child(2) {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .sys-mon-detail-key {
+        color: #666;
+    }
+
+    .sys-mon-detail-val {
+        font-weight: 600;
+        color: #d73a49;
+        font-family: monospace;
+    }
+
+    .sys-mon-detail-val.blue {
+        color: #0366d6;
+    }
+
+    .sys-mon-detail-val.green {
+        color: #22863a;
+    }
 
     /* ======================================================= */
 
     /* Geo 信息卡片 */
     .sys-geo-info-card {
-        background: #fafbfc; border: 1px solid #e5e5ea; border-radius: 10px; padding: 15px;
-        display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;
+        background: #fafbfc;
+        border: 1px solid #e5e5ea;
+        border-radius: 10px;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
     }
-    .sys-geo-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-    .sys-geo-key { color: #666; font-weight: 500; }
-    .sys-geo-value { color: #1d1d1f; font-weight: 600; font-family: monospace; }
-    
-    .btn-sys-geo-action {
-        width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; border: none; outline: none;
-    }
-    .btn-sys-geo-loading { background: #f5f5f7; color: #86868b; cursor: default; }
-    .btn-sys-geo-update { background: #007aff; color: white; }
-    .btn-sys-geo-update:hover { background: #0062cc; }
-    .btn-sys-geo-latest { background: #eafff1; color: #34c759; border: 1px solid #bbf7d0; cursor: default; }
-    .btn-sys-geo-error { background: #fff5f5; color: #d74242; border: 1px solid #fed7d7; }
-    .btn-sys-geo-error:hover { background: #fee2e2; }
 
-    @keyframes sysSpin { 100% { transform: rotate(360deg); } }
-    .sys-spin { animation: sysSpin 1s linear infinite; }
+    .sys-geo-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+    }
+
+    .sys-geo-key {
+        color: #666;
+        font-weight: 500;
+    }
+
+    .sys-geo-value {
+        color: #1d1d1f;
+        font-weight: 600;
+        font-family: monospace;
+    }
+
+    .btn-sys-geo-action {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        transition: all 0.2s;
+        border: none;
+        outline: none;
+    }
+
+    .btn-sys-geo-loading {
+        background: #f5f5f7;
+        color: #86868b;
+        cursor: default;
+    }
+
+    .btn-sys-geo-update {
+        background: #007aff;
+        color: white;
+    }
+
+    .btn-sys-geo-update:hover {
+        background: #0062cc;
+    }
+
+    .btn-sys-geo-latest {
+        background: #eafff1;
+        color: #34c759;
+        border: 1px solid #bbf7d0;
+        cursor: default;
+    }
+
+    .btn-sys-geo-error {
+        background: #fff5f5;
+        color: #d74242;
+        border: 1px solid #fed7d7;
+    }
+
+    .btn-sys-geo-error:hover {
+        background: #fee2e2;
+    }
+
+    @keyframes sysSpin {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .sys-spin {
+        animation: sysSpin 1s linear infinite;
+    }
 
     /* Footer */
-    .sys-footer { padding: 15px 25px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; background: #fff;}
-    .btn-sys-cancel { background: #f5f5f7; border: none; color: #333; padding: 8px 25px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s;}
-    .btn-sys-cancel:hover { background: #e5e5ea; }
+    .sys-footer {
+        padding: 15px 25px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        background: #fff;
+    }
+
+    .btn-sys-cancel {
+        background: #f5f5f7;
+        border: none;
+        color: #333;
+        padding: 8px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+
+    .btn-sys-cancel:hover {
+        background: #e5e5ea;
+    }
 
     /* ================= 证书管理 ================= */
     /* 证书状态卡片 */
     .cert-status-card {
         background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-        border: 1px solid #d1d1d6; border-radius: 12px; padding: 20px;
-        margin-bottom: 25px; display: flex; flex-direction: column; gap: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        border: 1px solid #d1d1d6;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
     }
-    .cert-row { display: flex; justify-content: space-between; font-size: 13px; color: #555; border-bottom: 1px dashed #e0e0e0; padding-bottom: 8px; }
-    .cert-row:last-child { border-bottom: none; padding-bottom: 0; }
-    .cert-val { font-family: monospace; font-weight: 600; color: #333; }
-    .cert-val.secure { color: #34c759; }
-    .cert-val.warning { color: #ff9500; }
+
+    .cert-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        color: #555;
+        border-bottom: 1px dashed #e0e0e0;
+        padding-bottom: 8px;
+    }
+
+    .cert-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .cert-val {
+        font-family: monospace;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .cert-val.secure {
+        color: #34c759;
+    }
+
+    .cert-val.warning {
+        color: #ff9500;
+    }
 
     /* 折叠面板样式 (details/summary) */
     details.sys-details {
-        background: #fff; border: 1px solid #e5e5ea; border-radius: 10px;
-        margin-bottom: 15px; overflow: hidden; transition: all 0.2s;
+        background: #fff;
+        border: 1px solid #e5e5ea;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        overflow: hidden;
+        transition: all 0.2s;
     }
-    details.sys-details[open] { border-color: #007aff; box-shadow: 0 4px 12px rgba(0,122,255,0.1); }
-    
+
+    details.sys-details[open] {
+        border-color: #007aff;
+        box-shadow: 0 4px 12px rgba(0, 122, 255, 0.1);
+    }
+
     summary.sys-summary {
-        padding: 12px 15px; cursor: pointer; font-size: 14px; font-weight: 600; color: #333;
-        background: #fafbfc; list-style: none; display: flex; justify-content: space-between; align-items: center;
+        padding: 12px 15px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        background: #fafbfc;
+        list-style: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         user-select: none;
     }
-    summary.sys-summary::-webkit-details-marker { display: none; }
-    summary.sys-summary::after { content: '+'; font-size: 18px; color: #999; transition: 0.2s; }
-    details[open] summary.sys-summary::after { content: '−'; transform: rotate(180deg); color: #007aff; }
-    
-    .sys-details-content { padding: 20px; border-top: 1px solid #f0f0f5; background: #fff; }
-    
+
+    summary.sys-summary::-webkit-details-marker {
+        display: none;
+    }
+
+    summary.sys-summary::after {
+        content: '+';
+        font-size: 18px;
+        color: #999;
+        transition: 0.2s;
+    }
+
+    details[open] summary.sys-summary::after {
+        content: '−';
+        transform: rotate(180deg);
+        color: #007aff;
+    }
+
+    .sys-details-content {
+        padding: 20px;
+        border-top: 1px solid #f0f0f5;
+        background: #fff;
+    }
+
     /* 终端日志黑框样式 */
     .sys-log-box {
-        background: #1e1e1e; color: #a6e22e; font-family: monospace; font-size: 12px;
-        padding: 12px; border-radius: 8px; margin-top: 15px; max-height: 180px;
-        overflow-y: auto; white-space: pre-wrap; word-break: break-all;
-        border: 1px solid #000; line-height: 1.5; display: none; box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+        background: #1e1e1e;
+        color: #a6e22e;
+        font-family: monospace;
+        font-size: 12px;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 15px;
+        max-height: 180px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        border: 1px solid #000;
+        line-height: 1.5;
+        display: none;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
     }
-    .sys-log-box span.log-err { color: #f92672; }
-    .sys-log-box span.log-info { color: #66d9ef; }
-    .sys-log-box span.log-warn { color: #fd971f; }
-    
+
+    .sys-log-box span.log-err {
+        color: #f92672;
+    }
+
+    .sys-log-box span.log-info {
+        color: #66d9ef;
+    }
+
+    .sys-log-box span.log-warn {
+        color: #fd971f;
+    }
+
     /* ================= 证书上传 Tab 样式 ================= */
-    .sys-tabs { display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 10px; }
-    .sys-tab-btn { background: none; border: none; font-size: 13px; font-weight: 600; color: #888; cursor: pointer; padding: 6px 12px; transition: 0.2s; border-radius: 6px; }
-    .sys-tab-btn:hover { background: #f5f5f7; }
-    .sys-tab-btn.active { color: #007aff; background: #f0f7ff; }
-    .sys-tab-content { display: none; animation: sysFadeIn 0.3s ease; }
-    .sys-tab-content.active { display: block; }
-    .sys-textarea { width: 100%; height: 120px; padding: 10px; border: 1px solid #d1d1d6; border-radius: 8px; font-family: monospace; font-size: 12px; resize: vertical; box-sizing: border-box; outline: none; transition: border-color 0.2s; }
-    .sys-textarea:focus { border-color: #007aff; }
+    .sys-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+    }
+
+    .sys-tab-btn {
+        background: none;
+        border: none;
+        font-size: 13px;
+        font-weight: 600;
+        color: #888;
+        cursor: pointer;
+        padding: 6px 12px;
+        transition: 0.2s;
+        border-radius: 6px;
+    }
+
+    .sys-tab-btn:hover {
+        background: #f5f5f7;
+    }
+
+    .sys-tab-btn.active {
+        color: #007aff;
+        background: #f0f7ff;
+    }
+
+    .sys-tab-content {
+        display: none;
+        animation: sysFadeIn 0.3s ease;
+    }
+
+    .sys-tab-content.active {
+        display: block;
+    }
+
+    .sys-textarea {
+        width: 100%;
+        height: 120px;
+        padding: 10px;
+        border: 1px solid #d1d1d6;
+        border-radius: 8px;
+        font-family: monospace;
+        font-size: 12px;
+        resize: vertical;
+        box-sizing: border-box;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+
+    .sys-textarea:focus {
+        border-color: #007aff;
+    }
+
     /* 文件上传按钮美化 */
-    .sys-file-upload { 
-        padding: 6px; border: 1px dashed #c5c5d2; background: #fafbfc; 
-        border-radius: 8px; cursor: pointer; color: #666; width: 100%; box-sizing: border-box; outline: none; transition: 0.2s;
+    .sys-file-upload {
+        padding: 6px;
+        border: 1px dashed #c5c5d2;
+        background: #fafbfc;
+        border-radius: 8px;
+        cursor: pointer;
+        color: #666;
+        width: 100%;
+        box-sizing: border-box;
+        outline: none;
+        transition: 0.2s;
     }
-    .sys-file-upload:hover { border-color: #007aff; }
+
+    .sys-file-upload:hover {
+        border-color: #007aff;
+    }
+
     .sys-file-upload::file-selector-button {
-        background: #f0f7ff; color: #007aff; border: 1px solid #cce4ff; padding: 6px 12px;
-        border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s;
-        margin-right: 12px; font-size: 12px; outline: none;
+        background: #f0f7ff;
+        color: #007aff;
+        border: 1px solid #cce4ff;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: 0.2s;
+        margin-right: 12px;
+        font-size: 12px;
+        outline: none;
     }
-    .sys-file-upload::file-selector-button:hover { background: #e0efff; border-color: #b3d7ff;}
+
+    .sys-file-upload::file-selector-button:hover {
+        background: #e0efff;
+        border-color: #b3d7ff;
+    }
+
     /* ================= 证书管理================= */
 
     /* ================= 移动端适配 ================= */
     .sys-mobile-inline-form {
-        padding: 15px; background: #fdfdfd; border: 1px solid #cce4ff; border-top: none;
-        border-radius: 0 0 10px 10px; margin-top: -10px; margin-bottom: 10px;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); animation: sysSlideDown 0.2s ease-out; transform-origin: top center;
+        padding: 15px;
+        background: #fdfdfd;
+        border: 1px solid #cce4ff;
+        border-top: none;
+        border-radius: 0 0 10px 10px;
+        margin-top: -10px;
+        margin-bottom: 10px;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+        animation: sysSlideDown 0.2s ease-out;
+        transform-origin: top center;
     }
-    @keyframes sysSlideDown { from { opacity: 0; transform: scaleY(0.95); } to { opacity: 1; transform: scaleY(1); } }
-    
+
+    @keyframes sysSlideDown {
+        from {
+            opacity: 0;
+            transform: scaleY(0.95);
+        }
+
+        to {
+            opacity: 1;
+            transform: scaleY(1);
+        }
+    }
+
     .sys-nav-card.mobile-expanded {
-        border-radius: 10px 10px 0 0; margin-bottom: 0; border-bottom-color: transparent;
+        border-radius: 10px 10px 0 0;
+        margin-bottom: 0;
+        border-bottom-color: transparent;
     }
 
     @media (max-width: 768px) {
-        .sys-modal-card { max-width: 95%; height: 85vh; }
-        .sys-modal-card.has-content { max-width: 95%; }
-        .sys-body { flex-direction: column; overflow-y: auto; display: block; }
-        .sys-left-col { width: 100%; height: auto; border-right: none; padding: 15px; overflow: visible; }
-        .sys-right-col { display: none !important; } 
-        
-        .sys-mon-grid { grid-template-columns: 1fr; gap: 10px; }
-        .sys-mon-details-grid { grid-template-columns: 1fr; gap: 6px; }
-        .sys-mon-detail-row:nth-last-child(2) { border-bottom: 1px dashed #f0f0f5; padding-bottom: 6px; }
+        .sys-modal-card {
+            max-width: 95%;
+            height: 85vh;
+        }
+
+        .sys-modal-card.has-content {
+            max-width: 95%;
+        }
+
+        .sys-body {
+            flex-direction: column;
+            overflow-y: auto;
+            display: block;
+        }
+
+        .sys-left-col {
+            width: 100%;
+            height: auto;
+            border-right: none;
+            padding: 15px;
+            overflow: visible;
+        }
+
+        .sys-right-col {
+            display: none !important;
+        }
+
+        .sys-mon-grid {
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .sys-mon-details-grid {
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
+
+        .sys-mon-detail-row:nth-last-child(2) {
+            border-bottom: 1px dashed #f0f0f5;
+            padding-bottom: 6px;
+        }
     }
 </style>
 
 <div class="sys-modal-overlay" id="systemSettingsModal">
     <div class="sys-modal-card" id="sysModalCard">
-        
+
         <div class="sys-header">
             <div class="sys-title-area">
                 <div class="sys-title">⚙️ 系统核心设置</div>
             </div>
             <div class="sys-save-indicator" id="sysSaveIndicator">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6L9 17l-5-5"></path>
+                </svg>
                 已保存
             </div>
         </div>
-        
+
         <div class="sys-body sys-no-scrollbar">
             <div class="sys-left-col sys-no-scrollbar">
                 <label class="sys-section-label">选择配置分类</label>
-                
+
                 <div class="sys-nav-card" data-sys-id="basic" onclick="selectSysCategory('basic', this)">
                     <div class="sys-nav-name">⚙️ 基础配置</div>
-                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg></div>
                 </div>
 
                 <div class="sys-nav-card" data-sys-id="cert" onclick="selectSysCategory('cert', this)">
                     <div class="sys-nav-name">🔐 安全证书</div>
-                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg></div>
                 </div>
 
                 <div class="sys-nav-card" data-sys-id="pref" onclick="selectSysCategory('pref', this)">
                     <div class="sys-nav-name">🎨 偏好设置</div>
-                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg></div>
                 </div>
 
                 <div class="sys-nav-card" data-sys-id="geo" onclick="selectSysCategory('geo', this)">
                     <div class="sys-nav-name">🌍 Geo 管理</div>
-                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg></div>
                 </div>
 
                 <div class="sys-nav-card" data-sys-id="mihomo" onclick="selectSysCategory('mihomo', this)">
                     <div class="sys-nav-name">🐱 Mihomo 核心</div>
-                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg></div>
                 </div>
 
                 <div class="sys-nav-card" data-sys-id="monitor" onclick="selectSysCategory('monitor', this)">
                     <div class="sys-nav-name">💻 系统监控</div>
-                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg></div>
                 </div>
             </div>
 
             <div class="sys-right-col sys-no-scrollbar" id="sysRightCol">
                 <label class="sys-section-label" id="sysRightTitle" style="display: none;">设置详情</label>
-                
+
                 <div class="sys-form-section" id="sys-form-basic" style="display:none;">
                     <div class="sys-field">
                         <label class="sys-label">面板外部访问地址 (Panel URL)</label>
-                        <input type="text" id="sys_panel_url" class="sys-input" placeholder="例如: https://www.yourdomain.com" oninput="triggerSysAutoSave()">
+                        <input type="text" id="sys_panel_url" class="sys-input"
+                            placeholder="例如: https://www.yourdomain.com" oninput="triggerSysAutoSave()">
                         <div class="sys-desc">用于脚本一键部署时的回调状态上报，以及订阅链接的生成基地址。</div>
                     </div>
                     <div class="sys-field">
                         <label class="sys-label">订阅安全凭证 (Sub Token)</label>
                         <div class="sys-input-group">
-                            <input type="text" id="sys_sub_token" class="sys-input" placeholder="用于拉取订阅的安全校验码" oninput="triggerSysAutoSave()">
+                            <input type="text" id="sys_sub_token" class="sys-input" placeholder="用于拉取订阅的安全校验码"
+                                oninput="triggerSysAutoSave()">
                             <button type="button" class="btn-sys-regen" onclick="generateNewSubToken()">重新生成</button>
                         </div>
                         <div class="sys-desc">这是您的核心订阅鉴权标识。如遭泄露，请点击重新生成，旧链接将立即失效。</div>
@@ -432,8 +1167,10 @@
                         <summary class="sys-summary">📂 手动上传证书</summary>
                         <div class="sys-details-content">
                             <div class="sys-tabs">
-                                <button type="button" id="tabBtnFile" class="sys-tab-btn active" onclick="switchCertTab('file')">📁 文件上传</button>
-                                <button type="button" id="tabBtnText" class="sys-tab-btn" onclick="switchCertTab('text')">📝 文本输入</button>
+                                <button type="button" id="tabBtnFile" class="sys-tab-btn active"
+                                    onclick="switchCertTab('file')">📁 文件上传</button>
+                                <button type="button" id="tabBtnText" class="sys-tab-btn"
+                                    onclick="switchCertTab('text')">📝 文本输入</button>
                             </div>
 
                             <div id="certTabFile" class="sys-tab-content active">
@@ -451,12 +1188,15 @@
 
                             <div id="certTabText" class="sys-tab-content">
                                 <div style="display:flex; flex-direction:column; gap:10px;">
-                                    <textarea id="textCrt" class="sys-textarea" placeholder="在此粘贴公钥内容 (-----BEGIN CERTIFICATE----- ... )"></textarea>
-                                    <textarea id="textKey" class="sys-textarea" placeholder="在此粘贴私钥内容 (-----BEGIN PRIVATE KEY----- ... )"></textarea>
+                                    <textarea id="textCrt" class="sys-textarea"
+                                        placeholder="在此粘贴公钥内容 (-----BEGIN CERTIFICATE----- ... )"></textarea>
+                                    <textarea id="textKey" class="sys-textarea"
+                                        placeholder="在此粘贴私钥内容 (-----BEGIN PRIVATE KEY----- ... )"></textarea>
                                 </div>
                             </div>
 
-                            <button type="button" id="btnSaveCert" class="btn-sys-regen" style="margin-top:15px; width:100%; padding:10px;" onclick="saveManualCert()">
+                            <button type="button" id="btnSaveCert" class="btn-sys-regen"
+                                style="margin-top:15px; width:100%; padding:10px;" onclick="saveManualCert()">
                                 📤 保存并验证证书
                             </button>
                         </div>
@@ -470,21 +1210,26 @@
                             </div>
                             <div class="sys-field">
                                 <label class="sys-label">CF 邮箱 (Email)</label>
-                                <input type="text" id="sys_cf_email" class="sys-input" placeholder="例如: user@example.com" oninput="triggerSysAutoSave()">
+                                <input type="text" id="sys_cf_email" class="sys-input"
+                                    placeholder="例如: user@example.com" oninput="triggerSysAutoSave()">
                             </div>
                             <div class="sys-field">
                                 <label class="sys-label">CF API 令牌 (API Token)</label>
-                                <input type="password" id="sys_cf_api_key" class="sys-input" placeholder="输入具备 DNS 编辑权限的 API Token" oninput="triggerSysAutoSave()">
+                                <input type="password" id="sys_cf_api_key" class="sys-input"
+                                    placeholder="输入具备 DNS 编辑权限的 API Token" oninput="triggerSysAutoSave()">
                             </div>
                             <div class="sys-field">
                                 <label class="sys-label">证书绑定域名</label>
-                                <input type="text" id="sys_cf_domain" class="sys-input" placeholder="例如: node.example.com" oninput="triggerSysAutoSave()">
+                                <input type="text" id="sys_cf_domain" class="sys-input"
+                                    placeholder="例如: node.example.com" oninput="triggerSysAutoSave()">
                             </div>
-                            
-                            <div class="sys-pref-row" style="padding: 10px 15px; margin-top: 10px; margin-bottom: 15px; border-radius: 8px;">
+
+                            <div class="sys-pref-row"
+                                style="padding: 10px 15px; margin-top: 10px; margin-bottom: 15px; border-radius: 8px;">
                                 <div class="sys-pref-info">
                                     <span class="sys-pref-title" style="font-size: 13px;">🔄 开启自动续订</span>
-                                    <span class="sys-pref-desc" style="font-size: 11px; margin-top: 2px;">有效期不足 7 天时自动续期</span>
+                                    <span class="sys-pref-desc" style="font-size: 11px; margin-top: 2px;">有效期不足 7
+                                        天时自动续期</span>
                                 </div>
                                 <label class="sys-toggle-switch">
                                     <input type="checkbox" id="sys_cf_auto_renew" onchange="triggerSysAutoSave()">
@@ -492,7 +1237,8 @@
                                 </label>
                             </div>
 
-                            <button type="button" id="btnApplyCf" class="btn-sys-regen" style="width:100%; padding:10px;" onclick="applyCfCert()">
+                            <button type="button" id="btnApplyCf" class="btn-sys-regen"
+                                style="width:100%; padding:10px;" onclick="applyCfCert()">
                                 🚀 提交申请任务
                             </button>
                             <div id="cfLogBox" class="sys-log-box"></div>
@@ -503,7 +1249,9 @@
 
                     <div class="sys-field">
                         <label class="sys-label">系统状态控制</label>
-                        <button type="button" id="btnRestartCore" class="btn-sys-regen" style="width:100%; padding:12px; background:#f5f5f5; border-color:#ddd; color:#999; font-size:14px; cursor:not-allowed;" disabled onclick="triggerCoreRestart()">
+                        <button type="button" id="btnRestartCore" class="btn-sys-regen"
+                            style="width:100%; padding:12px; background:#f5f5f5; border-color:#ddd; color:#999; font-size:14px; cursor:not-allowed;"
+                            disabled onclick="triggerCoreRestart()">
                             🚫 证书无效或未就绪，禁止切换
                         </button>
                         <div class="sys-desc" id="restartCoreDesc" style="color: #666; background: #f9f9fc;">
@@ -511,7 +1259,7 @@
                         </div>
                     </div>
                 </div>
-       
+
                 <div class="sys-form-section" id="sys-form-pref" style="display:none;">
                     <div class="sys-pref-row" style="align-items: center;">
                         <div class="sys-pref-info">
@@ -522,12 +1270,18 @@
                             <span class="sys-toggle-slider"></span>
                         </label>
                     </div>
-                    
+
                     <div class="sys-pref-row" style="flex-direction: column; align-items: flex-start; gap: 12px;">
-                        <div class="sys-pref-info" style="width: 100%; flex-direction: row; align-items: center; gap: 6px;">
+                        <div class="sys-pref-info"
+                            style="width: 100%; flex-direction: row; align-items: center; gap: 6px;">
                             <span class="sys-pref-title">🌐 节点 IP 生成策略</span>
                             <div class="sys-info-tooltip-wrap" tabindex="0">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
                                 <div class="sys-tooltip-content">
                                     <div style="margin-bottom:6px; color:#cce4ff;">后端生成的订阅将基于节点记录的IP：</div>
                                     <div><b>IPv4 优先:</b> 双栈时首选 v4，无 v4 用 v6</div>
@@ -558,10 +1312,16 @@
                     </div>
 
                     <div class="sys-pref-row" style="flex-direction: column; align-items: flex-start; gap: 12px;">
-                        <div class="sys-pref-info" style="width: 100%; flex-direction: row; align-items: center; gap: 6px;">
+                        <div class="sys-pref-info"
+                            style="width: 100%; flex-direction: row; align-items: center; gap: 6px;">
                             <span class="sys-pref-title">⚡ 节点测速模式</span>
                             <div class="sys-info-tooltip-wrap" tabindex="0">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
                                 <div class="sys-tooltip-content">
                                     <div style="margin-bottom:6px; color:#cce4ff;">决定点击测速闪电图标时的执行内容：</div>
                                     <div><b>仅 Ping:</b> 发送 HTTP 请求测试延迟，耗时极短</div>
@@ -594,15 +1354,29 @@
                     </div>
                     <div class="sys-field">
                         <label class="sys-label">状态与操作</label>
-                        <button type="button" id="btnSysGeoUpdate" class="btn-sys-geo-action btn-sys-geo-loading" onclick="handleGeoBtnClick()">
-                            <svg class="sys-spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                        <button type="button" id="btnSysGeoUpdate" class="btn-sys-geo-action btn-sys-geo-loading"
+                            onclick="handleGeoBtnClick()">
+                            <svg class="sys-spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <path
+                                    d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                            </svg>
                             正在比对版本...
                         </button>
-                        <div class="sys-desc" id="sysGeoActionDesc" style="text-align: center; background: transparent; border: none; padding: 0;">连接 API 获取版本信息中...</div>
+                        <div class="sys-desc" id="sysGeoActionDesc"
+                            style="text-align: center; background: transparent; border: none; padding: 0;">连接 API
+                            获取版本信息中...</div>
                     </div>
                 </div>
 
                 <div class="sys-form-section" id="sys-form-mihomo" style="display:none;">
+                    <div class="sys-field">
+                        <label class="sys-label">节点测速文件大小 (MB)</label>
+                        <input type="number" id="sys_pref_speed_test_file_size" class="sys-input" placeholder="默认: 50"
+                            min="1" max="1000" oninput="triggerSysAutoSave()">
+                        <div class="sys-desc">控制全面测速或真实带宽测速时，所下载测试文件的体积大小。较大文件更能测出准确实时的峰值带宽，但会消耗更多流量和时间。</div>
+                    </div>
+
                     <div class="sys-field">
                         <label class="sys-label">核心版本信息</label>
                         <div class="sys-geo-info-card">
@@ -618,50 +1392,90 @@
                     </div>
                     <div class="sys-field">
                         <label class="sys-label">状态与操作</label>
-                        <button type="button" id="btnSysMihomoUpdate" class="btn-sys-geo-action btn-sys-geo-loading" onclick="handleMihomoBtnClick()">
-                            <svg class="sys-spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                        <button type="button" id="btnSysMihomoUpdate" class="btn-sys-geo-action btn-sys-geo-loading"
+                            onclick="handleMihomoBtnClick()">
+                            <svg class="sys-spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <path
+                                    d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                            </svg>
                             正在比对版本...
                         </button>
-                        <div class="sys-desc" id="sysMihomoActionDesc" style="text-align: center; background: transparent; border: none; padding: 0;">连接 API 获取版本信息中...</div>
+                        <div class="sys-desc" id="sysMihomoActionDesc"
+                            style="text-align: center; background: transparent; border: none; padding: 0;">连接 API
+                            获取版本信息中...</div>
                     </div>
                 </div>
 
 
                 <div class="sys-form-section" id="sys-form-monitor" style="display:none;">
-                    
+
                     <div class="sys-mon-header-info">
                         <span class="sys-mon-badge sys-mon-badge-green" id="sysMonOsArch">-- / --</span>
                         <span class="sys-mon-badge sys-mon-badge-purple" id="sysMonGoVer">go--</span>
                         <div style="flex:1;"></div>
                         <div style="font-size:11px; color:#888; display:flex; align-items:center; gap:4px;">
-                            <svg class="sys-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"/></svg>
+                            <svg class="sys-spin" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <path
+                                    d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3" />
+                            </svg>
                             实时更新
                         </div>
                     </div>
 
                     <div class="sys-mon-grid">
                         <div class="sys-mon-card sys-mon-purple">
-                            <div class="sys-mon-card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg> 堆内存</div>
+                            <div class="sys-mon-card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                                    <rect x="9" y="9" width="6" height="6"></rect>
+                                    <line x1="9" y1="1" x2="9" y2="4"></line>
+                                    <line x1="15" y1="1" x2="15" y2="4"></line>
+                                    <line x1="9" y1="20" x2="9" y2="23"></line>
+                                    <line x1="15" y1="20" x2="15" y2="23"></line>
+                                    <line x1="20" y1="9" x2="23" y2="9"></line>
+                                    <line x1="20" y1="14" x2="23" y2="14"></line>
+                                    <line x1="1" y1="9" x2="4" y2="9"></line>
+                                    <line x1="1" y1="14" x2="4" y2="14"></line>
+                                </svg> 堆内存</div>
                             <div class="sys-mon-card-val" id="sysMonHeapInuse">-- MB</div>
                             <div class="sys-mon-card-sub">
                                 <span>共申请 <span id="sysMonHeapSys">-- MB</span></span>
                                 <span id="sysMonHeapPct">0%</span>
                             </div>
-                            <div class="sys-mon-progress-bg"><div class="sys-mon-progress" id="sysMonHeapBar" style="width: 0%;"></div></div>
+                            <div class="sys-mon-progress-bg">
+                                <div class="sys-mon-progress" id="sysMonHeapBar" style="width: 0%;"></div>
+                            </div>
                         </div>
 
                         <div class="sys-mon-card sys-mon-green">
-                            <div class="sys-mon-card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect></svg> CPU</div>
-                            <div class="sys-mon-card-val"><span id="sysMonCpuCores">--</span><span style="font-size: 14px; margin-left: 2px;">核</span></div>
+                            <div class="sys-mon-card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+                                    <rect x="9" y="9" width="6" height="6"></rect>
+                                </svg> CPU</div>
+                            <div class="sys-mon-card-val"><span id="sysMonCpuCores">--</span><span
+                                    style="font-size: 14px; margin-left: 2px;">核</span></div>
                             <div class="sys-mon-card-sub">
                                 <span>GOMAXPROCS: <span id="sysMonCpuMaxProcs">--</span></span>
                                 <span>100%</span>
                             </div>
-                            <div class="sys-mon-progress-bg"><div class="sys-mon-progress" style="width: 100%;"></div></div>
+                            <div class="sys-mon-progress-bg">
+                                <div class="sys-mon-progress" style="width: 100%;"></div>
+                            </div>
                         </div>
 
                         <div class="sys-mon-card sys-mon-yellow">
-                            <div class="sys-mon-card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"></path><rect x="4" y="8" width="16" height="12" rx="2"></rect><path d="M2 14h2"></path><path d="M20 14h2"></path><path d="M15 13v2"></path><path d="M9 13v2"></path></svg> GOROUTINES</div>
+                            <div class="sys-mon-card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M12 8V4H8"></path>
+                                    <rect x="4" y="8" width="16" height="12" rx="2"></rect>
+                                    <path d="M2 14h2"></path>
+                                    <path d="M20 14h2"></path>
+                                    <path d="M15 13v2"></path>
+                                    <path d="M9 13v2"></path>
+                                </svg> GOROUTINES</div>
                             <div class="sys-mon-card-val" id="sysMonGoroutines" style="margin-top: 5px;">--</div>
                             <div class="sys-mon-card-sub" style="margin-top: auto;">
                                 <span>CGO调用: <span id="sysMonCgo">--</span></span>
@@ -669,8 +1483,13 @@
                         </div>
 
                         <div class="sys-mon-card sys-mon-blue">
-                            <div class="sys-mon-card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg> 运行时间</div>
-                            <div class="sys-mon-card-val" id="sysMonUptime" style="font-size: 18px; margin-top: 8px;">--时--分--秒</div>
+                            <div class="sys-mon-card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <polyline points="12 6 12 12 16 14"></polyline>
+                                </svg> 运行时间</div>
+                            <div class="sys-mon-card-val" id="sysMonUptime" style="font-size: 18px; margin-top: 8px;">
+                                --时--分--秒</div>
                             <div class="sys-mon-card-sub" style="margin-top: auto;">
                                 <span>启动: <span id="sysMonStart">--</span></span>
                             </div>
@@ -678,7 +1497,15 @@
                     </div>
 
                     <div class="sys-mon-details-box">
-                        <div class="sys-mon-details-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> 运行时详情</div>
+                        <div class="sys-mon-details-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2">
+                                <line x1="8" y1="6" x2="21" y2="6"></line>
+                                <line x1="8" y1="12" x2="21" y2="12"></line>
+                                <line x1="8" y1="18" x2="21" y2="18"></line>
+                                <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                                <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                                <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                            </svg> 运行时详情</div>
                         <div class="sys-mon-details-grid">
                             <div class="sys-mon-detail-row">
                                 <span class="sys-mon-detail-key">GC 次数</span>
@@ -707,7 +1534,7 @@
                         </div>
                     </div>
                 </div>
-                
+
             </div>
         </div>
 
@@ -720,17 +1547,17 @@
 <script>
     const sysModal = document.getElementById('systemSettingsModal');
     const sysModalCard = document.getElementById('sysModalCard');
-    let hasCheckedGeo = false; 
-    let geoState = 'checking'; 
-    let hasCheckedMihomo = false; 
-    let mihomoState = 'checking'; 
+    let hasCheckedGeo = false;
+    let geoState = 'checking';
+    let hasCheckedMihomo = false;
+    let mihomoState = 'checking';
     let sysMonitorTimer = null; // 监控定时器
 
     // 手风琴/分栏切换核心逻辑
     function selectSysCategory(catId, cardElement) {
         const isAlreadyActive = cardElement.classList.contains('active');
         const isMobile = window.innerWidth <= 768;
-        
+
         // 停止之前的监控
         stopSysMonitor();
 
@@ -749,7 +1576,7 @@
         cardElement.classList.add('active');
         // const catName = cardElement.querySelector('.sys-nav-name').innerText.replace(/[\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g, '').trim();
         // document.getElementById('sysRightTitle').innerText = catName;
-        
+
         const formEl = document.getElementById('sys-form-' + catId);
 
         if (catId === 'geo' && !hasCheckedGeo) {
@@ -785,7 +1612,7 @@
     function adjustSysLayout() {
         const isMobile = window.innerWidth <= 768;
         const activeCard = document.querySelector('.sys-nav-card.active');
-        
+
         if (!activeCard) {
             if (!isMobile) {
                 const firstCard = document.querySelector('.sys-nav-card');
@@ -821,7 +1648,7 @@
             token += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         document.getElementById('sys_sub_token').value = token;
-        triggerSysAutoSave(); 
+        triggerSysAutoSave();
     }
 
     // 功能：拉取所有后端设置，并渲染到表单和证书状态 UI 中
@@ -829,7 +1656,7 @@
         try {
             const res = await fetch('/api/get-settings');
             const result = await res.json();
-            if(result.status === 'success') {
+            if (result.status === 'success') {
                 const data = result.data;
                 const certInfo = result.cert_info;
 
@@ -840,6 +1667,7 @@
                 document.getElementById('sys_pref_ip_strategy').value = data.pref_ip_strategy || 'ipv4_prefer';
                 document.getElementById('sys_airport_filter_invalid').checked = (data.airport_filter_invalid === 'true');
                 document.getElementById('sys_pref_speed_test_mode').value = data.pref_speed_test_mode || 'ping_speed';
+                document.getElementById('sys_pref_speed_test_file_size').value = data.pref_speed_test_file_size || '';
 
                 // 2. 证书与高级配置
                 document.getElementById('sys_force_http').checked = (data.sys_force_http === 'true');
@@ -848,7 +1676,7 @@
                 document.getElementById('rowCertDomain').style.display = isHttp ? 'none' : 'flex';
                 document.getElementById('rowCertExpire').style.display = isHttp ? 'none' : 'flex';
                 document.getElementById('rowCertValid').style.display = isHttp ? 'none' : 'flex';
-                
+
                 // ✨ 新增：HTTPS 模式下直接隐藏“强制 HTTP”风险开关
                 const forceHttpRow = document.getElementById('rowForceHttp');
                 if (forceHttpRow) forceHttpRow.style.display = isHttp ? 'flex' : 'none';
@@ -867,13 +1695,13 @@
                 if (certInfo && certInfo.valid) {
                     document.getElementById('certDomainDisplay').innerText = certInfo.domain || '--';
                     document.getElementById('certExpireDisplay').innerText = certInfo.expire || '--';
-                    
+
                     validDisplay.innerText = '✅ 有效';
                     validDisplay.className = 'cert-val secure';
 
                     restartBtn.disabled = false;
                     restartBtn.style.cursor = 'pointer';
-                    
+
                     // ✨ 核心优化：根据当前协议状态智能切换按钮颜色和文案
                     if (isHttp) {
                         // HTTP 模式：依然保持红色警告色，催促用户切换到安全的 HTTPS
@@ -897,7 +1725,7 @@
                 } else {
                     document.getElementById('certDomainDisplay').innerText = '--';
                     document.getElementById('certExpireDisplay').innerText = '--';
-                    
+
                     validDisplay.innerText = '❌ 无效或未配置';
                     validDisplay.className = 'cert-val warning';
 
@@ -912,7 +1740,7 @@
                     restartDesc.style.background = '#f9f9fc';
                 }
             }
-        } catch(e) { console.error("加载配置失败", e); }
+        } catch (e) { console.error("加载配置失败", e); }
     }
 
     async function openSystemSettingsModal() {
@@ -933,14 +1761,14 @@
         }
 
         sysModal.classList.add('active');
-        hasCheckedGeo = false; 
-        renderGeoBtn('checking'); 
-        hasCheckedMihomo = false; 
-        renderMihomoBtn('checking'); 
+        hasCheckedGeo = false;
+        renderGeoBtn('checking');
+        hasCheckedMihomo = false;
+        renderMihomoBtn('checking');
         document.getElementById('sysSaveIndicator').style.opacity = '0';
 
         // 弹窗打开时，调用重构后的方法加载所有配置项
-        await loadAllSystemSettings(); 
+        await loadAllSystemSettings();
     }
 
     function closeSystemSettingsModal() {
@@ -952,7 +1780,7 @@
     let sysAutoSaveTimer = null;
     function triggerSysAutoSave() {
         if (!document.getElementById('systemSettingsModal').classList.contains('active')) {
-            return; 
+            return;
         }
 
         clearTimeout(sysAutoSaveTimer);
@@ -968,6 +1796,7 @@
                 "pref_ip_strategy": document.getElementById('sys_pref_ip_strategy').value,
                 "airport_filter_invalid": document.getElementById('sys_airport_filter_invalid').checked ? "true" : "false", // ✨ 新增：提交剔除无效节点开关
                 "pref_speed_test_mode": document.getElementById('sys_pref_speed_test_mode').value,
+                "pref_speed_test_file_size": document.getElementById('sys_pref_speed_test_file_size').value,
                 "sys_force_http": document.getElementById('sys_force_http').checked ? 'true' : 'false',
                 "cf_email": document.getElementById('sys_cf_email').value,
                 "cf_api_key": document.getElementById('sys_cf_api_key').value,
@@ -975,7 +1804,7 @@
                 "cf_auto_renew": document.getElementById('sys_cf_auto_renew').checked ? 'true' : 'false', // ✨ 新增
             };
 
-            if(!payload.sub_token) {
+            if (!payload.sub_token) {
                 indicator.innerHTML = '<span style="color:#ff3b30;">Token 不能为空</span>';
                 return;
             }
@@ -987,9 +1816,9 @@
                     body: JSON.stringify(payload)
                 });
                 if (response.ok) {
-                    window.panelUrl = payload.panel_url; 
+                    window.panelUrl = payload.panel_url;
                     indicator.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg> 已保存`;
-                    
+
                     // ✨ 核心修复：设置保存后静默刷新主页节点列表
                     // 这样当你刚开启“强制 HTTP”，内存里的 🔒 就会立刻被替换为真实的链接
                     if (typeof loadNodesList === 'function') {
@@ -1014,7 +1843,7 @@
         try {
             const res = await fetch('/api/get-geo-status');
             const result = await res.json();
-            if(result.status === 'success') {
+            if (result.status === 'success') {
                 const data = result.data;
                 document.getElementById('sysGeoLocalVersion').innerText = data.local_version || '未下载';
                 document.getElementById('sysGeoRemoteVersion').innerText = data.remote_version || '未知';
@@ -1023,7 +1852,7 @@
                 else if (data.state === 'update_available' || data.state === 'not_found') uiState = 'update';
                 renderGeoBtn(uiState, data.state === 'not_found');
             } else { throw new Error(result.message); }
-        } catch(e) {
+        } catch (e) {
             document.getElementById('sysGeoRemoteVersion').innerText = "网络错误";
             renderGeoBtn('error');
         }
@@ -1035,7 +1864,7 @@
         try {
             const response = await fetch('/api/update-geoip', { method: 'POST' });
             const result = await response.json();
-            if(result.status === 'success') { 
+            if (result.status === 'success') {
                 let attempts = 0;
                 // 开启轮询，每 2 秒查一次状态
                 const pollInterval = setInterval(async () => {
@@ -1049,16 +1878,16 @@
                         const res = await fetch('/api/get-geo-status');
                         const statusData = await res.json();
                         // 只有当后端真实下发了 'latest'，才意味着后台下载并入库完毕了
-                        if(statusData.status === 'success' && statusData.data.state === 'latest') {
+                        if (statusData.status === 'success' && statusData.data.state === 'latest') {
                             clearInterval(pollInterval); // 停止轮询
                             document.getElementById('sysGeoLocalVersion').innerText = statusData.data.local_version || '--';
                             renderGeoBtn('latest');
                         }
-                    } catch(e) {}
+                    } catch (e) { }
                 }, 2000);
-            } 
+            }
             else { alert("指令发送失败: " + result.message); renderGeoBtn('update'); }
-        } catch(e) { alert("请求错误"); renderGeoBtn('update'); }
+        } catch (e) { alert("请求错误"); renderGeoBtn('update'); }
     }
 
     function renderGeoBtn(state, isNotFound = false) {
@@ -1070,7 +1899,7 @@
             btn.className = 'btn-sys-geo-action btn-sys-geo-loading';
             btn.innerHTML = '<svg class="sys-spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> 正在比对版本...';
             desc.innerText = '正在连接 GitHub API 获取版本信息...';
-            if(rVer.innerText === '--') rVer.innerText = '检查中...';
+            if (rVer.innerText === '--') rVer.innerText = '检查中...';
         } else if (state === 'updating') {
             btn.className = 'btn-sys-geo-action btn-sys-geo-loading';
             btn.innerHTML = '<svg class="sys-spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> 正在后台下载更新...';
@@ -1099,7 +1928,7 @@
         try {
             const res = await fetch('/api/get-mihomo-status');
             const result = await res.json();
-            if(result.status === 'success') {
+            if (result.status === 'success') {
                 const data = result.data;
                 document.getElementById('sysMihomoLocalVersion').innerText = data.local_version || '未下载';
                 document.getElementById('sysMihomoRemoteVersion').innerText = data.remote_version || '未知';
@@ -1108,15 +1937,15 @@
                 else if (data.state === 'update_available' || data.state === 'not_found') uiState = 'update';
                 renderMihomoBtn(uiState, data.state === 'not_found');
             } else { throw new Error(result.message); }
-        } catch(e) {
+        } catch (e) {
             document.getElementById('sysMihomoRemoteVersion').innerText = "网络错误";
             renderMihomoBtn('error');
         }
     }
 
-    function handleMihomoBtnClick() { 
-        if (mihomoState === 'update') updateMihomoCore(); 
-        else if (mihomoState === 'error') checkMihomoStatus(); 
+    function handleMihomoBtnClick() {
+        if (mihomoState === 'update') updateMihomoCore();
+        else if (mihomoState === 'error') checkMihomoStatus();
     }
 
     async function updateMihomoCore() {
@@ -1124,7 +1953,7 @@
         try {
             const response = await fetch('/api/update-mihomo', { method: 'POST' });
             const result = await response.json();
-            if(result.status === 'success') { 
+            if (result.status === 'success') {
                 let attempts = 0;
                 // 开启轮询，每 2 秒查一次状态
                 const pollInterval = setInterval(async () => {
@@ -1138,20 +1967,20 @@
                         const res = await fetch('/api/get-mihomo-status');
                         const statusData = await res.json();
                         // 当状态更新为 latest 时，说明后台任务圆满完成
-                        if(statusData.status === 'success' && statusData.data.state === 'latest') {
+                        if (statusData.status === 'success' && statusData.data.state === 'latest') {
                             clearInterval(pollInterval);
                             document.getElementById('sysMihomoLocalVersion').innerText = statusData.data.local_version || '--';
                             renderMihomoBtn('latest');
                         }
-                    } catch(e) {}
+                    } catch (e) { }
                 }, 2000);
-            } else { 
-                alert("指令发送失败: " + result.message); 
-                renderMihomoBtn('update'); 
+            } else {
+                alert("指令发送失败: " + result.message);
+                renderMihomoBtn('update');
             }
-        } catch(e) { 
-            alert("请求错误"); 
-            renderMihomoBtn('update'); 
+        } catch (e) {
+            alert("请求错误");
+            renderMihomoBtn('update');
         }
     }
 
@@ -1164,7 +1993,7 @@
             btn.className = 'btn-sys-geo-action btn-sys-geo-loading';
             btn.innerHTML = '<svg class="sys-spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> 正在比对版本...';
             desc.innerText = '正在连接 GitHub API 获取核心版本信息...';
-            if(rVer.innerText === '--') rVer.innerText = '检查中...';
+            if (rVer.innerText === '--') rVer.innerText = '检查中...';
         } else if (state === 'updating') {
             btn.className = 'btn-sys-geo-action btn-sys-geo-loading';
             btn.innerHTML = '<svg class="sys-spin" style="width:16px;height:16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> 正在后台下载更新...';
@@ -1301,7 +2130,7 @@
         try {
             const res = await fetch('/api/save-cert', { method: 'POST', body: formData });
             const json = await res.json();
-            
+
             if (json.status === 'success') {
                 // 等待后端配置拉取并重新渲染 UI 完毕后，再弹窗提示
                 await loadAllSystemSettings();
@@ -1320,14 +2149,14 @@
     // 执行核心重启的函数 (修复了 DOM 清空导致的空指针异常)
     async function triggerCoreRestart() {
         if (!confirm("确定要重启系统核心吗？\n如果已正确配置证书，面板将自动切换到 HTTPS。")) return;
-        
+
         try {
             const res = await fetch('/api/restart', { method: 'POST' });
             const json = await res.json();
-            
+
             // ✨ [修复] 在清空页面 DOM 之前，先将强制 HTTP 的状态保存到变量中
             const isForceHttp = document.getElementById('sys_force_http').checked;
-            
+
             // 覆盖页面，展示重启中的动画效果
             document.body.innerHTML = `
                 <div style="display:flex; height:100vh; align-items:center; justify-content:center; flex-direction:column; font-family:sans-serif; background:#f5f5f7;">
@@ -1336,7 +2165,7 @@
                     <p style="color:#666; font-size:14px;">页面即将自动刷新，并尝试使用配置的安全协议...</p>
                 </div>
             `;
-            
+
             // 延迟两秒后执行智能跳转逻辑
             setTimeout(() => {
                 let currentUrl = window.location.href;
@@ -1346,8 +2175,8 @@
                 } else {
                     window.location.reload();
                 }
-            }, 2000); 
-            
+            }, 2000);
+
         } catch (e) {
             alert("指令发送失败，nodectl 面板可能已断开，请手动刷新页面。");
         }
@@ -1360,22 +2189,22 @@
         const key = document.getElementById('sys_cf_api_key').value;
         const domain = document.getElementById('sys_cf_domain').value;
 
-        if(!email || !key || !domain) {
+        if (!email || !key || !domain) {
             alert("请完整填写 Cloudflare 信息");
             return;
         }
 
-        if(!confirm(`确认使用域名 ${domain} 申请证书吗？\n这可能需要几十秒时间，请耐心等待。`)) return;
+        if (!confirm(`确认使用域名 ${domain} 申请证书吗？\n这可能需要几十秒时间，请耐心等待。`)) return;
 
         const btn = document.getElementById('btnApplyCf');
         const logBox = document.getElementById('cfLogBox');
-        
+
         btn.innerText = '⏳ 正在处理中...';
         btn.disabled = true;
-        
+
         logBox.style.display = 'block';
         logBox.innerHTML = '<div><span style="color:#888;">正在连接核心终端拉取日志...</span></div>';
-        
+
         // 核心轮询器：每秒去后端取一次最新数组并渲染
         const fetchLogs = async () => {
             try {
@@ -1388,13 +2217,13 @@
                         // 智能赋予颜色
                         if (line.includes('[ERROR]') || line.includes('失败')) colorClass = 'log-err';
                         else if (line.includes('成功！！')) colorClass = 'log-info'; // 沿用原本绿色
-                        
+
                         html += `<div><span class="${colorClass}">${line}</span></div>`;
                     });
                     logBox.innerHTML = html;
                     logBox.scrollTop = logBox.scrollHeight; // 保持底部滚动
                 }
-            } catch(e){}
+            } catch (e) { }
         };
 
         // 启动轮询器 (每 1000 毫秒执行一次)
@@ -1408,11 +2237,11 @@
                 body: JSON.stringify({ email, api_key: key, domain })
             });
             const json = await res.json();
-            
+
             // 请求结束后清除定时器，并做最后一次拉取以防漏字
             clearInterval(logPollInterval);
-            await fetchLogs(); 
-            
+            await fetchLogs();
+
             if (json.status === 'success') {
                 logBox.innerHTML += `<div><span style="color:#a6e22e;">[提示] 证书已成功应用！请点击下方的“立即重启面板核心”切换 HTTPS。</span></div>`;
                 await loadAllSystemSettings(); // ✨ 核心修复：申请成功后立刻静默拉取最新状态以解锁重启按钮

@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -553,11 +554,25 @@ func (s *MihomoService) RunBatchTest(ctx context.Context, nodes []database.Airpo
 				Timeout:   8 * time.Second, // 延长到 8 秒
 			}
 
+			// 动态获取用户设置的测速文件大小 (默认 50MB)
+			var fileSizeConfig database.SysConfig
+			database.DB.Where("key = ?", "pref_speed_test_file_size").First(&fileSizeConfig)
+			fileSizeMB := "50"
+			if fileSizeConfig.Value != "" {
+				fileSizeMB = fileSizeConfig.Value
+			}
+
+			// 将 MB 转换为所需的格式
+			bytesSize := "50000000"
+			if mb, err := strconv.Atoi(fileSizeMB); err == nil && mb > 0 {
+				bytesSize = fmt.Sprintf("%d", mb*1000000)
+			}
+
 			// 1. 建立备用测速池：提升测速包体积，拉长整个连接过程给足充分时间去冲高并发流量
 			speedURLs := []string{
-				"https://speed.cloudflare.com/__down?bytes=50000000", // 50MB
-				"http://speedtest.tele2.net/50MB.zip",
-				"https://proof.ovh.net/files/50Mb.dat",
+				fmt.Sprintf("https://speed.cloudflare.com/__down?bytes=%s", bytesSize),
+				fmt.Sprintf("http://speedtest.tele2.net/%sMB.zip", fileSizeMB),
+				fmt.Sprintf("https://proof.ovh.net/files/%sMb.dat", fileSizeMB),
 			}
 
 			var finalSpeedMBps float64

@@ -18,186 +18,783 @@
 
     /* ================= 弹窗容器 ================= */
     .air-modal-overlay {
-        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-        z-index: 3000; align-items: center; justify-content: center;
-        opacity: 0; transition: opacity 0.3s ease;
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        z-index: 3000;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s ease;
         overscroll-behavior: contain;
     }
-    .air-modal-overlay.active { display: flex; opacity: 1; }
-    
+
+    .air-modal-overlay.active {
+        display: flex;
+        opacity: 1;
+    }
+
     .air-modal-card {
-        background: #ffffff; width: 100%; 
-        max-width: var(--air-modal-width); max-height: var(--air-modal-height); 
-        border-radius: 12px; box-shadow: 0 24px 48px rgba(0,0,0,0.18); 
-        display: flex; flex-direction: column; overflow: hidden;
-        border: 1px solid rgba(255,255,255,0.8);
+        background: #ffffff;
+        width: 100%;
+        max-width: var(--air-modal-width);
+        max-height: var(--air-modal-height);
+        border-radius: 12px;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.8);
     }
 
     /* ================= 头部 Header & Tooltip ================= */
-    .air-header { 
-        background: rgba(255,255,255,0.95); border-bottom: 1px solid var(--air-border); 
-        padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; 
-        z-index: 20; flex-shrink: 0;
+    .air-header {
+        background: rgba(255, 255, 255, 0.95);
+        border-bottom: 1px solid var(--air-border);
+        padding: 16px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 20;
+        flex-shrink: 0;
     }
-    .air-title { font-size: 16px; font-weight: 700; color: var(--air-text-main); display: flex; align-items: center; gap: 8px; }
-    
-    .air-info-tooltip-wrap { position: relative; display: inline-flex; align-items: center; cursor: pointer; outline: none; margin-left: 6px; }
-    .air-info-tooltip-wrap svg { color: #a1a1aa; transition: color 0.2s; }
-    .air-info-tooltip-wrap:hover svg, .air-info-tooltip-wrap:focus svg { color: var(--air-primary); }
+
+    .air-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--air-text-main);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .air-info-tooltip-wrap {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        outline: none;
+        margin-left: 6px;
+    }
+
+    .air-info-tooltip-wrap svg {
+        color: #a1a1aa;
+        transition: color 0.2s;
+    }
+
+    .air-info-tooltip-wrap:hover svg,
+    .air-info-tooltip-wrap:focus svg {
+        color: var(--air-primary);
+    }
+
     .air-tooltip-content {
-        position: absolute; top: 140%; left: -10px; transform: translateY(-5px);
-        background: rgba(29, 29, 31, 0.95); color: #fff; padding: 10px 14px; border-radius: 8px;
-        font-size: 12px; white-space: nowrap; opacity: 0; visibility: hidden; transition: all 0.2s; 
-        pointer-events: none; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.15); text-align: left;
+        position: absolute;
+        top: 140%;
+        left: -10px;
+        transform: translateY(-5px);
+        background: rgba(29, 29, 31, 0.95);
+        color: #fff;
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 12px;
+        white-space: nowrap;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.2s;
+        pointer-events: none;
+        z-index: 1000;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        text-align: left;
     }
+
     .air-tooltip-content::after {
-        content: ''; position: absolute; bottom: 100%; left: 14px;
-        border-width: 5px; border-style: solid; border-color: transparent transparent rgba(29, 29, 31, 0.95) transparent;
+        content: '';
+        position: absolute;
+        bottom: 100%;
+        left: 14px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: transparent transparent rgba(29, 29, 31, 0.95) transparent;
     }
-    .air-info-tooltip-wrap:hover .air-tooltip-content, .air-info-tooltip-wrap:focus .air-tooltip-content { opacity: 1; visibility: visible; transform: translateY(0); }
-    
-    .air-status-indicator { font-size: 12px; font-weight: 600; color: var(--air-success); opacity: 0; transition: opacity 0.3s; display: flex; align-items: center; gap: 4px; }
+
+    .air-info-tooltip-wrap:hover .air-tooltip-content,
+    .air-info-tooltip-wrap:focus .air-tooltip-content {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .air-status-indicator {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--air-success);
+        opacity: 0;
+        transition: opacity 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
 
     /* ================= 主体布局 ================= */
-    .air-body { display: flex; flex: 1; overflow: hidden; position: relative; }
+    .air-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+    }
 
     /* ----- 左侧栏：订阅列表 ----- */
-    .air-sidebar { width: var(--air-sidebar-width); background: #fafbfc; border-right: 1px solid var(--air-border); display: flex; flex-direction: column; position: relative; z-index: 5; }
-    .air-sub-list { flex: 1; overflow-y: auto; padding: 12px; scrollbar-width: thin; overscroll-behavior: contain; }
+    .air-sidebar {
+        width: var(--air-sidebar-width);
+        background: #fafbfc;
+        border-right: 1px solid var(--air-border);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        z-index: 5;
+    }
+
+    .air-sub-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        scrollbar-width: thin;
+        overscroll-behavior: contain;
+    }
 
     .air-sub-card {
-        background: white; border: 1px solid var(--air-border); border-radius: 10px; margin-bottom: 10px;
-        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s; -webkit-tap-highlight-color: transparent; overflow: visible; 
+        background: white;
+        border: 1px solid var(--air-border);
+        border-radius: 10px;
+        margin-bottom: 10px;
+        transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+        -webkit-tap-highlight-color: transparent;
+        overflow: visible;
     }
-    .air-sub-card.active { border-color: var(--air-primary); box-shadow: 0 4px 12px rgba(0,122,255,0.15); transform: translateY(-1px); }
 
-    .air-sub-header-row { padding: 12px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: inherit; border-radius: inherit; position: relative; }
-    
+    .air-sub-card.active {
+        border-color: var(--air-primary);
+        box-shadow: 0 4px 12px rgba(0, 122, 255, 0.15);
+        transform: translateY(-1px);
+    }
+
+    .air-sub-header-row {
+        padding: 12px 14px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: inherit;
+        border-radius: inherit;
+        position: relative;
+    }
+
     /* 流量进度条与名称容器 */
-    .air-sub-name-wrap { flex: 1; overflow: hidden; margin-right: 8px; display: flex; flex-direction: column; gap: 6px; }
-    .air-sub-name { font-size: 14px; font-weight: 600; color: var(--air-text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.2s ease; line-height: 1.2; }
-    .air-sub-card.active .air-sub-name { color: var(--air-primary); }
-    
-    /* 进度条样式 */
-    .air-traffic-bar-bg { width: 100%; height: 4px; background: #e5e5ea; border-radius: 2px; overflow: hidden; display: none; }
-    .air-traffic-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease, background-color 0.3s ease; }
-    
-    .air-sub-actions { display: flex; align-items: center; gap: 4px; }
-    .air-mini-btn { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; cursor: pointer; transition: all 0.2s; }
-    .air-mini-btn:hover { background: #e5e5ea; }
-    .air-mini-btn.confirm-state { width: auto; padding: 0 8px; background: var(--air-danger); color: white !important; font-size: 11px; font-weight: bold; }
-    .air-mini-btn.confirm-state:hover { background: #d32f2f; }
+    .air-sub-name-wrap {
+        flex: 1;
+        overflow: hidden;
+        margin-right: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
 
-    .air-mobile-nodes-wrapper { display: none; background: #f9f9fc; border-top: 1px solid #f0f0f5; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px; }
+    .air-sub-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--air-text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.2s ease;
+        line-height: 1.2;
+    }
+
+    .air-sub-card.active .air-sub-name {
+        color: var(--air-primary);
+    }
+
+    /* 进度条样式 */
+    .air-traffic-bar-bg {
+        width: 100%;
+        height: 4px;
+        background: #e5e5ea;
+        border-radius: 2px;
+        overflow: hidden;
+        display: none;
+    }
+
+    .air-traffic-bar-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.3s ease, background-color 0.3s ease;
+    }
+
+    .air-sub-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .air-mini-btn {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .air-mini-btn:hover {
+        background: #e5e5ea;
+    }
+
+    .air-mini-btn.confirm-state {
+        width: auto;
+        padding: 0 8px;
+        background: var(--air-danger);
+        color: white !important;
+        font-size: 11px;
+        font-weight: bold;
+    }
+
+    .air-mini-btn.confirm-state:hover {
+        background: #d32f2f;
+    }
+
+    .air-mobile-nodes-wrapper {
+        display: none;
+        background: #f9f9fc;
+        border-top: 1px solid #f0f0f5;
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
+    }
 
     /* ----- 左侧栏底部：添加/编辑 ----- */
-    .air-sidebar-footer { padding: 15px; background: #fff; border-top: 1px solid var(--air-border); display: flex; flex-direction: column; justify-content: flex-end; box-shadow: 0 -4px 12px rgba(0,0,0,0.02); flex-shrink: 0; }
-    .air-dashed-btn { width: 100%; padding: 12px; background: var(--air-primary-light); border: 1px dashed var(--air-primary); color: var(--air-primary); border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
-    .air-dashed-btn:hover { background: #e0efff; transform: translateY(-1px); }
-    .air-add-form-container { overflow: hidden; max-height: 0; opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .air-add-form-container.expanded { max-height: 200px; opacity: 1; margin-bottom: 10px; }
-    .air-input-group { margin-bottom: 8px; }
-    .air-input { width: 100%; padding: 10px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 13px; outline: none; background: #fff; box-sizing: border-box; }
-    .air-input:focus { border-color: var(--air-primary); box-shadow: 0 0 0 2px rgba(0,122,255,0.1); }
-    .air-form-actions { display: flex; gap: 8px; margin-top: 5px;}
-    .air-btn-cancel { width: 40px; background: #e5e5ea; color: #666; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .air-btn-cancel:hover { background: #d1d1d6; }
+    .air-sidebar-footer {
+        padding: 15px;
+        background: #fff;
+        border-top: 1px solid var(--air-border);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.02);
+        flex-shrink: 0;
+    }
+
+    .air-dashed-btn {
+        width: 100%;
+        padding: 12px;
+        background: var(--air-primary-light);
+        border: 1px dashed var(--air-primary);
+        color: var(--air-primary);
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+
+    .air-dashed-btn:hover {
+        background: #e0efff;
+        transform: translateY(-1px);
+    }
+
+    .air-add-form-container {
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .air-add-form-container.expanded {
+        max-height: 200px;
+        opacity: 1;
+        margin-bottom: 10px;
+    }
+
+    .air-input-group {
+        margin-bottom: 8px;
+    }
+
+    .air-input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #d1d1d6;
+        border-radius: 8px;
+        font-size: 13px;
+        outline: none;
+        background: #fff;
+        box-sizing: border-box;
+    }
+
+    .air-input:focus {
+        border-color: var(--air-primary);
+        box-shadow: 0 0 0 2px rgba(0, 122, 255, 0.1);
+    }
+
+    .air-form-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 5px;
+    }
+
+    .air-btn-cancel {
+        width: 40px;
+        background: #e5e5ea;
+        color: #666;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .air-btn-cancel:hover {
+        background: #d1d1d6;
+    }
 
     /* ----- 右侧栏：节点内容 ----- */
-    .air-main { flex: 1; display: flex; flex-direction: column; background: #fff; position: relative; }
-    
-    .air-main-header { padding: 12px 20px; border-bottom: 1px solid #f0f0f5; display: flex; gap: 12px; align-items: center; flex-shrink: 0; }
-    .air-search { flex: 1; padding: 8px 12px; border: 1px solid #e1e1e8; border-radius: 8px; font-size: 13px; background: #f9f9fc; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-    .air-search:focus { background: #fff; border-color: var(--air-primary); }
+    .air-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        background: #fff;
+        position: relative;
+    }
+
+    .air-main-header {
+        padding: 12px 20px;
+        border-bottom: 1px solid #f0f0f5;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .air-search {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #e1e1e8;
+        border-radius: 8px;
+        font-size: 13px;
+        background: #f9f9fc;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .air-search:focus {
+        background: #fff;
+        border-color: var(--air-primary);
+    }
 
     /* 流量文字信息与右侧工具栏 */
-    .air-header-tools { display: flex; align-items: center; gap: 10px; flex-shrink: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); max-width: 400px; overflow: hidden; opacity: 1; }
-    .air-search:focus + .air-header-tools { max-width: 0; opacity: 0; margin-left: -12px; }
-    
-    .air-traffic-text { font-size: 12px; font-weight: 500; color: var(--air-text-sub); display: none; white-space: nowrap; }
-    
-    .air-global-test-btn {
-        width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e1e1e8; background: #fff; color: var(--air-primary);
-        display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0;
+    .air-header-tools {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-shrink: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        max-width: 400px;
+        overflow: hidden;
+        opacity: 1;
     }
-    .air-global-test-btn:hover { background: var(--air-primary-light); border-color: var(--air-primary); }
 
-    .air-node-count-badge { background: #f5f5f7; color: #666; font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; border: 1px solid #e1e1e8; display: flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
-    .air-node-count-badge span { color: var(--air-primary); font-family: monospace; font-size: 14px; }
+    .air-search:focus+.air-header-tools {
+        max-width: 0;
+        opacity: 0;
+        margin-left: -12px;
+    }
 
-    .air-nodes-container { flex: 1; overflow-y: auto; padding: 0; overscroll-behavior: contain; scrollbar-gutter: stable; }
-    
-    @keyframes airFadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
-    .air-empty-state { animation: airFadeIn 0.2s ease-out forwards; }
+    .air-traffic-text {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--air-text-sub);
+        display: none;
+        white-space: nowrap;
+    }
+
+    .air-global-test-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        border: 1px solid #e1e1e8;
+        background: #fff;
+        color: var(--air-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .air-global-test-btn:hover {
+        background: var(--air-primary-light);
+        border-color: var(--air-primary);
+    }
+
+    .air-node-count-badge {
+        background: #f5f5f7;
+        color: #666;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 8px;
+        border: 1px solid #e1e1e8;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .air-node-count-badge span {
+        color: var(--air-primary);
+        font-family: monospace;
+        font-size: 14px;
+    }
+
+    .air-nodes-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+    }
+
+    @keyframes airFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(2px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .air-empty-state {
+        animation: airFadeIn 0.2s ease-out forwards;
+    }
 
     /* 节点行及测速、分组布局重构 */
-    .air-node-row { display: flex; align-items: center; padding: 12px 20px; border-bottom: 1px solid #f5f5f7; transition: background 0.1s; background: #fff; animation: airFadeIn 0.2s ease-out forwards; }
-    .air-node-row:hover { background: #fafbfc; }
-    
-    .air-node-name { flex: 1; font-size: 13px; color: var(--air-text-main); font-family: monospace; word-break: break-all; margin-right: 15px; display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .air-proto-tag { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: #e0f2fe; color: #2563eb; text-transform: uppercase; border: 1px solid rgba(37, 99, 235, 0.1); line-height: 1; flex-shrink: 0; }
+    .air-node-row {
+        display: flex;
+        align-items: center;
+        padding: 12px 20px;
+        border-bottom: 1px solid #f5f5f7;
+        transition: background 0.1s;
+        background: #fff;
+        animation: airFadeIn 0.2s ease-out forwards;
+    }
+
+    .air-node-row:hover {
+        background: #fafbfc;
+    }
+
+    .air-node-name {
+        flex: 1;
+        font-size: 13px;
+        color: var(--air-text-main);
+        font-family: monospace;
+        word-break: break-all;
+        margin-right: 15px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .air-proto-tag {
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #e0f2fe;
+        color: #2563eb;
+        text-transform: uppercase;
+        border: 1px solid rgba(37, 99, 235, 0.1);
+        line-height: 1;
+        flex-shrink: 0;
+    }
 
     /* 右侧操作区：弹性布局，左对齐展开标签 */
-    .air-node-actions { display: flex; align-items: center; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
-    
+    .air-node-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: flex-end;
+        flex-shrink: 0;
+    }
+
     /* 流式测速标签容器 */
-    .air-speed-tags { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
-    .air-tag { font-size: 11px; font-weight: 600; padding: 3px 6px; border-radius: 4px; animation: airFadeIn 0.2s ease forwards; white-space: nowrap; }
-    .air-tag.ping { background: #e0f2fe; color: #0284c7; }
-    .air-tag.tcp { background: #fef08a; color: #a16207; }
-    .air-tag.speed { background: #dcfce7; color: #15803d; }
-    .air-tag.error { background: #fee2e2; color: #b91c1c; }
+    .air-speed-tags {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .air-tag {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 6px;
+        border-radius: 4px;
+        animation: airFadeIn 0.2s ease forwards;
+        white-space: nowrap;
+    }
+
+    .air-tag.ping {
+        background: #e0f2fe;
+        color: #0284c7;
+    }
+
+    .air-tag.tcp {
+        background: #fef08a;
+        color: #a16207;
+    }
+
+    .air-tag.speed {
+        background: #dcfce7;
+        color: #15803d;
+    }
+
+    .air-tag.error {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
 
     /* 圆形操作按钮 */
-    .air-circle-btn { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--air-border); background: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--air-text-sub); transition: all 0.2s; flex-shrink: 0; }
-    .air-circle-btn:hover { background: var(--air-primary-light); border-color: var(--air-primary); color: var(--air-primary); }
-    
+    .air-circle-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: 1px solid var(--air-border);
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        color: var(--air-text-sub);
+        transition: all 0.2s;
+        flex-shrink: 0;
+    }
+
+    .air-circle-btn:hover {
+        background: var(--air-primary-light);
+        border-color: var(--air-primary);
+        color: var(--air-primary);
+    }
+
     /* 胶囊式分组菜单容器 */
-    .air-routing-wrapper { display: flex; align-items: center; flex-direction: row-reverse; } /* 核心：反向排列，使得按钮固定在右侧 */
+    .air-routing-wrapper {
+        display: flex;
+        align-items: center;
+        flex-direction: row-reverse;
+    }
+
+    /* 核心：反向排列，使得按钮固定在右侧 */
     .air-routing-capsule {
-        display: flex; align-items: center; background: #f5f5f7; border-radius: 20px; padding: 2px;
-        overflow: hidden; max-width: 0; opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        pointer-events: none; margin-right: 0; /* 边距改为控制右侧 */
+        display: flex;
+        align-items: center;
+        background: #f5f5f7;
+        border-radius: 20px;
+        padding: 2px;
+        overflow: hidden;
+        max-width: 0;
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        pointer-events: none;
+        margin-right: 0;
+        /* 边距改为控制右侧 */
     }
+
     .air-routing-wrapper.active .air-routing-capsule {
-        max-width: 200px; opacity: 1; pointer-events: auto; margin-right: 6px; /* 展开时，向左侧推开并留出间距 */
+        max-width: 200px;
+        opacity: 1;
+        pointer-events: auto;
+        margin-right: 6px;
+        /* 展开时，向左侧推开并留出间距 */
     }
-    
+
     .air-capsule-item {
-        border: none; background: transparent; font-size: 11px; font-weight: 600; 
-        padding: 4px 10px; border-radius: 16px; cursor: pointer; white-space: nowrap; 
-        color: var(--air-text-sub); transition: all 0.2s;
+        border: none;
+        background: transparent;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 16px;
+        cursor: pointer;
+        white-space: nowrap;
+        color: var(--air-text-sub);
+        transition: all 0.2s;
     }
-    .air-capsule-item:hover { background: #e5e5ea; color: #333; }
-    .air-capsule-item.active[data-val="0"] { background: #fee2e2; color: #b91c1c; }
-    .air-capsule-item.active[data-val="1"] { background: #e0f2fe; color: #0284c7; }
-    .air-capsule-item.active[data-val="2"] { background: #fef08a; color: #a16207; }
 
-    .air-footer { padding: 12px 24px; border-top: 1px solid #eee; background: #fff; display: flex; justify-content: flex-end; flex-shrink: 0; }
-    .air-btn-close { background: #f5f5f7; border: none; color: #333; padding: 8px 25px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: 0.2s; }
-    .air-btn-close:hover { background: #e5e5ea; }
+    .air-capsule-item:hover {
+        background: #e5e5ea;
+        color: #333;
+    }
 
-    @keyframes spin { 100% { transform: rotate(360deg); } }
-    .spin { animation: spin 1s linear infinite; }
+    .air-capsule-item.active[data-val="0"] {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+
+    .air-capsule-item.active[data-val="1"] {
+        background: #e0f2fe;
+        color: #0284c7;
+    }
+
+    .air-capsule-item.active[data-val="2"] {
+        background: #fef08a;
+        color: #a16207;
+    }
+
+    .air-footer {
+        padding: 12px 24px;
+        border-top: 1px solid #eee;
+        background: #fff;
+        display: flex;
+        justify-content: flex-end;
+        flex-shrink: 0;
+    }
+
+    .air-btn-close {
+        background: #f5f5f7;
+        border: none;
+        color: #333;
+        padding: 8px 25px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: 0.2s;
+    }
+
+    .air-btn-close:hover {
+        background: #e5e5ea;
+    }
+
+    @keyframes spin {
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    .spin {
+        animation: spin 1s linear infinite;
+    }
 
     /* ================= 移动端适配 ================= */
     @media (max-width: 768px) {
-        .air-modal-card { max-width: 95%; height: 85vh; border-radius: 12px; margin: auto; transform: translateZ(0); }
-        .air-body { flex-direction: column; }
-        .air-sidebar { width: 100%; flex: 1; border-right: none; display: block; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; background: #fafbfc; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
-        .air-main { display: none; } 
-        .air-sub-list { overflow-y: visible; flex: none; height: auto; padding-bottom: 10px; }
-        .air-sidebar-footer { order: 999; border-top: none; padding: 15px; position: static; box-shadow: none; background: transparent; }
-        .air-sub-card.active { margin-bottom: 15px; border-radius: 0; border-left: none; border-right: none; border-top: 1px solid #eee; border-bottom: 1px solid #eee; }
-        .air-sub-card.active .air-sub-header-row { position: sticky; top: 0; z-index: 10; box-shadow: 0 4px 10px rgba(0,0,0,0.05); background: rgba(255,255,255,0.98); border-radius: 0; }
-        .air-mobile-nodes-wrapper { display: block; padding-bottom: 10px; }
-        
+        .air-modal-card {
+            max-width: 95%;
+            height: 85vh;
+            border-radius: 12px;
+            margin: auto;
+            transform: translateZ(0);
+        }
+
+        .air-body {
+            flex-direction: column;
+        }
+
+        .air-sidebar {
+            width: 100%;
+            flex: 1;
+            border-right: none;
+            display: block;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            background: #fafbfc;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+
+        .air-main {
+            display: none;
+        }
+
+        .air-sub-list {
+            overflow-y: visible;
+            flex: none;
+            height: auto;
+            padding-bottom: 10px;
+        }
+
+        .air-sidebar-footer {
+            order: 999;
+            border-top: none;
+            padding: 15px;
+            position: static;
+            box-shadow: none;
+            background: transparent;
+        }
+
+        .air-sub-card.active {
+            margin-bottom: 15px;
+            border-radius: 10px;
+            border-left: none;
+            border-right: none;
+            border-top: 1px solid #eee;
+            border-bottom: 1px solid #eee;
+        }
+
+        .air-sub-card.active .air-sub-header-row {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+            background: rgba(255, 255, 255, 0.98);
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .air-mobile-nodes-wrapper {
+            display: block;
+            padding-bottom: 10px;
+        }
+
         /* 移动端节点流排版优化 */
-        .air-node-name { flex-direction: column; align-items: flex-start; gap: 4px; }
-        .air-speed-tags { flex-direction: column; align-items: flex-end; }
+        .air-node-name {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+        }
+
+        .air-speed-tags {
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
         /* 移动端右侧工具栏适配，让其显示在节点数量前 */
-        .air-header-tools { max-width: none; width: 100%; justify-content: space-between; margin-bottom: 10px; }
+        .air-header-tools {
+            max-width: none;
+            width: 100%;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
     }
 </style>
 
@@ -207,8 +804,11 @@
             <div class="air-title">
                 <span style="font-size: 18px;">✈️</span> 机场订阅管理
                 <div class="air-info-tooltip-wrap" tabindex="0">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="8" x2="12" y2="12"></line>
+                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
                     </svg>
                     <div class="air-tooltip-content">
                         选择启用后将直接加入我的订阅中。可在偏好设置中开启去除无效节点。
@@ -216,30 +816,42 @@
                 </div>
             </div>
             <div class="air-status-indicator" id="airStatusIndicator">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 6L9 17l-5-5"></path>
+                </svg>
                 已保存
             </div>
         </div>
-        
+
         <div class="air-body">
             <div class="air-sidebar">
                 <div class="air-sub-list" id="airSubList"></div>
-                
+
                 <div class="air-sidebar-footer">
                     <div class="air-add-form-container" id="airAddForm">
-                        <div class="air-input-group"><input type="text" id="airNewName" class="air-input" placeholder="订阅名称"></div>
-                        <div class="air-input-group"><input type="text" id="airNewLink" class="air-input" placeholder="订阅链接"></div>
+                        <div class="air-input-group"><input type="text" id="airNewName" class="air-input"
+                                placeholder="订阅名称"></div>
+                        <div class="air-input-group"><input type="text" id="airNewLink" class="air-input"
+                                placeholder="订阅链接"></div>
                         <div class="air-form-actions">
                             <button id="airSubmitBtn" class="air-dashed-btn" onclick="submitSub()">
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                </svg>
                                 确认
                             </button>
                             <button class="air-btn-cancel" onclick="resetForm()">✕</button>
                         </div>
                     </div>
-                    
+
                     <div class="air-dashed-btn" id="airAddTrigger" onclick="toggleAirAddForm(true)">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
                         添加订阅
                     </div>
                 </div>
@@ -247,12 +859,17 @@
 
             <div class="air-main" id="airDesktopMain">
                 <div class="air-main-header">
-                    <input type="text" id="airNodeSearch" class="air-search" placeholder="搜索节点名称..." oninput="filterAirNodes('desktop')">
-                    
+                    <input type="text" id="airNodeSearch" class="air-search" placeholder="搜索节点名称..."
+                        oninput="filterAirNodes('desktop')">
+
                     <div class="air-header-tools">
                         <div class="air-traffic-text" id="airTrafficText"></div>
-                        <button class="air-global-test-btn" id="btn-test-all" title="一键测速该订阅全部节点" onclick="testAllAirNodes()">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                        <button class="air-global-test-btn" id="btn-test-all" title="一键测速该订阅全部节点"
+                            onclick="testAllAirNodes()">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                            </svg>
                         </button>
                     </div>
 
@@ -286,8 +903,8 @@
         const newIsMobile = window.innerWidth <= 768;
         if (newIsMobile !== airState.isMobile) {
             airState.isMobile = newIsMobile;
-            renderAirSubs(); 
-            if (airState.currentSubId) selectAirSub(airState.currentSubId); 
+            renderAirSubs();
+            if (airState.currentSubId) selectAirSub(airState.currentSubId);
         }
     });
 
@@ -300,11 +917,11 @@
 
     function formatBytes(bytes) {
         if (!bytes || bytes === 0) return '0 B';
-        
+
         const t = 1099511627776; // TB (1024 * 1024 * 1024 * 1024)
         const g = 1073741824;    // GB (1024 * 1024 * 1024)
         const m = 1048576;       // MB (1024 * 1024)
-        
+
         if (bytes >= t) return (bytes / t).toFixed(2) + ' TB';
         if (bytes >= g) return (bytes / g).toFixed(2) + ' GB';
         if (bytes >= m) return (bytes / m).toFixed(2) + ' MB';
@@ -314,7 +931,7 @@
     // ================= 弹窗开关 =================
     function openAirportSubModal() {
         document.getElementById('airportModal').classList.add('active');
-        document.body.style.overflow = 'hidden'; 
+        document.body.style.overflow = 'hidden';
         resetForm(); loadAirSubs();
     }
 
@@ -331,7 +948,7 @@
         if (show) {
             form.classList.add('expanded'); trigger.style.display = 'none';
             document.getElementById('airNewName').focus();
-            if(airState.isMobile) {
+            if (airState.isMobile) {
                 setTimeout(() => {
                     const sidebar = document.querySelector('.air-sidebar');
                     sidebar.scrollTo({ top: sidebar.scrollHeight, behavior: 'smooth' });
@@ -350,7 +967,7 @@
     }
 
     // ================= 核心逻辑 =================
-    
+
     async function loadAirSubs() {
         try {
             const res = await fetch('/api/airport/list');
@@ -362,7 +979,7 @@
                     selectAirSub(airState.subs[0].id);
                 }
             }
-        } catch(e) { console.error(e); }
+        } catch (e) { console.error(e); }
     }
 
     function renderAirSubs() {
@@ -374,7 +991,7 @@
             const card = document.createElement('div');
             card.className = `air-sub-card ${isActive ? 'active' : ''}`;
             card.id = `sub-card-${sub.id}`;
-            
+
             // 计算流量进度 (兼容后端未返回相关字段的情况)
             let upload = sub.upload || 0;
             let download = sub.download || 0;
@@ -382,7 +999,7 @@
             let used = upload + download;
             let percent = total > 0 ? (used / total) * 100 : 0;
             if (percent > 100) percent = 100;
-            
+
             let colorStr = 'var(--air-success)';
             if (percent > 85) colorStr = 'var(--air-danger)';
             else if (percent > 50) colorStr = 'var(--air-warning)';
@@ -396,7 +1013,7 @@
                     </div>
                 `;
             }
-            
+
             card.innerHTML = `
                 <div class="air-sub-header-row" onclick="selectAirSub('${sub.id}')">
                     <div class="air-sub-name-wrap">
@@ -429,7 +1046,7 @@
         airState.currentSubId = id;
         document.querySelectorAll('.air-sub-card').forEach(el => el.classList.remove('active'));
         const activeCard = document.getElementById(`sub-card-${id}`);
-        if(activeCard) activeCard.classList.add('active');
+        if (activeCard) activeCard.classList.add('active');
 
         // 更新头部流量文本
         const currentSub = airState.subs.find(s => s.id === id);
@@ -437,15 +1054,15 @@
 
         if (!airState.isMobile) {
             const searchInput = document.getElementById('airNodeSearch');
-            if(searchInput) searchInput.value = '';
+            if (searchInput) searchInput.value = '';
         }
 
         const containerId = airState.isMobile ? `mobile-nodes-${id}` : 'airDesktopNodesList';
         const container = document.getElementById(containerId);
-        
-        if(container) {
+
+        if (container) {
             if (!airState.isMobile) {
-                container.style.opacity = '0.4'; container.style.pointerEvents = 'none'; container.style.transition = 'opacity 0.2s ease'; 
+                container.style.opacity = '0.4'; container.style.pointerEvents = 'none'; container.style.transition = 'opacity 0.2s ease';
             } else {
                 container.innerHTML = `<div class="air-empty-state" style="padding:20px;">加载中...</div>`;
             }
@@ -456,46 +1073,46 @@
             const json = await res.json();
             if (json.status === 'success') {
                 airState.nodes = json.nodes || [];
-                
+
                 if (!airState.isMobile) {
                     const countBadge = document.getElementById('airNodeCountBadge');
                     const countNum = document.getElementById('airNodeCountNum');
                     if (countBadge && countNum) { countBadge.style.display = 'flex'; countNum.innerText = airState.nodes.length; }
                 }
-                
+
                 if (container && !airState.isMobile) { container.style.opacity = '1'; container.style.pointerEvents = 'auto'; }
-                
+
                 renderAirNodes(airState.nodes, containerId);
-                
+
                 if (airState.isMobile && activeCard) {
                     setTimeout(() => { const sidebar = document.querySelector('.air-sidebar'); sidebar.scrollTo({ top: activeCard.offsetTop, behavior: 'auto' }); }, 100);
                 }
             }
-        } catch(e) {
-            if(container) { container.style.opacity = '1'; container.style.pointerEvents = 'auto'; container.innerHTML = '<div class="air-empty-state" style="padding:20px; color:#d74242;">加载失败</div>'; }
+        } catch (e) {
+            if (container) { container.style.opacity = '1'; container.style.pointerEvents = 'auto'; container.innerHTML = '<div class="air-empty-state" style="padding:20px; color:#d74242;">加载失败</div>'; }
         }
     }
 
     function updateTrafficDisplay(sub) {
         const textEl = document.getElementById('airTrafficText');
         if (!sub || !sub.total) { textEl.style.display = 'none'; return; }
-        
+
         let used = (sub.upload || 0) + (sub.download || 0);
         let total = sub.total;
-        
+
         // 移动端由于空间问题，若数字显示可以在 header-tools 中实现
         if (airState.isMobile) {
             // 如果要在移动端移动 DOM，可以在这里操作，当前设计已适配 flex-between
         }
-        
+
         textEl.style.display = 'block';
         textEl.innerHTML = `<span style="color:#333;">${formatBytes(used)}</span> / ${formatBytes(total)}`;
     }
 
     function renderAirNodes(nodes, containerId) {
         const container = document.getElementById(containerId);
-        if(!container) return;
-        
+        if (!container) return;
+
         container.innerHTML = '';
         if (nodes.length === 0) {
             container.innerHTML = `<div class="air-empty-state" style="padding:20px; color:#999;">暂无节点</div>`; return;
@@ -504,7 +1121,7 @@
         const sorted = [...nodes].sort((a, b) => {
             const aActive = a.routing_type > 0 ? 1 : 0;
             const bActive = b.routing_type > 0 ? 1 : 0;
-            if (aActive !== bActive) return bActive - aActive; 
+            if (aActive !== bActive) return bActive - aActive;
             return a.original_index - b.original_index;
         });
 
@@ -512,7 +1129,7 @@
             const row = document.createElement('div');
             row.className = 'air-node-row';
             const protoTag = node.protocol ? `<span class="air-proto-tag">${node.protocol}</span>` : '';
-            
+
             // 当前选中状态图标
             let activeIcon = node.routing_type === 1 ? '🔵 直连' : (node.routing_type === 2 ? '🟠 落地' : '⭕ 禁用');
             let iconColor = node.routing_type === 1 ? 'var(--air-primary)' : (node.routing_type === 2 ? 'var(--air-warning)' : 'var(--air-danger)');
@@ -574,7 +1191,7 @@
 
         await fetch('/api/airport/node/routing', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: nodeId, routing_type: type })
         });
     }
@@ -597,7 +1214,7 @@
     function resetTestButtons() {
         const playIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
         const globalPlayIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
-        
+
         const btnAll = document.getElementById('btn-test-all');
         if (btnAll) {
             btnAll.innerHTML = globalPlayIcon;
@@ -617,7 +1234,7 @@
     function toggleTestButtonToStop(targetId) {
         const stopIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><rect x="9" y="9" width="6" height="6" fill="#ef4444"></rect></svg>`;
         const globalStopIcon = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><rect x="9" y="9" width="6" height="6" fill="#ef4444"></rect></svg>`;
-        
+
         if (targetId === 'all') {
             const btnAll = document.getElementById('btn-test-all');
             if (btnAll) {
@@ -643,7 +1260,7 @@
         }
         activeTestTarget = null;
         resetTestButtons();
-        
+
         // 扫尾工作：将被打断的 "等待中" 标签改为灰色的 "已取消"
         document.querySelectorAll('.air-speed-tags').forEach(el => {
             if (el.innerText.includes('等待') || el.innerText.includes('测试中')) {
@@ -658,22 +1275,22 @@
         activeTestTarget = targetId;
 
         // ✨ 修复：在清理完上一次的残局后，再统一渲染本次测试的初始状态
-        if(isBatch) {
+        if (isBatch) {
             airState.nodes.forEach(n => {
                 const el = document.getElementById(`speed-tags-${n.id}`);
-                if(el) el.innerHTML = '<span class="air-tag" style="background:#f5f5f7; color:#999;">等待...</span>';
+                if (el) el.innerHTML = '<span class="air-tag" style="background:#f5f5f7; color:#999;">等待...</span>';
             });
         } else {
             const el = document.getElementById(`speed-tags-${targetId}`);
             if (el) el.innerHTML = '<span class="air-tag" style="background:#e0f2fe; color:#0284c7;">测试中...</span>';
         }
-        
+
         toggleTestButtonToStop(targetId);
         activeEventSource = new EventSource(url);
-        
-        activeEventSource.onmessage = function(event) {
+
+        activeEventSource.onmessage = function (event) {
             const data = JSON.parse(event.data);
-            
+
             if (data.node_id === 'all') {
                 alert("引擎异常: " + data.text);
                 stopSpeedTest(); // 遇错直接停止重置
@@ -683,14 +1300,14 @@
             const container = document.getElementById(`speed-tags-${data.node_id}`);
             if (!container) return;
 
-            if(container.innerText.includes('等待') || container.innerText.includes('测试中')) {
+            if (container.innerText.includes('等待') || container.innerText.includes('测试中')) {
                 container.innerHTML = '';
             }
 
             appendSpeedTag(data.node_id, data.type, data.text);
         };
 
-        activeEventSource.onerror = function() {
+        activeEventSource.onerror = function () {
             // 正常的服务器流结束或网络中断
             if (activeEventSource) {
                 activeEventSource.close();
@@ -698,7 +1315,7 @@
             }
             activeTestTarget = null;
             resetTestButtons();
-            
+
             // 将未能成功返回结果的排队节点标记为无效
             document.querySelectorAll('.air-speed-tags').forEach(el => {
                 if (el.innerText.includes('等待') || el.innerText.includes('测试中')) {
@@ -721,9 +1338,9 @@
     // ================= CRUD 逻辑 =================
 
     function startEdit(id, name, url, event) {
-        event.stopPropagation(); airState.editingSubId = id; 
+        event.stopPropagation(); airState.editingSubId = id;
         document.getElementById('airNewName').value = name; document.getElementById('airNewLink').value = url;
-        toggleAirAddForm(true); 
+        toggleAirAddForm(true);
     }
 
     async function submitSub() {
@@ -736,23 +1353,23 @@
         const btn = document.getElementById('airSubmitBtn'); btn.innerText = '处理中...'; btn.disabled = true;
 
         try {
-            const res = await fetch(apiPath, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            const res = await fetch(apiPath, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
             if (res.ok && data.status === 'success') {
                 resetForm(); loadAirSubs(); showAirSaveStatus();
-                if(!isEdit) alert("添加成功，系统将自动在后台进行节点同步");
+                if (!isEdit) alert("添加成功，系统将自动在后台进行节点同步");
             } else { alert((isEdit ? "修改失败: " : "添加失败: ") + (data.message || "未知错误")); }
-        } catch(e) { alert("网络错误"); } finally { btn.innerText = '确认'; btn.disabled = false; }
+        } catch (e) { alert("网络错误"); } finally { btn.innerText = '确认'; btn.disabled = false; }
     }
 
     async function updateAirSub(id, btn, event) {
         event.stopPropagation(); const icon = btn.querySelector('.icon-refresh');
         icon.classList.add('spin'); btn.disabled = true;
         try {
-            const res = await fetch('/api/airport/update', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: id }) });
-            if (res.ok) { showAirSaveStatus(); if (airState.currentSubId === id) selectAirSub(id); } 
+            const res = await fetch('/api/airport/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
+            if (res.ok) { showAirSaveStatus(); if (airState.currentSubId === id) selectAirSub(id); }
             else { alert("更新失败"); }
-        } catch(e) { alert("网络错误"); } finally { icon.classList.remove('spin'); btn.disabled = false; }
+        } catch (e) { alert("网络错误"); } finally { icon.classList.remove('spin'); btn.disabled = false; }
     }
 
     async function deleteAirSub(id, btn, event) {
@@ -760,15 +1377,15 @@
         if (btn.classList.contains('confirm-state')) {
             clearTimeout(airState.deleteTimers[id]);
             try {
-                const res = await fetch('/api/airport/delete', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: id }) });
+                const res = await fetch('/api/airport/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
                 if (res.ok) {
                     if (airState.currentSubId === id) { airState.currentSubId = null; document.getElementById(airState.isMobile ? `mobile-nodes-${id}` : 'airDesktopNodesList').innerHTML = ''; }
                     if (airState.editingSubId === id) resetForm(); loadAirSubs();
                 }
-            } catch(e) {}
+            } catch (e) { }
         } else {
             btn.classList.add('confirm-state'); const originHtml = btn.innerHTML; btn.innerHTML = '确定?';
-            airState.deleteTimers[id] = setTimeout(() => { if(btn) { btn.classList.remove('confirm-state'); btn.innerHTML = originHtml; } }, 3000);
+            airState.deleteTimers[id] = setTimeout(() => { if (btn) { btn.classList.remove('confirm-state'); btn.innerHTML = originHtml; } }, 3000);
         }
     }
 
@@ -777,9 +1394,9 @@
         const el = document.getElementById('airStatusIndicator'); el.style.opacity = '1';
         clearTimeout(saveTimer); saveTimer = setTimeout(() => el.style.opacity = '0', 2000);
     }
-    
+
     function filterAirNodes(mode) {
-        const input = document.getElementById(mode === 'desktop' ? 'airNodeSearch' : ''); if(!input) return;
+        const input = document.getElementById(mode === 'desktop' ? 'airNodeSearch' : ''); if (!input) return;
         const key = input.value.toLowerCase();
         const filtered = airState.nodes.filter(n => n.name.toLowerCase().includes(key));
         renderAirNodes(filtered, 'airDesktopNodesList');

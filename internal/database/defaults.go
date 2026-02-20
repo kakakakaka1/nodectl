@@ -54,6 +54,7 @@ func initBasicSettings() {
 		{Key: "cf_auto_renew", Value: "true", Description: "是否开启证书自动续期"},
 		{Key: "airport_filter_invalid", Value: "false", Description: "是否剔除机场订阅中的无效节点"},
 		{Key: "pref_speed_test_mode", Value: "ping_speed", Description: "节点测速模式"},
+		{Key: "pref_speed_test_file_size", Value: "50", Description: "节点测速文件大小(MB)"},
 	}
 
 	for _, config := range defaultConfigs {
