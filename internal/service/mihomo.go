@@ -503,18 +503,30 @@ func (s *MihomoService) RunBatchTest(ctx context.Context, nodes []database.Airpo
 			// --- 步骤 C: 测真实带宽 ---
 			speedClient := &http.Client{
 				Transport: proxyTransport,
-				Timeout:   5 * time.Second,
+				Timeout:   5 * time.Second, // 限制最多测速5秒，防止卡死
 			}
 			startSpeed := time.Now()
-			speedResp, err := speedClient.Get("https://speed.cloudflare.com/__down?bytes=10000000")
+
+			// 请求 Cloudflare 测速节点 (20MB 数据包)
+			speedResp, err := speedClient.Get("https://speed.cloudflare.com/__down?bytes=20971520")
 			if err == nil {
-				io.Copy(io.Discard, speedResp.Body)
-				speedResp.Body.Close()
+				defer speedResp.Body.Close()
+
+				// 将 Body 数据丢弃到 io.Discard，同时获取实际下载的字节数
+				written, _ := io.Copy(io.Discard, speedResp.Body)
+
 				duration := time.Since(startSpeed).Seconds()
-				speedMB := (10.0 / duration)
-				resultChan <- SpeedTestResult{NodeID: node.ID, Type: "speed", Text: fmt.Sprintf("%.1f MB/s", speedMB)}
+
+				// 确保下载了数据且时间大于0，避免除以0崩溃
+				if duration > 0 && written > 0 {
+					speedMBps := (float64(written) / 1024 / 1024) / duration
+					resultChan <- SpeedTestResult{NodeID: node.ID, Type: "speed", Text: fmt.Sprintf("%.2f MB/s", speedMBps)}
+				} else {
+					resultChan <- SpeedTestResult{NodeID: node.ID, Type: "error", Text: "测速无数据"}
+				}
 			} else {
-				resultChan <- SpeedTestResult{NodeID: node.ID, Type: "error", Text: "测速失败"}
+				resultChan <- SpeedTestResult{NodeID: node.ID, Type: "error", Text: "测速超时"}
+				return
 			}
 		}(n) // 将当前节点传入匿名函数执行
 	}

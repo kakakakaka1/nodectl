@@ -302,11 +302,11 @@
         if (!bytes || bytes === 0) return '0 B';
         
         const t = 1099511627776; // TB (1024 * 1024 * 1024 * 1024)
-        const k = 1073741824;    // GB (1024 * 1024 * 1024)
+        const g = 1073741824;    // GB (1024 * 1024 * 1024)
         const m = 1048576;       // MB (1024 * 1024)
         
         if (bytes >= t) return (bytes / t).toFixed(2) + ' TB';
-        if (bytes >= k) return (bytes / k).toFixed(2) + ' GB';
+        if (bytes >= g) return (bytes / g).toFixed(2) + ' GB';
         if (bytes >= m) return (bytes / m).toFixed(2) + ' MB';
         return (bytes / 1024).toFixed(2) + ' KB';
     }
@@ -425,7 +425,7 @@
         if (airState.isMobile && airState.currentSubId === id) {
             airState.currentSubId = null; renderAirSubs(); return;
         }
-
+        if (typeof stopSpeedTest === 'function') stopSpeedTest();
         airState.currentSubId = id;
         document.querySelectorAll('.air-sub-card').forEach(el => el.classList.remove('active'));
         const activeCard = document.getElementById(`sub-card-${id}`);
