@@ -278,6 +278,29 @@
                         </div>
                     </div>
 
+                    <div class="edit-section" id="editNodeTrafficDetails" style="display: none; background: #fafbfc; border-radius: 8px; padding: 12px; border: 1px solid #e5e5ea; margin-bottom: 15px;">
+                        <div style="font-size: 13px; font-weight: 600; color: #666; margin-bottom: 10px; display: flex; justify-content: space-between;">
+                            <span>流量消耗</span>
+                            <span id="editNodeTrafficTime" style="font-size: 11px; color: #999; font-weight: normal;"></span>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                            <span style="font-size: 12px; color: #555; width: 35px; font-weight: 600;">上传</span>
+                            <div style="flex: 1; height: 18px; background: #f0f0f5; border-radius: 6px; margin-left: 10px; position: relative; overflow: hidden;">
+                                <div id="editNodeTrafficUpBar" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #34c759; transition: width 0.5s ease;"></div>
+                                <div id="editNodeTrafficUpText" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #1d1d1f; text-shadow: 0 0 4px rgba(255,255,255,0.9); z-index: 1;">0GB</div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 12px; color: #555; width: 35px; font-weight: 600;">下载</span>
+                            <div style="flex: 1; height: 18px; background: #f0f0f5; border-radius: 6px; margin-left: 10px; position: relative; overflow: hidden;">
+                                <div id="editNodeTrafficDownBar" style="position: absolute; top: 0; left: 0; height: 100%; width: 0%; background: #007aff; transition: width 0.5s ease;"></div>
+                                <div id="editNodeTrafficDownText" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #1d1d1f; text-shadow: 0 0 4px rgba(255,255,255,0.9); z-index: 1;">0GB</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="edit-section">
                         <label class="section-label">路由类型</label>
                         <div class="segmented-control">
@@ -352,6 +375,51 @@
         }
         document.getElementById('editNodeTrafficLimit').value = limitVal;
         document.getElementById('editNodeTrafficUnit').value = limitUnit;
+
+        // [新增] 渲染详细流量统计条与更新时间
+        const upBytes = node.traffic_up || 0;
+        const downBytes = node.traffic_down || 0;
+        const totalUsed = upBytes + downBytes;
+        
+        const formatBytes = (bytes) => {
+            if (!bytes) return '0GB';
+            const gb = bytes / (1024 ** 3);
+            return gb >= 1024 ? (gb / 1024).toFixed(2).replace(/\.00$/, '') + 'TB' : gb.toFixed(2).replace(/\.00$/, '') + 'GB';
+        };
+
+        const trafficDetailsEl = document.getElementById('editNodeTrafficDetails');
+        if (totalUsed > 0 || limitBytes > 0) {
+            trafficDetailsEl.style.display = 'block';
+            
+            // 计算进度条百分比
+            // 计算进度条百分比 (以上传和下载总和为 100%，直观展示流量倾向)
+            let upPct = 0; let downPct = 0;
+            if (totalUsed > 0) {
+                upPct = (upBytes / totalUsed) * 100;
+                downPct = (downBytes / totalUsed) * 100;
+            }
+            
+            // 直接赋值真实占比（两个条的占比加起来必定等于 100%）
+            document.getElementById('editNodeTrafficUpBar').style.width = upPct + '%';
+            document.getElementById('editNodeTrafficDownBar').style.width = downPct + '%';
+            document.getElementById('editNodeTrafficUpText').innerText = formatBytes(upBytes);
+            document.getElementById('editNodeTrafficDownText').innerText = formatBytes(downBytes);
+
+            // 格式化更新时间
+            if (node.traffic_update_at) {
+                const d = new Date(node.traffic_update_at);
+                const timeStr = d.getFullYear() + '-' + 
+                               String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(d.getDate()).padStart(2, '0') + ' ' + 
+                               String(d.getHours()).padStart(2, '0') + ':' + 
+                               String(d.getMinutes()).padStart(2, '0');
+                document.getElementById('editNodeTrafficTime').innerText = `(更新于 ${timeStr})`;
+            } else {
+                document.getElementById('editNodeTrafficTime').innerText = '';
+            }
+        } else {
+            trafficDetailsEl.style.display = 'none';
+        }
         
         // 2. 路由类型状态
         if (!node.is_blocked) {
@@ -654,30 +722,34 @@
     }
 
     // IP 渲染相关辅助函数
+    // IP 渲染相关辅助函数
     function renderIPInputs(ipv4, ipv6) {
         const ipContainer = document.getElementById('ipEditContainer');
         const v4 = ipv4 || '';
         const v6 = ipv6 || '';
         let html = '';
 
+        // [修改点] 将 v4Html 更改为 Flex 横向布局，标签限宽，输入框居中
         const v4Html = `
-            <div class="edit-section" id="section-ipv4" style="margin-bottom: 15px;">
-                <label class="section-label">IPv4 地址</label>
-                <input type="text" id="editNodeIPV4" class="ip-input" value="${v4}" placeholder="x.x.x.x" oninput="triggerNodeAutoSave()">
+            <div class="edit-section" id="section-ipv4" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                <label class="section-label" style="margin-bottom: 0; white-space: nowrap; width: 70px;">IPv4 地址</label>
+                <input type="text" id="editNodeIPV4" class="ip-input" value="${v4}" placeholder="x.x.x.x" oninput="triggerNodeAutoSave()" style="flex: 1; text-align: center;">
             </div>`;
             
+        // [修改点] 将 v6Html 更改为 Flex 横向布局，标签限宽，输入框居中
         const v6Html = `
-            <div class="edit-section" id="section-ipv6" style="margin-bottom: 15px;">
-                <label class="section-label">IPv6 地址</label>
-                <input type="text" id="editNodeIPV6" class="ip-input" value="${v6}" placeholder="::1" oninput="triggerNodeAutoSave()">
+            <div class="edit-section" id="section-ipv6" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px;">
+                <label class="section-label" style="margin-bottom: 0; white-space: nowrap; width: 70px;">IPv6 地址</label>
+                <input type="text" id="editNodeIPV6" class="ip-input" value="${v6}" placeholder="::1" oninput="triggerNodeAutoSave()" style="flex: 1; text-align: center;">
             </div>`;
 
         if (v4 && v6) {
             html = v4Html + v6Html;
         } else if ((v4 && !v6) || (!v4 && !v6)) {
-            html = v4Html + `<div style="text-align:right; margin-top:-10px;"><a class="add-ip-link" onclick="appendIPField('v6')">+ 补充 IPv6</a></div>`;
+            // [逻辑未变] 保留原有的 IPv6 隐藏折叠逻辑
+            html = v4Html + `<div style="text-align:right; margin-top:-5px; margin-bottom: 15px;"><a class="add-ip-link" onclick="appendIPField('v6')">+ 补充 IPv6</a></div>`;
         } else if (!v4 && v6) {
-            html = v6Html + `<div style="text-align:right; margin-top:-10px;"><a class="add-ip-link" onclick="appendIPField('v4')">+ 补充 IPv4</a></div>`;
+            html = v6Html + `<div style="text-align:right; margin-top:-5px; margin-bottom: 15px;"><a class="add-ip-link" onclick="appendIPField('v4')">+ 补充 IPv4</a></div>`;
         }
         ipContainer.innerHTML = html;
     }
@@ -687,18 +759,19 @@
         const links = ipContainer.querySelectorAll('.add-ip-link');
         links.forEach(l => l.parentElement.remove()); 
 
+        // [修改点] 同步更新追加的输入框样式为横向 Flex 布局
         if (type === 'v6' && !document.getElementById('editNodeIPV6')) {
             const v6Html = `
-                <div class="edit-section" id="section-ipv6" style="margin-bottom: 15px; animation: fadeIn 0.3s;">
-                    <label class="section-label">IPv6 地址</label>
-                    <input type="text" id="editNodeIPV6" class="ip-input" value="" placeholder="::1" oninput="triggerNodeAutoSave()">
+                <div class="edit-section" id="section-ipv6" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; animation: fadeIn 0.3s;">
+                    <label class="section-label" style="margin-bottom: 0; white-space: nowrap; width: 70px;">IPv6 地址</label>
+                    <input type="text" id="editNodeIPV6" class="ip-input" value="" placeholder="::1" oninput="triggerNodeAutoSave()" style="flex: 1; text-align: center;">
                 </div>`;
             ipContainer.insertAdjacentHTML('beforeend', v6Html);
         } else if (type === 'v4' && !document.getElementById('editNodeIPV4')) {
              const v4Html = `
-                <div class="edit-section" id="section-ipv4" style="margin-bottom: 15px; animation: fadeIn 0.3s;">
-                    <label class="section-label">IPv4 地址</label>
-                    <input type="text" id="editNodeIPV4" class="ip-input" value="" placeholder="x.x.x.x" oninput="triggerNodeAutoSave()">
+                <div class="edit-section" id="section-ipv4" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; animation: fadeIn 0.3s;">
+                    <label class="section-label" style="margin-bottom: 0; white-space: nowrap; width: 70px;">IPv4 地址</label>
+                    <input type="text" id="editNodeIPV4" class="ip-input" value="" placeholder="x.x.x.x" oninput="triggerNodeAutoSave()" style="flex: 1; text-align: center;">
                 </div>`;
             ipContainer.insertAdjacentHTML('afterbegin', v4Html);
         }

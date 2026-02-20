@@ -488,8 +488,14 @@ func (s *MihomoService) RunBatchTest(ctx context.Context, nodes []database.Airpo
 					Transport: proxyTransport,
 					Timeout:   3 * time.Second,
 				}
+
+				// [修复] 1. 改用不带域名的 IP (1.1.1.1) 彻底消除 DNS 解析带来的额外延迟干扰
+				// [修复] 2. 采用轻量级的 HEAD 请求，只拿响应头，避免下载任何多余 Body
+				reqTCP, _ := http.NewRequest("HEAD", "http://1.1.1.1", nil)
+				reqTCP.Close = true // 强制禁止 Keep-Alive，测完即关，保证每次都是全新干净的握手
+
 				startTCP := time.Now()
-				tcpResp, err := tcpClient.Get("http://www.gstatic.com/generate_204")
+				tcpResp, err := tcpClient.Do(reqTCP)
 				if err == nil {
 					tcpResp.Body.Close()
 					tcpDelay := time.Since(startTCP).Milliseconds()
@@ -507,22 +513,27 @@ func (s *MihomoService) RunBatchTest(ctx context.Context, nodes []database.Airpo
 			}
 			startSpeed := time.Now()
 
-			// 请求 Cloudflare 测速节点 (20MB 数据包)
-			speedResp, err := speedClient.Get("https://speed.cloudflare.com/__down?bytes=20971520")
+			// [修复] 伪装正常的浏览器 User-Agent，防止被 Cloudflare 无情拦截
+			reqSpeed, _ := http.NewRequest("GET", "https://speed.cloudflare.com/__down?bytes=20971520", nil)
+			reqSpeed.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+			speedResp, err := speedClient.Do(reqSpeed)
 			if err == nil {
 				defer speedResp.Body.Close()
 
-				// 将 Body 数据丢弃到 io.Discard，同时获取实际下载的字节数
-				written, _ := io.Copy(io.Discard, speedResp.Body)
+				// [修复] 必须是 200 OK，才说明真正拿到了测速包，而不是 403 报错页面
+				if speedResp.StatusCode == http.StatusOK {
+					written, _ := io.Copy(io.Discard, speedResp.Body)
+					duration := time.Since(startSpeed).Seconds()
 
-				duration := time.Since(startSpeed).Seconds()
-
-				// 确保下载了数据且时间大于0，避免除以0崩溃
-				if duration > 0 && written > 0 {
-					speedMBps := (float64(written) / 1024 / 1024) / duration
-					resultChan <- SpeedTestResult{NodeID: node.ID, Type: "speed", Text: fmt.Sprintf("%.2f MB/s", speedMBps)}
+					if duration > 0 && written > 0 {
+						speedMBps := (float64(written) / 1024 / 1024) / duration
+						resultChan <- SpeedTestResult{NodeID: node.ID, Type: "speed", Text: fmt.Sprintf("%.2f MB/s", speedMBps)}
+					} else {
+						resultChan <- SpeedTestResult{NodeID: node.ID, Type: "error", Text: "测速无数据"}
+					}
 				} else {
-					resultChan <- SpeedTestResult{NodeID: node.ID, Type: "error", Text: "测速无数据"}
+					resultChan <- SpeedTestResult{NodeID: node.ID, Type: "error", Text: fmt.Sprintf("节点拦截(%d)", speedResp.StatusCode)}
 				}
 			} else {
 				resultChan <- SpeedTestResult{NodeID: node.ID, Type: "error", Text: "测速超时"}

@@ -1688,9 +1688,10 @@ func apiCallbackTraffic(w http.ResponseWriter, r *http.Request) {
 	result := database.DB.Model(&database.NodePool{}).
 		Where("install_id = ?", report.InstallID).
 		Updates(map[string]interface{}{
-			"traffic_down": report.RXBytes,
-			"traffic_up":   report.TXBytes,
-			"updated_at":   time.Now(), // 刷新最后更新时间，方便前端判断节点是否离线
+			"traffic_down":      report.RXBytes,
+			"traffic_up":        report.TXBytes,
+			"traffic_update_at": time.Now(),
+			"updated_at":        time.Now(), // 刷新最后更新时间，方便前端判断节点是否离线
 		})
 
 	if result.Error != nil {

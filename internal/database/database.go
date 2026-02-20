@@ -21,24 +21,25 @@ var DB *gorm.DB
 
 // NodePool 节点池表
 type NodePool struct {
-	UUID          string            `gorm:"primaryKey;column:uuid;type:varchar(36)" json:"uuid"`
-	InstallID     string            `gorm:"column:install_id;type:varchar(8);uniqueIndex" json:"install_id"`
-	Name          string            `gorm:"column:name" json:"name"`
-	RoutingType   int               `gorm:"column:routing_type;default:1" json:"routing_type"` //路由类型
-	IsBlocked     bool              `gorm:"column:is_blocked;default:false" json:"is_blocked"` // 是否屏蔽
-	Links         map[string]string `gorm:"column:links;serializer:json" json:"links"`
-	DisabledLinks []string          `gorm:"column:disabled_links;serializer:json" json:"disabled_links"`
-	IPV4          string            `gorm:"column:ipv4;type:varchar(15)" json:"ipv4"`
-	IPV6          string            `gorm:"column:ipv6;type:varchar(45)" json:"ipv6"`
-	Region        string            `gorm:"column:region" json:"region"`                         //存储国家信息
-	SortIndex     int               `gorm:"column:sort_index;default:0" json:"sort_index"`       //排序
-	Remark        string            `gorm:"column:remark" json:"remark"`                         //备注
-	TrafficUp     int64             `gorm:"column:traffic_up;default:0" json:"traffic_up"`       // 本周期上传流量 (Bytes)
-	TrafficDown   int64             `gorm:"column:traffic_down;default:0" json:"traffic_down"`   // 本周期下载流量 (Bytes)
-	TrafficLimit  int64             `gorm:"column:traffic_limit;default:0" json:"traffic_limit"` // 总流量限额 (Bytes, 0表示不限制)
-	ResetDay      int               `gorm:"column:reset_day;default:0" json:"reset_day"`         // 每月重置日 (1-31, 0表示不重置)
-	CreatedAt     time.Time         `gorm:"column:created_at" json:"created_at"`
-	UpdatedAt     time.Time         `gorm:"column:updated_at" json:"updated_at"`
+	UUID            string            `gorm:"primaryKey;column:uuid;type:varchar(36)" json:"uuid"`
+	InstallID       string            `gorm:"column:install_id;type:varchar(8);uniqueIndex" json:"install_id"`
+	Name            string            `gorm:"column:name" json:"name"`
+	RoutingType     int               `gorm:"column:routing_type;default:1" json:"routing_type"` //路由类型
+	IsBlocked       bool              `gorm:"column:is_blocked;default:false" json:"is_blocked"` // 是否屏蔽
+	Links           map[string]string `gorm:"column:links;serializer:json" json:"links"`
+	DisabledLinks   []string          `gorm:"column:disabled_links;serializer:json" json:"disabled_links"`
+	IPV4            string            `gorm:"column:ipv4;type:varchar(15)" json:"ipv4"`
+	IPV6            string            `gorm:"column:ipv6;type:varchar(45)" json:"ipv6"`
+	Region          string            `gorm:"column:region" json:"region"`                         //存储国家信息
+	SortIndex       int               `gorm:"column:sort_index;default:0" json:"sort_index"`       //排序
+	Remark          string            `gorm:"column:remark" json:"remark"`                         //备注
+	TrafficUp       int64             `gorm:"column:traffic_up;default:0" json:"traffic_up"`       // 本周期上传流量 (Bytes)
+	TrafficDown     int64             `gorm:"column:traffic_down;default:0" json:"traffic_down"`   // 本周期下载流量 (Bytes)
+	TrafficLimit    int64             `gorm:"column:traffic_limit;default:0" json:"traffic_limit"` // 总流量限额 (Bytes, 0表示不限制)
+	ResetDay        int               `gorm:"column:reset_day;default:0" json:"reset_day"`         // 每月重置日 (1-31, 0表示不重置)
+	TrafficUpdateAt *time.Time        `gorm:"column:traffic_update_at" json:"traffic_update_at"`   // 流量更新时间
+	CreatedAt       time.Time         `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt       time.Time         `gorm:"column:updated_at" json:"updated_at"`
 }
 
 func (NodePool) TableName() string {
