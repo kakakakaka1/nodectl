@@ -494,14 +494,15 @@
             position: relative; 
             overflow: hidden;   
             display: flex;
-            flex-direction: column; /* 改为纵向排列，形成卡片式布局 */
-            align-items: stretch;   /* 宽度撑满，允许内部进度条拉伸 */
-            gap: 10px;              /* 增加上下元素(基础信息与进度条)的间距 */
+            flex-direction: column;
+            align-items: stretch;
+            gap: 10px;
             background: #ffffff;
             border: 1px solid #e5e5ea;
             border-radius: 8px;
             padding: 12px 16px;
             transition: all 0.2s ease;
+            flex-shrink: 0; /* [新增] 核心修复：禁止 Flexbox 挤压卡片高度，保证内部元素不被压扁 */
         }
         .node-item:hover {
             box-shadow: 0 4px 12px rgba(0,0,0,0.03);
@@ -1029,8 +1030,9 @@
                         if (pct >= 90) barColor = '#ff3b30'; // 危险: 红色
 
                         // 独立出来的厚进度条，采用相对定位，文字绝对居中并带有发光阴影以提高可读性
+                        // 独立出来的厚进度条，采用相对定位，文字绝对居中并带有发光阴影以提高可读性
                         trafficBarHTML = `
-                            <div style="position: relative; width: 100%; height: 16px; background-color: #f0f0f5; border-radius: 8px; overflow: hidden; margin-top: 2px;">
+                            <div style="position: relative; flex-shrink: 0; width: 100%; height: 16px; background-color: #f0f0f5; border-radius: 8px; overflow: hidden; margin-top: 2px;">
                                 <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${pct}%; background-color: ${barColor}; transition: width 0.5s ease;"></div>
                                 <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #1d1d1f; text-shadow: 0 0 4px rgba(255,255,255,0.9);">
                                     ${trafficText}
@@ -1040,7 +1042,7 @@
                     } else {
                         // 无限额情况：渲染同等高度的灰色圆角背景带文字
                         trafficBarHTML = `
-                            <div style="position: relative; width: 100%; height: 16px; background-color: #f0f0f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #666; margin-top: 2px;">
+                            <div style="position: relative; flex-shrink: 0; width: 100%; height: 16px; background-color: #f0f0f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #666; margin-top: 2px;">
                                 已用: ${trafficText}
                             </div>
                         `;
