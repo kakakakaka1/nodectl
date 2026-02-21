@@ -152,8 +152,8 @@ func RenderClashConfig(relayURL, exitURL, baseURL, token string) (string, error)
 	// 将切片用逗号连接成字符串，例如: "CN_域,Microsoft_域" 或 "CN_域"
 	dnsPolicyStr := strings.Join(dnsPolicyList, ",")
 
-	// 提前获取所有自定义分流组
-	allCustomProxies := GetCustomProxyRules()
+	// 提前获取所有自定义分流组并且将图标转换为Clash支持的格式
+	allCustomProxies := GetCustomProxyRulesForClash()
 	var validCustomProxies []CustomProxyRule
 
 	// 遍历检查，只有当解析后确实存在有效规则时，才加入到最终的渲染列表中
@@ -169,7 +169,7 @@ func RenderClashConfig(relayURL, exitURL, baseURL, token string) (string, error)
 		ActiveModules:           finalActiveMods,
 		BaseURL:                 baseURL,
 		Token:                   token,
-		GlobalDirectIcon:        GetCustomDirectIcon(),
+		GlobalDirectIcon:        getEmojiURL(GetCustomDirectIcon()),
 		CustomProxies:           validCustomProxies, // 替换为过滤后的有效分组
 		NameserverPolicyRuleSet: dnsPolicyStr,
 	}
@@ -283,11 +283,15 @@ func GetCustomProxyRules() []CustomProxyRule {
 	var rules []CustomProxyRule
 	if conf.Value != "" {
 		json.Unmarshal([]byte(conf.Value), &rules)
-		// Set Clash-compatible Icon URL for rendering template output
-		for i := range rules {
-			if rules[i].Icon != "" {
-				rules[i].Icon = getEmojiURL(rules[i].Icon)
-			}
+	}
+	return rules
+}
+
+func GetCustomProxyRulesForClash() []CustomProxyRule {
+	rules := GetCustomProxyRules()
+	for i := range rules {
+		if rules[i].Icon != "" {
+			rules[i].Icon = getEmojiURL(rules[i].Icon)
 		}
 	}
 	return rules
