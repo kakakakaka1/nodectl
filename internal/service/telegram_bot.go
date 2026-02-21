@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -213,6 +215,7 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 				tgbotapi.NewInlineKeyboardButtonData("✌️ V2ray 订阅", "get_sub_v2ray"),
 			),
 			tgbotapi.NewInlineKeyboardRow(
+				tgbotapi.NewInlineKeyboardButtonData("🔄 重置订阅", "reset_sub_token"),
 				tgbotapi.NewInlineKeyboardButtonData("🔙 返回上级", "menu_main"),
 			),
 		)
@@ -243,6 +246,26 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 		panelURL, token := getBaseURLAndToken()
 		subURL := fmt.Sprintf("%s/sub/v2ray?token=%s", panelURL, token)
 		replyText := fmt.Sprintf("✅ **您的 V2ray 订阅链接：**\n\n`%s`", subURL)
+
+		msg := tgbotapi.NewMessage(chatID, replyText)
+		msg.ParseMode = "Markdown"
+		bot.Send(msg)
+
+	case "reset_sub_token":
+		secureBytes := make([]byte, 16)
+		rand.Read(secureBytes)
+		newToken := hex.EncodeToString(secureBytes)
+
+		err := database.DB.Model(&database.SysConfig{}).Where("key = ?", "sub_token").Update("value", newToken).Error
+		if err != nil {
+			logger.Log.Error("TG Bot 重置 Sub Token 失败", "error", err)
+			msg := tgbotapi.NewMessage(chatID, "❌ 重置订阅 Token 失败，请检查系统日志。")
+			bot.Send(msg)
+			return
+		}
+
+		logger.Log.Info("用户通过 TG Bot 重置了订阅 Token", "user_id", callbackQuery.From.ID)
+		replyText := "✅ **订阅重置成功！**"
 
 		msg := tgbotapi.NewMessage(chatID, replyText)
 		msg.ParseMode = "Markdown"
