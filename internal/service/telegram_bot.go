@@ -37,21 +37,29 @@ func RestartTelegramBot() {
 }
 
 func runTelegramBot(ctx context.Context) {
+	var enabledConfig database.SysConfig
 	var tokenConfig database.SysConfig
 	var whitelistConfig database.SysConfig
 	var registerConfig database.SysConfig
 
 	// 获取配置
+	database.DB.Where("key = ?", "tg_bot_enabled").First(&enabledConfig)
 	database.DB.Where("key = ?", "tg_bot_token").First(&tokenConfig)
 	database.DB.Where("key = ?", "tg_bot_whitelist").First(&whitelistConfig)
 	database.DB.Where("key = ?", "tg_bot_register_commands").First(&registerConfig)
 
+	botEnabled := strings.TrimSpace(enabledConfig.Value) == "true"
 	token := strings.TrimSpace(tokenConfig.Value)
 	whitelist := strings.TrimSpace(whitelistConfig.Value)
 	registerCommands := strings.TrimSpace(registerConfig.Value) == "true"
 
+	if !botEnabled {
+		logger.Log.Info("Telegram Bot 已通过面板开关关闭，Bot 服务处于闲置状态")
+		return
+	}
+
 	if token == "" || whitelist == "" {
-		logger.Log.Info("Telegram Bot Token 或 白名单未完全配置，Bot 服务处于闲置状态")
+		logger.Log.Info("Telegram Bot Token 或 白名单未完全配置，暂停运行")
 		return
 	}
 

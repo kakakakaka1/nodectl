@@ -1211,11 +1211,15 @@
                 </div>
 
                 <div class="sys-form-section" id="sys-form-tgbot" style="display:none;">
-                    <div class="sys-field">
-                        <label class="sys-label">Telegram Bot Token</label>
-                        <input type="password" id="sys_tg_bot_token" class="sys-input"
-                            placeholder="例如: 123456789:ABCdefGHIjklMNOpqrSTUvwxyz" oninput="triggerSysAutoSave()">
-                        <div class="sys-desc">通过 BotFather 创建机器人获取的 Token。</div>
+                    <div class="sys-pref-row" style="align-items: center; margin-bottom: 20px;">
+                        <div class="sys-pref-info">
+                            <span class="sys-pref-title">🚀 启用 Telegram Bot</span>
+                            <span class="sys-pref-desc">开启后，管理面板将运行一个 TG 机器人。关闭后则停止机器人。</span>
+                        </div>
+                        <label class="sys-toggle-switch">
+                            <input type="checkbox" id="sys_tg_bot_enabled" onchange="triggerSysAutoSave()">
+                            <span class="sys-toggle-slider"></span>
+                        </label>
                     </div>
 
                     <div class="sys-pref-row" style="align-items: center; margin-bottom: 20px;">
@@ -1227,6 +1231,13 @@
                             <input type="checkbox" id="sys_tg_bot_register_commands" onchange="triggerSysAutoSave()">
                             <span class="sys-toggle-slider"></span>
                         </label>
+                    </div>
+
+                    <div class="sys-field">
+                        <label class="sys-label">Telegram Bot Token</label>
+                        <input type="password" id="sys_tg_bot_token" class="sys-input"
+                            placeholder="例如: 123456789:ABCdefGHIjklMNOpqrSTUvwxyz" oninput="triggerSysAutoSave()">
+                        <div class="sys-desc">通过 BotFather 创建机器人获取的 Token。</div>
                     </div>
 
                     <div class="sys-field">
@@ -1799,6 +1810,7 @@
 
                 // TG Bot 配置
                 document.getElementById('sys_tg_bot_token').value = data.tg_bot_token || '';
+                document.getElementById('sys_tg_bot_enabled').checked = (data.tg_bot_enabled === 'true');
                 document.getElementById('sys_tg_bot_register_commands').checked = (data.tg_bot_register_commands === 'true');
 
                 // 解析白名单并渲染
@@ -1942,6 +1954,7 @@
                 "cf_api_key": document.getElementById('sys_cf_api_key').value,
                 "cf_domain": document.getElementById('sys_cf_domain').value,
                 "cf_auto_renew": document.getElementById('sys_cf_auto_renew').checked ? 'true' : 'false', // ✨ 新增
+                "tg_bot_enabled": document.getElementById('sys_tg_bot_enabled').checked ? 'true' : 'false',
                 "tg_bot_token": document.getElementById('sys_tg_bot_token').value.trim(),
                 "tg_bot_whitelist": tgBotWhitelistItems.filter(item => item.id.trim() !== '').map(item => item.id.trim() + (item.remark.trim() ? '=' + item.remark.trim() : '')).join(','),
                 "tg_bot_register_commands": document.getElementById('sys_tg_bot_register_commands').checked ? 'true' : 'false'

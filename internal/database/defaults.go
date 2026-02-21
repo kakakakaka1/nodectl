@@ -56,6 +56,7 @@ func initBasicSettings() {
 		{Key: "pref_speed_test_mode", Value: "ping_speed", Description: "节点测速模式"},
 		{Key: "pref_speed_test_file_size", Value: "50", Description: "节点测速文件大小(MB)"},
 		// Telegram Bot 配置
+		{Key: "tg_bot_enabled", Value: "false", Description: "是否启用 Telegram Bot"},
 		{Key: "tg_bot_token", Value: "", Description: "Telegram Bot Token"},
 		{Key: "tg_bot_whitelist", Value: "", Description: "允许使用 Bot 的 TG User ID (逗号分隔)"},
 		{Key: "tg_bot_register_commands", Value: "false", Description: "是否清理历史菜单并注册 /sub 指令"},
