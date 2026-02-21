@@ -18,6 +18,22 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// DeleteAirportSubscription 删除关联的节点和订阅本身，并清理可能存在于内存中的测试废土
+func DeleteAirportSubscription(subID string) error {
+	tx := database.DB.Begin()
+	// 1. 删除关联的节点
+	if err := tx.Where("sub_id = ?", subID).Delete(&database.AirportNode{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("删除节点失败: %w", err)
+	}
+	// 2. 删除订阅本身
+	if err := tx.Where("id = ?", subID).Delete(&database.AirportSub{}).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("删除订阅失败: %w", err)
+	}
+	return tx.Commit().Error
+}
+
 // SyncAirportSubscription 执行订阅更新核心逻辑
 func SyncAirportSubscription(subID string) error {
 	var sub database.AirportSub
@@ -229,7 +245,53 @@ func isInvalidNode(name string, server string, port int) bool {
 	return false
 }
 
-// ------------------- [名称清洗引擎] -------------------
+// ------------------- [名称获取与清洗引擎] -------------------
+
+// FetchSubscriptionName 尝试从订阅链接响应头获取名称
+func FetchSubscriptionName(subURL string) string {
+	client := &http.Client{Timeout: 8 * time.Second}
+	req, err := http.NewRequest("GET", subURL, nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("User-Agent", "Clash/1.18.0")
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if title := resp.Header.Get("Profile-Title"); title != "" {
+		if decoded, err := url.QueryUnescape(title); err == nil {
+			return decoded
+		}
+		return title
+	}
+
+	cd := resp.Header.Get("Content-Disposition")
+	if cd != "" {
+		if strings.Contains(cd, "filename*=") {
+			parts := strings.Split(cd, "filename*=")
+			if len(parts) > 1 {
+				val := strings.TrimSpace(parts[1])
+				if strings.HasPrefix(strings.ToLower(val), "utf-8''") {
+					val = val[7:]
+				}
+				if decoded, err := url.PathUnescape(val); err == nil {
+					return strings.TrimSuffix(decoded, ".yaml")
+				}
+			}
+		} else if strings.Contains(cd, "filename=") {
+			parts := strings.Split(cd, "filename=")
+			if len(parts) > 1 {
+				name := strings.Trim(strings.TrimSpace(parts[1]), `"; `)
+				return strings.TrimSuffix(name, ".yaml")
+			}
+		}
+	}
+
+	return ""
+}
 
 // cleanNodeName 清理节点名称，去除首尾和开头的无意义符号
 func cleanNodeName(name string) string {

@@ -785,13 +785,14 @@
             background: transparent;
         }
 
+        .air-sub-card {
+            margin-bottom: 5px;
+            border: 1px solid #eee;
+        }
+
         .air-sub-card.active {
             margin-bottom: 15px;
             border-radius: 10px;
-            border-left: none;
-            border-right: none;
-            border-top: 1px solid #eee;
-            border-bottom: 1px solid #eee;
         }
 
         .air-sub-card.active .air-sub-header-row {
@@ -866,7 +867,7 @@
                 <div class="air-sidebar-footer">
                     <div class="air-add-form-container" id="airAddForm">
                         <div class="air-input-group"><input type="text" id="airNewName" class="air-input"
-                                placeholder="订阅名称"></div>
+                                placeholder="订阅名称 (选填)"></div>
                         <div class="air-input-group"><input type="text" id="airNewLink" class="air-input"
                                 placeholder="订阅链接"></div>
                         <div class="air-form-actions">
@@ -1164,7 +1165,16 @@
 
         container.innerHTML = '';
         if (nodes.length === 0) {
-            container.innerHTML = `<div class="air-empty-state" style="padding:20px; color:#999;">暂无节点</div>`; return;
+            container.innerHTML = `<div class="air-empty-state" style="padding:40px 20px; color:#999; text-align:center; display:flex; flex-direction:column; align-items:center; gap:12px;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#d1d1d6" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <div style="font-size:14px; color:#666; font-weight:500;">暂无节点数据</div>
+                <div style="font-size:12px; color:#999;">请尝试点击更新订阅或检查链接是否正确</div>
+            </div>`;
+            return;
         }
 
         const sorted = [...nodes].sort((a, b) => {
@@ -1394,7 +1404,7 @@
 
     async function submitSub() {
         const name = document.getElementById('airNewName').value.trim(); const url = document.getElementById('airNewLink').value.trim();
-        if (!name || !url) return alert("请填写完整");
+        if (!url) { showAirSaveStatus("请填写订阅链接", true); return; }
         const isEdit = !!airState.editingSubId;
         const apiPath = isEdit ? '/api/airport/edit' : '/api/airport/add';
         const payload = isEdit ? { id: airState.editingSubId, name, url } : { name, url };
@@ -1405,10 +1415,11 @@
             const res = await fetch(apiPath, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const data = await res.json();
             if (res.ok && data.status === 'success') {
-                resetForm(); loadAirSubs(); showAirSaveStatus();
-                if (!isEdit) alert("添加成功，系统将自动在后台进行节点同步");
-            } else { alert((isEdit ? "修改失败: " : "添加失败: ") + (data.message || "未知错误")); }
-        } catch (e) { alert("网络错误"); } finally { btn.innerText = '确认'; btn.disabled = false; }
+                resetForm(); loadAirSubs();
+                if (!isEdit) showAirSaveStatus("添加成功，后台正在同步");
+                else showAirSaveStatus("修改成功");
+            } else { showAirSaveStatus((isEdit ? "修改失败: " : "添加失败: ") + (data.message || "未知错误"), true); }
+        } catch (e) { showAirSaveStatus("网络错误", true); } finally { btn.innerText = '确认'; btn.disabled = false; }
     }
 
     async function updateAirSub(id, btn, event) {
@@ -1416,9 +1427,9 @@
         icon.classList.add('spin'); btn.disabled = true;
         try {
             const res = await fetch('/api/airport/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
-            if (res.ok) { showAirSaveStatus(); if (airState.currentSubId === id) selectAirSub(id); }
-            else { alert("更新失败"); }
-        } catch (e) { alert("网络错误"); } finally { icon.classList.remove('spin'); btn.disabled = false; }
+            if (res.ok) { showAirSaveStatus("更新成功"); if (airState.currentSubId === id) selectAirSub(id); }
+            else { showAirSaveStatus("更新失败", true); }
+        } catch (e) { showAirSaveStatus("网络错误", true); } finally { icon.classList.remove('spin'); btn.disabled = false; }
     }
 
     async function deleteAirSub(id, btn, event) {
@@ -1427,11 +1438,18 @@
             clearTimeout(airState.deleteTimers[id]);
             try {
                 const res = await fetch('/api/airport/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: id }) });
-                if (res.ok) {
+                const json = await res.json();
+                if (res.ok && json.status === 'success') {
+                    showAirSaveStatus("已删除");
                     if (airState.currentSubId === id) { airState.currentSubId = null; document.getElementById(airState.isMobile ? `mobile-nodes-${id}` : 'airDesktopNodesList').innerHTML = ''; }
-                    if (airState.editingSubId === id) resetForm(); loadAirSubs();
+                    if (airState.editingSubId === id) resetForm();
+                    loadAirSubs();
+                } else {
+                    showAirSaveStatus("删除失败: " + (json.message || "未知错误"), true);
                 }
-            } catch (e) { }
+            } catch (e) {
+                showAirSaveStatus("网络错误", true);
+            }
         } else {
             btn.classList.add('confirm-state'); const originHtml = btn.innerHTML; btn.innerHTML = '确定?';
             airState.deleteTimers[id] = setTimeout(() => { if (btn) { btn.classList.remove('confirm-state'); btn.innerHTML = originHtml; } }, 3000);
@@ -1439,9 +1457,20 @@
     }
 
     let saveTimer;
-    function showAirSaveStatus() {
-        const el = document.getElementById('airStatusIndicator'); el.style.opacity = '1';
-        clearTimeout(saveTimer); saveTimer = setTimeout(() => el.style.opacity = '0', 2000);
+    function showAirSaveStatus(text = "已保存", isError = false) {
+        const el = document.getElementById('airStatusIndicator');
+        if (isError) {
+            el.style.color = 'var(--air-danger)';
+            el.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg> ${text}`;
+        } else {
+            el.style.color = 'var(--air-success)';
+            el.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg> ${text}`;
+        }
+        el.style.opacity = '1';
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+            el.style.opacity = '0';
+        }, 3000);
     }
 
     function filterAirNodes(mode) {

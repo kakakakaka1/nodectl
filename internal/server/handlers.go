@@ -1366,9 +1366,18 @@ func apiAirportAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Name == "" || req.URL == "" {
-		sendJSON(w, "error", "名称和链接不能为空")
+	if req.URL == "" {
+		sendJSON(w, "error", "订阅链接不能为空")
 		return
+	}
+
+	if req.Name == "" {
+		fetchedName := service.FetchSubscriptionName(req.URL)
+		if fetchedName != "" {
+			req.Name = fetchedName
+		} else {
+			req.Name = "未命名订阅 " + time.Now().Format("01-02 15:04")
+		}
 	}
 
 	sub := database.AirportSub{
@@ -1428,20 +1437,11 @@ func apiAirportDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx := database.DB.Begin()
-	// 1. 删除关联的节点
-	if err := tx.Where("sub_id = ?", req.ID).Delete(&database.AirportNode{}).Error; err != nil {
-		tx.Rollback()
-		sendJSON(w, "error", "删除节点失败")
+	if err := service.DeleteAirportSubscription(req.ID); err != nil {
+		logger.Log.Error("删除订阅失败", "id", req.ID, "error", err)
+		sendJSON(w, "error", "删除失败: "+err.Error())
 		return
 	}
-	// 2. 删除订阅本身
-	if err := tx.Where("id = ?", req.ID).Delete(&database.AirportSub{}).Error; err != nil {
-		tx.Rollback()
-		sendJSON(w, "error", "删除订阅失败")
-		return
-	}
-	tx.Commit()
 
 	sendJSON(w, "success", "删除成功")
 }
