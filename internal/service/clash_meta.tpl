@@ -172,22 +172,24 @@ rule-anchor:
   Local: &Local
     {type: file, behavior: classical, format: text}
   Classical: &Classical
-    {type: http, behavior: classical, format: text, interval: {{.RulesInterval}}}
+    {type: http, behavior: classical, format: text, interval: {{.PublicRulesInterval}}}
   IPCIDR: &IPCIDR
-    {type: http, behavior: ipcidr, format: mrs, interval: {{.RulesInterval}}}
+    {type: http, behavior: ipcidr, format: mrs, interval: {{.PublicRulesInterval}}}
   Domain: &Domain
-    {type: http, behavior: domain, format: mrs, interval: {{.RulesInterval}}}
+    {type: http, behavior: domain, format: mrs, interval: {{.PublicRulesInterval}}}
 
 # -------------------- 规则集自动挂载 --------------------
 rule-providers:
   我的直连规则:
     <<: *Classical
+    interval: {{.RulesInterval}}
     url: "{{.BaseURL}}/sub/rules/direct?token={{.Token}}"
     path: ./rules/direct.list
 
 {{range .CustomProxies}}
   {{.Name}}_自定义分流:
     <<: *Classical
+    interval: {{$.RulesInterval}}
     url: "{{$.BaseURL}}/sub/rules/proxy/{{.ID}}?token={{$.Token}}"
     path: ./rules/{{.Name}}_Custom.list
 {{end}}
@@ -236,6 +238,7 @@ rule-providers:
   {{if .URL}}
   {{.Name}}_用户自定义:
     <<: *Classical
+    interval: {{$.RulesInterval}}
     path: ./rules/{{.Name}}_User_Custom.yaml
     url: "{{.URL}}"
   {{end}}

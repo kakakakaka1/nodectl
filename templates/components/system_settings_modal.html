@@ -1449,8 +1449,10 @@
                                         <p style="margin: 0; padding-bottom: 4px; font-weight: 600; color: #fff;">刷新间隔
                                         </p>
                                         <p style="margin: 0; padding-bottom: 4px;">决定客户端在后台多久拉取一次最新数据。</p>
-                                        <p style="margin: 0; padding-bottom: 4px;">• <b>节点:</b> 中转/落地机场 (默认 300 秒)</p>
-                                        <p style="margin: 0;">• <b>规则:</b> 分流/直连规则 (默认 300 秒)</p>
+                                        <p style="margin: 0; padding-bottom: 4px;">• <b>节点更新:</b> 中转/落地机场 (默认 300 秒)</p>
+                                        <p style="margin: 0; padding-bottom: 4px;">• <b>私有规则:</b> 用户自定义的分流/直连规则 (默认 3600
+                                            秒)</p>
+                                        <p style="margin: 0;">• <b>公共规则:</b> 系统自带的公共规则集 (强制最小 86400 秒 / 24小时)</p>
                                     </div>
                                 </div>
                             </div>
@@ -1460,13 +1462,19 @@
                             <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
                                 <span style="font-size: 12px; color: #666; font-weight: 600;">节点更新</span>
                                 <input type="number" id="sys_clash_proxies_update_interval" class="sys-input"
+                                    placeholder="例如: 3600" oninput="triggerSysAutoSave()"
+                                    style="width: 100%; border-radius: 6px;">
+                            </div>
+                            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                                <span style="font-size: 12px; color: #666; font-weight: 600;">私有规则</span>
+                                <input type="number" id="sys_clash_rules_update_interval" class="sys-input"
                                     placeholder="例如: 300" oninput="triggerSysAutoSave()"
                                     style="width: 100%; border-radius: 6px;">
                             </div>
                             <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
-                                <span style="font-size: 12px; color: #666; font-weight: 600;">规则更新</span>
-                                <input type="number" id="sys_clash_rules_update_interval" class="sys-input"
-                                    placeholder="例如: 3600" oninput="triggerSysAutoSave()"
+                                <span style="font-size: 12px; color: #666; font-weight: 600;">公共规则</span>
+                                <input type="number" id="sys_clash_public_rules_update_interval" class="sys-input"
+                                    placeholder="例如: 86400" min="86400" oninput="triggerSysAutoSave()"
                                     style="width: 100%; border-radius: 6px;">
                             </div>
                         </div>
@@ -1849,6 +1857,7 @@
                 document.getElementById('sys_pref_speed_test_file_size').value = data.pref_speed_test_file_size || '50';
                 document.getElementById('sys_clash_proxies_update_interval').value = data.clash_proxies_update_interval || '300';
                 document.getElementById('sys_clash_rules_update_interval').value = data.clash_rules_update_interval || '3600';
+                document.getElementById('sys_clash_public_rules_update_interval').value = data.clash_public_rules_update_interval || '86400';
 
 
                 // TG Bot 配置
@@ -1994,6 +2003,7 @@
                 "pref_speed_test_file_size": document.getElementById('sys_pref_speed_test_file_size').value,
                 "clash_proxies_update_interval": document.getElementById('sys_clash_proxies_update_interval').value,
                 "clash_rules_update_interval": document.getElementById('sys_clash_rules_update_interval').value,
+                "clash_public_rules_update_interval": document.getElementById('sys_clash_public_rules_update_interval').value,
                 "sys_force_http": document.getElementById('sys_force_http').checked ? 'true' : 'false',
                 "cf_email": document.getElementById('sys_cf_email').value,
                 "cf_api_key": document.getElementById('sys_cf_api_key').value,

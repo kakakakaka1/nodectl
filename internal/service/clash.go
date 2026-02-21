@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -117,6 +118,7 @@ type ClashTemplateData struct {
 	NameserverPolicyRuleSet string // 用于存储动态生成的 DNS 策略字符串，例如 "CN_域,Apple_域"
 	ProxiesInterval         string
 	RulesInterval           string
+	PublicRulesInterval     string
 }
 
 func RenderClashConfig(relayURL, exitURL, baseURL, token string) (string, error) {
@@ -170,7 +172,7 @@ func RenderClashConfig(relayURL, exitURL, baseURL, token string) (string, error)
 	database.DB.Where("key = ?", "clash_proxies_update_interval").First(&proxiesIntervalConf)
 	proxiesInterval := proxiesIntervalConf.Value
 	if proxiesInterval == "" {
-		proxiesInterval = "300"
+		proxiesInterval = "3600"
 	}
 
 	var rulesIntervalConf database.SysConfig
@@ -178,6 +180,18 @@ func RenderClashConfig(relayURL, exitURL, baseURL, token string) (string, error)
 	rulesInterval := rulesIntervalConf.Value
 	if rulesInterval == "" {
 		rulesInterval = "300"
+	}
+
+	var publicRulesIntervalConf database.SysConfig
+	database.DB.Where("key = ?", "clash_public_rules_update_interval").First(&publicRulesIntervalConf)
+	publicRulesInterval := publicRulesIntervalConf.Value
+	if publicRulesInterval == "" {
+		publicRulesInterval = "86400"
+	} else {
+		publicIntervalInt, err := strconv.Atoi(publicRulesInterval)
+		if err != nil || publicIntervalInt < 86400 {
+			publicRulesInterval = "86400"
+		}
 	}
 
 	data := ClashTemplateData{
@@ -191,6 +205,7 @@ func RenderClashConfig(relayURL, exitURL, baseURL, token string) (string, error)
 		NameserverPolicyRuleSet: dnsPolicyStr,
 		ProxiesInterval:         proxiesInterval,
 		RulesInterval:           rulesInterval,
+		PublicRulesInterval:     publicRulesInterval,
 	}
 
 	tmpl, err := template.New("clash").Parse(ClashTemplateStr)
