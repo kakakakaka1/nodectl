@@ -106,12 +106,15 @@ func runTelegramBot(ctx context.Context) {
 			if !ok {
 				return
 			}
-			// 处理消息 (Message)
-			if update.Message != nil {
-				handleMessage(bot, update.Message, whitelist)
-			} else if update.CallbackQuery != nil {
-				handleCallbackQuery(bot, update.CallbackQuery, whitelist)
-			}
+			// 采用协程并发处理每条消息，避免因为某一条消息卡顿阻塞整体的接收队列，提升多用户并发响应速度
+			go func(upd tgbotapi.Update) {
+				// 处理消息 (Message)
+				if upd.Message != nil {
+					handleMessage(bot, upd.Message, whitelist)
+				} else if upd.CallbackQuery != nil {
+					handleCallbackQuery(bot, upd.CallbackQuery, whitelist)
+				}
+			}(update)
 		}
 	}
 }
@@ -195,101 +198,104 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 		return
 	}
 
-	// 响应 Telegram 提示收到回调，消除按钮顶部的 loading 状态
+	// 响应 Telegram 提示收到回调，消除按钮顶部的 loading 状态（提速体感）
 	bot.Request(tgbotapi.NewCallback(callbackQuery.ID, ""))
 
 	data := callbackQuery.Data
 	chatID := callbackQuery.Message.Chat.ID
 	messageID := callbackQuery.Message.MessageID
 
-	switch data {
-	case "menu_sub_center":
-		// 点击“订阅中心”，修改原消息，显示二级菜单
-		editMsg := tgbotapi.NewEditMessageText(chatID, messageID, "👇 请选择具体的订阅格式：")
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🐱 Clash 订阅", "get_sub_clash"),
-				tgbotapi.NewInlineKeyboardButtonData("✌️ V2ray 订阅", "get_sub_v2ray"),
-			),
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🔄 重置订阅", "reset_sub_token"),
-				tgbotapi.NewInlineKeyboardButtonData("🔙 返回上级", "menu_main"),
-			),
-		)
-		editMsg.ReplyMarkup = &keyboard
-		bot.Send(editMsg)
+	// 采用异步处理以提升点击按钮时的响应速度
+	go func() {
+		switch data {
+		case "menu_sub_center":
+			// 点击“订阅中心”，修改原消息，显示二级菜单
+			editMsg := tgbotapi.NewEditMessageText(chatID, messageID, "👇 请选择具体的订阅格式：")
+			keyboard := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData("🐱 Clash 订阅", "get_sub_clash"),
+					tgbotapi.NewInlineKeyboardButtonData("✌️ V2ray 订阅", "get_sub_v2ray"),
+				),
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData("🔄 重置订阅", "reset_sub_token"),
+					tgbotapi.NewInlineKeyboardButtonData("🔙 返回上级", "menu_main"),
+				),
+			)
+			editMsg.ReplyMarkup = &keyboard
+			bot.Send(editMsg)
 
-	case "menu_main":
-		// 返回主菜单
-		editMsg := tgbotapi.NewEditMessageText(chatID, messageID, "🚀 请选择要获取的订阅类型：")
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(
-			tgbotapi.NewInlineKeyboardRow(
-				tgbotapi.NewInlineKeyboardButtonData("🌐 订阅中心", "menu_sub_center"),
-				tgbotapi.NewInlineKeyboardButtonData("📡 服务器列表", "menu_nodes:1"),
-			),
-		)
-		editMsg.ReplyMarkup = &keyboard
-		bot.Send(editMsg)
+		case "menu_main":
+			// 返回主菜单
+			editMsg := tgbotapi.NewEditMessageText(chatID, messageID, "🚀 请选择要获取的订阅类型：")
+			keyboard := tgbotapi.NewInlineKeyboardMarkup(
+				tgbotapi.NewInlineKeyboardRow(
+					tgbotapi.NewInlineKeyboardButtonData("🌐 订阅中心", "menu_sub_center"),
+					tgbotapi.NewInlineKeyboardButtonData("📡 服务器列表", "menu_nodes:1"),
+				),
+			)
+			editMsg.ReplyMarkup = &keyboard
+			bot.Send(editMsg)
 
-	case "get_sub_clash":
-		panelURL, token := getBaseURLAndToken()
-		subURL := fmt.Sprintf("%s/sub/clash?token=%s", panelURL, token)
-		replyText := fmt.Sprintf("✅ **您的 Clash (Mihomo) 订阅链接：**\n\n`%s`", subURL)
+		case "get_sub_clash":
+			panelURL, token := getBaseURLAndToken()
+			subURL := fmt.Sprintf("%s/sub/clash?token=%s", panelURL, token)
+			replyText := fmt.Sprintf("✅ **您的 Clash (Mihomo) 订阅链接：**\n\n`%s`", subURL)
 
-		msg := tgbotapi.NewMessage(chatID, replyText)
-		msg.ParseMode = "Markdown"
-		sentMsg, err := bot.Send(msg)
-		if err == nil {
-			go func(chatID int64, messageID int) {
-				time.Sleep(10 * time.Second)
-				deleteMsg := tgbotapi.NewDeleteMessage(chatID, messageID)
-				bot.Request(deleteMsg)
-			}(chatID, sentMsg.MessageID)
-		}
+			msg := tgbotapi.NewMessage(chatID, replyText)
+			msg.ParseMode = "Markdown"
+			sentMsg, err := bot.Send(msg)
+			if err == nil {
+				go func(chatID int64, messageID int) {
+					time.Sleep(10 * time.Second)
+					deleteMsg := tgbotapi.NewDeleteMessage(chatID, messageID)
+					bot.Request(deleteMsg)
+				}(chatID, sentMsg.MessageID)
+			}
 
-	case "get_sub_v2ray":
-		panelURL, token := getBaseURLAndToken()
-		subURL := fmt.Sprintf("%s/sub/v2ray?token=%s", panelURL, token)
-		replyText := fmt.Sprintf("✅ **您的 V2ray 订阅链接：**\n\n`%s`", subURL)
+		case "get_sub_v2ray":
+			panelURL, token := getBaseURLAndToken()
+			subURL := fmt.Sprintf("%s/sub/v2ray?token=%s", panelURL, token)
+			replyText := fmt.Sprintf("✅ **您的 V2ray 订阅链接：**\n\n`%s`", subURL)
 
-		msg := tgbotapi.NewMessage(chatID, replyText)
-		msg.ParseMode = "Markdown"
-		sentMsg, err := bot.Send(msg)
-		if err == nil {
-			go func(chatID int64, messageID int) {
-				time.Sleep(10 * time.Second)
-				deleteMsg := tgbotapi.NewDeleteMessage(chatID, messageID)
-				bot.Request(deleteMsg)
-			}(chatID, sentMsg.MessageID)
-		}
+			msg := tgbotapi.NewMessage(chatID, replyText)
+			msg.ParseMode = "Markdown"
+			sentMsg, err := bot.Send(msg)
+			if err == nil {
+				go func(chatID int64, messageID int) {
+					time.Sleep(10 * time.Second)
+					deleteMsg := tgbotapi.NewDeleteMessage(chatID, messageID)
+					bot.Request(deleteMsg)
+				}(chatID, sentMsg.MessageID)
+			}
 
-	case "reset_sub_token":
-		secureBytes := make([]byte, 16)
-		rand.Read(secureBytes)
-		newToken := hex.EncodeToString(secureBytes)
+		case "reset_sub_token":
+			secureBytes := make([]byte, 16)
+			rand.Read(secureBytes)
+			newToken := hex.EncodeToString(secureBytes)
 
-		err := database.DB.Model(&database.SysConfig{}).Where("key = ?", "sub_token").Update("value", newToken).Error
-		if err != nil {
-			logger.Log.Error("TG Bot 重置 Sub Token 失败", "error", err)
-			msg := tgbotapi.NewMessage(chatID, "❌ 重置订阅 Token 失败，请检查系统日志。")
+			err := database.DB.Model(&database.SysConfig{}).Where("key = ?", "sub_token").Update("value", newToken).Error
+			if err != nil {
+				logger.Log.Error("TG Bot 重置 Sub Token 失败", "error", err)
+				msg := tgbotapi.NewMessage(chatID, "❌ 重置订阅 Token 失败，请检查系统日志。")
+				bot.Send(msg)
+				return
+			}
+
+			logger.Log.Info("用户通过 TG Bot 重置了订阅 Token", "user_id", callbackQuery.From.ID)
+			replyText := "✅ **订阅重置成功！**"
+
+			msg := tgbotapi.NewMessage(chatID, replyText)
+			msg.ParseMode = "Markdown"
 			bot.Send(msg)
-			return
+
+		default:
+			if strings.HasPrefix(data, "menu_nodes:") {
+				handleMenuNodes(bot, chatID, messageID, data)
+			} else if strings.HasPrefix(data, "node_info:") {
+				handleNodeInfo(bot, chatID, messageID, data)
+			}
 		}
-
-		logger.Log.Info("用户通过 TG Bot 重置了订阅 Token", "user_id", callbackQuery.From.ID)
-		replyText := "✅ **订阅重置成功！**"
-
-		msg := tgbotapi.NewMessage(chatID, replyText)
-		msg.ParseMode = "Markdown"
-		bot.Send(msg)
-
-	default:
-		if strings.HasPrefix(data, "menu_nodes:") {
-			handleMenuNodes(bot, chatID, messageID, data)
-		} else if strings.HasPrefix(data, "node_info:") {
-			handleNodeInfo(bot, chatID, messageID, data)
-		}
-	}
+	}()
 }
 
 func formatBytes(b int64) string {
