@@ -61,7 +61,6 @@ func runTelegramBot(ctx context.Context) {
 	}
 
 	if token == "" || whitelist == "" {
-		logger.Log.Info("Telegram Bot Token 或 白名单未完全配置，暂停运行")
 		return
 	}
 
@@ -72,8 +71,6 @@ func runTelegramBot(ctx context.Context) {
 	}
 
 	// bot.Debug = true // 可选：开启调试模式
-
-	logger.Log.Info("Telegram Bot 启动成功", "bot_username", bot.Self.UserName)
 
 	if registerCommands {
 		// 删除并重新注册主菜单指令
@@ -90,8 +87,6 @@ func runTelegramBot(ctx context.Context) {
 		)
 		if _, err := bot.Request(setCmdConfig); err != nil {
 			logger.Log.Error("注册 TG Bot 指令失败", "error", err)
-		} else {
-			logger.Log.Info("TG Bot 指令已重新写入")
 		}
 	}
 
@@ -240,7 +235,14 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 
 		msg := tgbotapi.NewMessage(chatID, replyText)
 		msg.ParseMode = "Markdown"
-		bot.Send(msg)
+		sentMsg, err := bot.Send(msg)
+		if err == nil {
+			go func(chatID int64, messageID int) {
+				time.Sleep(10 * time.Second)
+				deleteMsg := tgbotapi.NewDeleteMessage(chatID, messageID)
+				bot.Request(deleteMsg)
+			}(chatID, sentMsg.MessageID)
+		}
 
 	case "get_sub_v2ray":
 		panelURL, token := getBaseURLAndToken()
@@ -249,7 +251,14 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 
 		msg := tgbotapi.NewMessage(chatID, replyText)
 		msg.ParseMode = "Markdown"
-		bot.Send(msg)
+		sentMsg, err := bot.Send(msg)
+		if err == nil {
+			go func(chatID int64, messageID int) {
+				time.Sleep(10 * time.Second)
+				deleteMsg := tgbotapi.NewDeleteMessage(chatID, messageID)
+				bot.Request(deleteMsg)
+			}(chatID, sentMsg.MessageID)
+		}
 
 	case "reset_sub_token":
 		secureBytes := make([]byte, 16)
