@@ -249,7 +249,11 @@ func ParseCustomRules(raw string) string {
 					line += "/32"
 				}
 			}
-			result = append(result, "IP-CIDR,"+line)
+			if strings.Contains(line, ":") {
+				result = append(result, "IP-CIDR6,"+line)
+			} else {
+				result = append(result, "IP-CIDR,"+line)
+			}
 		} else {
 			if idx := strings.Index(line, "/"); idx != -1 {
 				line = line[:idx]

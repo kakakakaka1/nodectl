@@ -788,7 +788,7 @@
 
         if (isIP || isIPv6) {
             if (!raw.includes('/')) raw += raw.includes(':') ? '/128' : '/32'; // 补全掩码
-            return 'IP-CIDR,' + raw;
+            return (raw.includes(':') ? 'IP-CIDR6,' : 'IP-CIDR,') + raw;
         }
 
         // 默认为域名后缀
