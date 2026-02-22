@@ -5,6 +5,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -171,12 +173,13 @@ func handleMessage(bot *tgbotapi.BotAPI, message *tgbotapi.Message, whitelistStr
 
 // 发送订阅主菜单 (包含一级按钮)
 func sendSubMenu(bot *tgbotapi.BotAPI, chatID int64) {
-	msg := tgbotapi.NewMessage(chatID, "🚀 请选择要获取的订阅类型：")
+	msg := tgbotapi.NewMessage(chatID, "🚀 请选择菜单")
 
 	// 创建 Inline Keyboard，包含一级菜单按钮
 	keyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
 			tgbotapi.NewInlineKeyboardButtonData("🌐 订阅中心", "menu_sub_center"),
+			tgbotapi.NewInlineKeyboardButtonData("📡 服务器列表", "menu_nodes:1"),
 		),
 	)
 
@@ -222,6 +225,7 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(
 			tgbotapi.NewInlineKeyboardRow(
 				tgbotapi.NewInlineKeyboardButtonData("🌐 订阅中心", "menu_sub_center"),
+				tgbotapi.NewInlineKeyboardButtonData("📡 服务器列表", "menu_nodes:1"),
 			),
 		)
 		editMsg.ReplyMarkup = &keyboard
@@ -278,5 +282,154 @@ func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQ
 		msg := tgbotapi.NewMessage(chatID, replyText)
 		msg.ParseMode = "Markdown"
 		bot.Send(msg)
+
+	default:
+		if strings.HasPrefix(data, "menu_nodes:") {
+			handleMenuNodes(bot, chatID, messageID, data)
+		} else if strings.HasPrefix(data, "node_info:") {
+			handleNodeInfo(bot, chatID, messageID, data)
+		}
 	}
+}
+
+func formatBytes(b int64) string {
+	if b == 0 {
+		return "0G"
+	}
+	gb := float64(b) / (1024 * 1024 * 1024)
+	if gb >= 1024 {
+		return fmt.Sprintf("%.2fT", gb/1024)
+	}
+	return fmt.Sprintf("%.2fG", gb)
+}
+
+func handleMenuNodes(bot *tgbotapi.BotAPI, chatID int64, messageID int, data string) {
+	pageStr := strings.TrimPrefix(data, "menu_nodes:")
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	var totalNodes int64
+	database.DB.Model(&database.NodePool{}).Where("is_blocked = ?", false).Count(&totalNodes)
+
+	if totalNodes == 0 {
+		editMsg := tgbotapi.NewEditMessageText(chatID, messageID, "📭 当前没有任何节点。")
+		btn := tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("🔙 返回上级", "menu_main"))
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(btn)
+		editMsg.ReplyMarkup = &keyboard
+		bot.Send(editMsg)
+		return
+	}
+
+	perPage := 12
+	totalPages := int(math.Ceil(float64(totalNodes) / float64(perPage)))
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * perPage
+
+	var nodes []database.NodePool
+	// 按照流量消耗排行，一页显示12个
+	database.DB.Where("is_blocked = ?", false).
+		Order("(traffic_up + traffic_down) DESC").
+		Limit(perPage).Offset(offset).Find(&nodes)
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("📊 **服务器流量排行榜 (第 %d/%d 页)**\n\n", page, totalPages))
+
+	for _, node := range nodes {
+		upStr := formatBytes(node.TrafficUp)
+		downStr := formatBytes(node.TrafficDown)
+		limitStr := "不限量"
+		if node.TrafficLimit > 0 {
+			limitStr = formatBytes(node.TrafficLimit)
+		}
+
+		sb.WriteString(fmt.Sprintf("`%s` | %s %s %s\n", node.Name, upStr, downStr, limitStr))
+	}
+
+	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, sb.String())
+	editMsg.ParseMode = "Markdown"
+
+	// 构建键盘
+	var keyboard [][]tgbotapi.InlineKeyboardButton
+
+	var currentRow []tgbotapi.InlineKeyboardButton
+	for i, n := range nodes {
+		currentRow = append(currentRow, tgbotapi.NewInlineKeyboardButtonData(n.Name, "node_info:"+n.UUID))
+		if len(currentRow) == 3 || i == len(nodes)-1 {
+			keyboard = append(keyboard, currentRow)
+			currentRow = nil
+		}
+	}
+
+	// 翻页行
+	var pageRow []tgbotapi.InlineKeyboardButton
+	if page > 1 {
+		pageRow = append(pageRow, tgbotapi.NewInlineKeyboardButtonData("◀️ 上一页", fmt.Sprintf("menu_nodes:%d", page-1)))
+	}
+	if page < totalPages {
+		pageRow = append(pageRow, tgbotapi.NewInlineKeyboardButtonData("▶️ 下一页", fmt.Sprintf("menu_nodes:%d", page+1)))
+	}
+	if len(pageRow) > 0 {
+		keyboard = append(keyboard, pageRow)
+	}
+
+	// 返回行
+	keyboard = append(keyboard, tgbotapi.NewInlineKeyboardRow(
+		tgbotapi.NewInlineKeyboardButtonData("🔙 返回主菜单", "menu_main"),
+	))
+
+	kbd := tgbotapi.NewInlineKeyboardMarkup(keyboard...)
+	editMsg.ReplyMarkup = &kbd
+	bot.Send(editMsg)
+}
+
+func handleNodeInfo(bot *tgbotapi.BotAPI, chatID int64, messageID int, data string) {
+	uuid := strings.TrimPrefix(data, "node_info:")
+	var node database.NodePool
+	if err := database.DB.Where("uuid = ?", uuid).First(&node).Error; err != nil {
+		bot.Send(tgbotapi.NewEditMessageText(chatID, messageID, "❌ 找不到该节点信息。"))
+		return
+	}
+
+	routingType := "直连节点"
+	if node.RoutingType != 1 {
+		routingType = "中转/落地节点"
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("💻 **[%s] 的专属信息**\n\n", node.Name))
+	sb.WriteString(fmt.Sprintf("▪️ **网络组：** %s\n", routingType))
+	if node.Remark != "" {
+		sb.WriteString(fmt.Sprintf("▪️ **备注：** %s\n", node.Remark))
+	}
+
+	sb.WriteString("\n🔗 **协议链接：**\n")
+	hasLink := false
+	for protoType, link := range node.Links {
+		if link != "" {
+			sb.WriteString(fmt.Sprintf("**%s**: `%s`\n", strings.ToUpper(protoType), link))
+			hasLink = true
+		}
+	}
+
+	if !hasLink {
+		sb.WriteString("⚠️ 该节点目前没有任何协议链接。\n")
+	}
+
+	editMsg := tgbotapi.NewEditMessageText(chatID, messageID, sb.String())
+	editMsg.ParseMode = "Markdown"
+
+	keyboard := [][]tgbotapi.InlineKeyboardButton{
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("🔙 返回服务器列表", "menu_nodes:1"),
+		),
+	}
+
+	kbd := tgbotapi.NewInlineKeyboardMarkup(keyboard...)
+	editMsg.ReplyMarkup = &kbd
+	bot.Send(editMsg)
 }
