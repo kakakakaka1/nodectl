@@ -9,11 +9,8 @@ WORKDIR /app
 # 接收 Docker Buildx 传进来的目标架构 (amd64 或 arm64)
 ARG TARGETARCH
 
-# 将对应的二进制文件拷贝到 /app 目录下
-COPY ./bin/nodectl-linux-${TARGETARCH} /app/nodectl
-
-# 赋予执行权限
-RUN chmod +x /app/nodectl
+# 将对应的二进制文件拷贝到 /app 目录下并直接赋予执行权限（减少镜像层数，加速构建）
+COPY --chmod=755 ./bin/nodectl-linux-${TARGETARCH} /app/nodectl
 
 # 声明数据卷，提示用户挂载此目录
 VOLUME ["/app/data"]
