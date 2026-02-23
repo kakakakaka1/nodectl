@@ -191,9 +191,6 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 
 				// 核心：使用刚才写的替换引擎，重构链接
 				targetLink := ReplaceLinkIP(cleanLink, ipOpt.IP)
-				if !isXray26Compatible(targetLink) {
-					continue
-				}
 
 				lines = append(lines, fmt.Sprintf("%s#%s", targetLink, safeName))
 			}
@@ -210,9 +207,6 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 			// 核心：使用重命名引擎，确保订阅出来的链接名称与数据库中一致
 			// RenameNodeLink 函数位于 links.go 中
 			finalLink := RenameNodeLink(anode.Link, anode.Name)
-			if !isXray26Compatible(finalLink) {
-				continue
-			}
 
 			// 追加到订阅列表
 			lines = append(lines, finalLink)
@@ -225,44 +219,6 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 
 	logger.Log.Debug("V2Ray Base64 订阅组装完成", "link_count", len(lines))
 	return b64Str, nil
-}
-
-// isXray26Compatible 过滤掉 Xray 26 已移除/不兼容的传输，避免 v2rayN(Xray) 导入后 Core 启动失败。
-func isXray26Compatible(link string) bool {
-	lowerLink := strings.ToLower(link)
-
-	if strings.HasPrefix(lowerLink, "vmess://") {
-		body := safeBase64Decode(link[8:])
-		if body == "" {
-			return true
-		}
-		var vj map[string]interface{}
-		if err := json.Unmarshal([]byte(body), &vj); err != nil {
-			return true
-		}
-		netType, _ := vj["net"].(string)
-		netType = strings.ToLower(strings.TrimSpace(netType))
-		if netType == "h2" || netType == "http" {
-			return false
-		}
-		return true
-	}
-
-	u, err := url.Parse(link)
-	if err != nil {
-		return true
-	}
-
-	scheme := strings.ToLower(u.Scheme)
-	typeQ := strings.ToLower(strings.TrimSpace(u.Query().Get("type")))
-
-	if scheme == "vless" || scheme == "trojan" {
-		if typeQ == "h2" {
-			return false
-		}
-	}
-
-	return true
 }
 
 type IPOption struct {
