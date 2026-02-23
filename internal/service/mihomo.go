@@ -293,13 +293,13 @@ func (s *MihomoService) GenerateTestConfig(nodes []TestNodeInfo) (yamlPath strin
 
 			clashNode.Name = n.Name
 
-			// 解决 yaml.v3 遇到 omitempty 丢弃 alterId:0 导致 Vmess 引擎崩溃的 Bug
+			// AlterId 已改为 *int，yaml.Marshal 可正确序列化 alterId:0；
+			// 此处仅保留 cipher 兜底修复。
 			nodeMap := make(map[string]interface{})
 			nodeBytes, _ := yaml.Marshal(clashNode)
 			yaml.Unmarshal(nodeBytes, &nodeMap) // 先转成通用的 map
 
 			if clashNode.Type == "vmess" {
-				nodeMap["alterId"] = clashNode.AlterId // 强制注回 alterId
 				// 防止因为 omitempty 导致 cipher 丢失，引起引擎 Parse config error
 				if clashNode.Cipher == "" {
 					nodeMap["cipher"] = "auto"

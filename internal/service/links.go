@@ -22,7 +22,7 @@ type ClashNode struct {
 	Password             string                 `yaml:"password,omitempty"`
 	UUID                 string                 `yaml:"uuid,omitempty"`
 	Cipher               string                 `yaml:"cipher,omitempty"`
-	AlterId              int                    `yaml:"alterId,omitempty"`
+	AlterId              *int                   `yaml:"alterId,omitempty"`
 	Network              string                 `yaml:"network,omitempty"`
 	UDP                  bool                   `yaml:"udp,omitempty"`
 	TLS                  bool                   `yaml:"tls,omitempty"`
@@ -36,6 +36,7 @@ type ClashNode struct {
 	Plugin               string                 `yaml:"plugin,omitempty"`
 	PluginOpts           map[string]interface{} `yaml:"plugin-opts,omitempty"`
 	WSOpts               map[string]interface{} `yaml:"ws-opts,omitempty"`
+	HTTPUpgradeOpts      map[string]interface{} `yaml:"httpupgrade-opts,omitempty"`
 	H2Opts               map[string]interface{} `yaml:"h2-opts,omitempty"`
 	GRPCOpts             map[string]interface{} `yaml:"grpc-opts,omitempty"`
 	RealityOpts          map[string]interface{} `yaml:"reality-opts,omitempty"`
@@ -74,6 +75,9 @@ type vmessJSON struct {
 }
 
 // 2. 通用辅助函数
+
+// ptrInt 返回指向整数的指针，用于 AlterId 字段（omitempty 不会忽略 *int 指向的 0 值）
+func ptrInt(v int) *int { return &v }
 
 // parseInt 统一处理解析引擎中可能是 interface{} 或 string 的端口类型
 func parseInt(port interface{}) int {
@@ -128,13 +132,14 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 		if err := json.Unmarshal([]byte(body), &vj); err != nil {
 			return nil
 		}
+		alterId := parseInt(vj.Aid)
 		node := &ClashNode{
 			Name:              vj.Ps + nameSuffix,
 			Type:              "vmess",
 			Server:            vj.Add,
 			Port:              parseInt(vj.Port),
 			UUID:              vj.Id,
-			AlterId:           parseInt(vj.Aid),
+			AlterId:           ptrInt(alterId),
 			Cipher:            vj.Scy,
 			Network:           vj.Net,
 			ServerName:        vj.Sni,
@@ -176,6 +181,11 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 			node.H2Opts = map[string]interface{}{"path": vj.Path}
 			if hostStr != "" {
 				node.H2Opts["host"] = []string{hostStr}
+			}
+		} else if node.Network == "httpupgrade" {
+			node.HTTPUpgradeOpts = map[string]interface{}{"path": vj.Path}
+			if hostStr != "" {
+				node.HTTPUpgradeOpts["host"] = hostStr
 			}
 		}
 		return node
@@ -219,6 +229,16 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 			}
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{"grpc-service-name": u.Query().Get("serviceName")}
+		} else if node.Network == "h2" {
+			node.H2Opts = map[string]interface{}{"path": u.Query().Get("path")}
+			if host := u.Query().Get("host"); host != "" {
+				node.H2Opts["host"] = []string{host}
+			}
+		} else if node.Network == "httpupgrade" {
+			node.HTTPUpgradeOpts = map[string]interface{}{"path": u.Query().Get("path")}
+			if host := u.Query().Get("host"); host != "" {
+				node.HTTPUpgradeOpts["host"] = host
+			}
 		}
 		return node
 	}
@@ -317,6 +337,16 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{
 				"grpc-service-name": u.Query().Get("serviceName"),
+			}
+		} else if node.Network == "h2" {
+			node.H2Opts = map[string]interface{}{"path": u.Query().Get("path")}
+			if host := u.Query().Get("host"); host != "" {
+				node.H2Opts["host"] = []string{host}
+			}
+		} else if node.Network == "httpupgrade" {
+			node.HTTPUpgradeOpts = map[string]interface{}{"path": u.Query().Get("path")}
+			if host := u.Query().Get("host"); host != "" {
+				node.HTTPUpgradeOpts["host"] = host
 			}
 		}
 		return node

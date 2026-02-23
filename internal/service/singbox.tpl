@@ -1334,7 +1334,7 @@ generate_uris() {
 
     if $ENABLE_VLESS_H2; then
         echo "=== VLESS-H2-Reality ==="
-        echo "vless://${UUID_VLESS_H2}@${host}:${PORT_VLESS_H2}?encryption=none&flow=&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}&type=http#vless-h2${suffix}"
+        echo "vless://${UUID_VLESS_H2}@${host}:${PORT_VLESS_H2}?encryption=none&flow=&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}&type=h2#vless-h2${suffix}"
         echo ""
     fi
 
@@ -1397,13 +1397,13 @@ generate_uris() {
 
     if $ENABLE_VLESS_H2T; then
         echo "=== VLESS-H2-TLS (allowInsecure) ==="
-        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_H2T}?security=tls&sni=${raw_host}&type=http&path=${PATH_TRANSPORT}&allowInsecure=1#vless-h2t${suffix}"
+        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_H2T}?security=tls&sni=${raw_host}&type=h2&path=${PATH_TRANSPORT}&host=${raw_host}&allowInsecure=1#vless-h2t${suffix}"
         echo ""
     fi
 
     if $ENABLE_VLESS_HUT; then
         echo "=== VLESS-HTTPUpgrade-TLS (allowInsecure) ==="
-        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_HUT}?security=tls&sni=${raw_host}&type=httpupgrade&path=${PATH_TRANSPORT}&allowInsecure=1#vless-hut${suffix}"
+        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_HUT}?security=tls&sni=${raw_host}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${raw_host}&allowInsecure=1#vless-hut${suffix}"
         echo ""
     fi
 
@@ -1417,14 +1417,14 @@ generate_uris() {
     if $ENABLE_TROJAN_H2T; then
         local th2t_enc=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-H2-TLS (allowInsecure) ==="
-        echo "trojan://${th2t_enc}@${host}:${PORT_TROJAN_H2T}?sni=${raw_host}&type=http&path=${PATH_TRANSPORT}&allowInsecure=1#trojan-h2t${suffix}"
+        echo "trojan://${th2t_enc}@${host}:${PORT_TROJAN_H2T}?sni=${raw_host}&type=h2&path=${PATH_TRANSPORT}&host=${raw_host}&allowInsecure=1#trojan-h2t${suffix}"
         echo ""
     fi
 
     if $ENABLE_TROJAN_HUT; then
         local thut_enc=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-HTTPUpgrade-TLS (allowInsecure) ==="
-        echo "trojan://${thut_enc}@${host}:${PORT_TROJAN_HUT}?sni=${raw_host}&type=httpupgrade&path=${PATH_TRANSPORT}&allowInsecure=1#trojan-hut${suffix}"
+        echo "trojan://${thut_enc}@${host}:${PORT_TROJAN_HUT}?sni=${raw_host}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${raw_host}&allowInsecure=1#trojan-hut${suffix}"
         echo ""
     fi
 }
@@ -1697,7 +1697,7 @@ report_nodes() {
 
     # 7. VLESS-H2-Reality
     if $ENABLE_VLESS_H2; then
-        local link="vless://${UUID_VLESS_H2}@${link_host}:${PORT_VLESS_H2}?encryption=none&flow=&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}&type=http#vless-h2-${NODE_NAME}"
+        local link="vless://${UUID_VLESS_H2}@${link_host}:${PORT_VLESS_H2}?encryption=none&flow=&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}&type=h2#vless-h2-${NODE_NAME}"
         local json_data="{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vless_h2\", \"link\": \"$link\"}"
         curl_post_submit "$REPORT_URL" "$json_data" "VLESS-H2"
     fi
@@ -1753,12 +1753,12 @@ report_nodes() {
     fi
     # 16. VLESS-H2-TLS
     if $ENABLE_VLESS_H2T; then
-        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_H2T}?security=tls&sni=${rh}&type=http&path=${PATH_TRANSPORT}&allowInsecure=1#vless-h2t-${NODE_NAME}"
+        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_H2T}?security=tls&sni=${rh}&type=h2&path=${PATH_TRANSPORT}&host=${rh}&allowInsecure=1#vless-h2t-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vless_h2t\", \"link\": \"$link\"}" "VLESS-H2T"
     fi
     # 17. VLESS-HU-TLS
     if $ENABLE_VLESS_HUT; then
-        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_HUT}?security=tls&sni=${rh}&type=httpupgrade&path=${PATH_TRANSPORT}&allowInsecure=1#vless-hut-${NODE_NAME}"
+        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_HUT}?security=tls&sni=${rh}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${rh}&allowInsecure=1#vless-hut-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vless_hut\", \"link\": \"$link\"}" "VLESS-HUT"
     fi
     # 18. Trojan-WS-TLS
@@ -1770,13 +1770,13 @@ report_nodes() {
     # 19. Trojan-H2-TLS
     if $ENABLE_TROJAN_H2T; then
         local te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
-        local link="trojan://${te}@${link_host}:${PORT_TROJAN_H2T}?sni=${rh}&type=http&path=${PATH_TRANSPORT}&allowInsecure=1#trojan-h2t-${NODE_NAME}"
+        local link="trojan://${te}@${link_host}:${PORT_TROJAN_H2T}?sni=${rh}&type=h2&path=${PATH_TRANSPORT}&host=${rh}&allowInsecure=1#trojan-h2t-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"trojan_h2t\", \"link\": \"$link\"}" "Trojan-H2T"
     fi
     # 20. Trojan-HU-TLS
     if $ENABLE_TROJAN_HUT; then
         local te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
-        local link="trojan://${te}@${link_host}:${PORT_TROJAN_HUT}?sni=${rh}&type=httpupgrade&path=${PATH_TRANSPORT}&allowInsecure=1#trojan-hut-${NODE_NAME}"
+        local link="trojan://${te}@${link_host}:${PORT_TROJAN_HUT}?sni=${rh}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${rh}&allowInsecure=1#trojan-hut-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"trojan_hut\", \"link\": \"$link\"}" "Trojan-HUT"
     fi
 
@@ -2116,7 +2116,7 @@ generate_uris() {
         local _vless_h2_pub="${VLESS_H2_PUB:-${REALITY_PUB:-}}"
         local _vless_h2_sid="${VLESS_H2_SID:-${REALITY_SID:-}}"
         echo "=== VLESS-H2-Reality ===" >> "$URI_FILE"
-        echo "vless://${VLESS_H2_UUID}@${link_host}:${VLESS_H2_PORT}?encryption=none&flow=&security=reality&sni=${_vless_h2_sni}&fp=chrome&pbk=${_vless_h2_pub}&sid=${_vless_h2_sid}&type=http#vless-h2${node_suffix}" >> "$URI_FILE"
+        echo "vless://${VLESS_H2_UUID}@${link_host}:${VLESS_H2_PORT}?encryption=none&flow=&security=reality&sni=${_vless_h2_sni}&fp=chrome&pbk=${_vless_h2_pub}&sid=${_vless_h2_sid}&type=h2#vless-h2${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
 
@@ -2176,12 +2176,12 @@ generate_uris() {
     fi
     if [ "${ENABLE_VLESS_H2T:-false}" = "true" ]; then
         echo "=== VLESS-H2-TLS ===" >> "$URI_FILE"
-        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_H2T_PORT}?security=tls&sni=${rh}&type=http&path=${tp}&allowInsecure=1#vless-h2t${node_suffix}" >> "$URI_FILE"
+        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_H2T_PORT}?security=tls&sni=${rh}&type=h2&path=${tp}&host=${rh}&allowInsecure=1#vless-h2t${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_VLESS_HUT:-false}" = "true" ]; then
         echo "=== VLESS-HU-TLS ===" >> "$URI_FILE"
-        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_HUT_PORT}?security=tls&sni=${rh}&type=httpupgrade&path=${tp}&allowInsecure=1#vless-hut${node_suffix}" >> "$URI_FILE"
+        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_HUT_PORT}?security=tls&sni=${rh}&type=httpupgrade&path=${tp}&host=${rh}&allowInsecure=1#vless-hut${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_TROJAN_WST:-false}" = "true" ]; then
@@ -2193,13 +2193,13 @@ generate_uris() {
     if [ "${ENABLE_TROJAN_H2T:-false}" = "true" ]; then
         local _te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-H2-TLS ===" >> "$URI_FILE"
-        echo "trojan://${_te}@${link_host}:${TROJAN_H2T_PORT}?sni=${rh}&type=http&path=${tp}&allowInsecure=1#trojan-h2t${node_suffix}" >> "$URI_FILE"
+        echo "trojan://${_te}@${link_host}:${TROJAN_H2T_PORT}?sni=${rh}&type=h2&path=${tp}&host=${rh}&allowInsecure=1#trojan-h2t${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_TROJAN_HUT:-false}" = "true" ]; then
         local _te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-HU-TLS ===" >> "$URI_FILE"
-        echo "trojan://${_te}@${link_host}:${TROJAN_HUT_PORT}?sni=${rh}&type=httpupgrade&path=${tp}&allowInsecure=1#trojan-hut${node_suffix}" >> "$URI_FILE"
+        echo "trojan://${_te}@${link_host}:${TROJAN_HUT_PORT}?sni=${rh}&type=httpupgrade&path=${tp}&host=${rh}&allowInsecure=1#trojan-hut${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
 
