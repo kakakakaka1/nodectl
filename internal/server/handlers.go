@@ -1057,6 +1057,10 @@ func apiSubClash(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 	w.Header().Set("profile-title", subName)
 
+	if userinfo := service.GetSubscriptionUserinfo(); userinfo != "" {
+		w.Header().Set("Subscription-Userinfo", userinfo)
+	}
+
 	encodedName := url.QueryEscape(subName + ".yaml")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename*=utf-8''%s`, encodedName))
 
@@ -1094,6 +1098,10 @@ func apiSubV2ray(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Debug("成功下发 V2Ray Base64 订阅", "ip", clientIP, "path", reqPath)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("profile-title", subName)
+
+	if userinfo := service.GetSubscriptionUserinfo(); userinfo != "" {
+		w.Header().Set("Subscription-Userinfo", userinfo)
+	}
 
 	encodedName := url.QueryEscape(subName + ".txt")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename*=utf-8''%s`, encodedName))
