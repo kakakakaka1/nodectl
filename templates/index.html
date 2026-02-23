@@ -471,6 +471,14 @@
             gap: 10px;
             overflow-y: auto;
             padding-top: 5px;
+            /* 大屏：限制高度约可见5个节点，超出鼠标滚轮滚动，隐藏滚动条 */
+            max-height: 520px;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+        }
+
+        .node-list-container::-webkit-scrollbar {
+            display: none;
         }
 
         /* =========================================================
