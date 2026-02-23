@@ -187,7 +187,11 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{"grpc-service-name": vj.Path}
 		} else if node.Network == "h2" {
-			node.H2Opts = map[string]interface{}{"path": vj.Path}
+			path := vj.Path
+			if path == "" {
+				path = "/"
+			}
+			node.H2Opts = map[string]interface{}{"path": path}
 			if hostStr != "" {
 				node.H2Opts["host"] = []string{hostStr}
 			}
@@ -250,7 +254,11 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{"grpc-service-name": u.Query().Get("serviceName")}
 		} else if node.Network == "h2" {
-			node.H2Opts = map[string]interface{}{"path": u.Query().Get("path")}
+			path := u.Query().Get("path")
+			if path == "" {
+				path = "/"
+			}
+			node.H2Opts = map[string]interface{}{"path": path}
 			if host := u.Query().Get("host"); host != "" {
 				node.H2Opts["host"] = []string{host}
 			}
@@ -367,7 +375,11 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 				"grpc-service-name": u.Query().Get("serviceName"),
 			}
 		} else if node.Network == "h2" {
-			node.H2Opts = map[string]interface{}{"path": u.Query().Get("path")}
+			path := u.Query().Get("path")
+			if path == "" {
+				path = "/"
+			}
+			node.H2Opts = map[string]interface{}{"path": path}
 			if host := u.Query().Get("host"); host != "" {
 				node.H2Opts["host"] = []string{host}
 			}

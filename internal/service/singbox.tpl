@@ -1334,7 +1334,7 @@ generate_uris() {
 
     if $ENABLE_VLESS_H2; then
         echo "=== VLESS-H2-Reality ==="
-        echo "vless://${UUID_VLESS_H2}@${host}:${PORT_VLESS_H2}?encryption=none&flow=&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}&type=h2#vless-h2${suffix}"
+        echo "vless://${UUID_VLESS_H2}@${host}:${PORT_VLESS_H2}?encryption=none&flow=&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}&type=h2&path=/#vless-h2${suffix}"
         echo ""
     fi
 
@@ -1699,7 +1699,7 @@ report_nodes() {
 
     # 7. VLESS-H2-Reality
     if $ENABLE_VLESS_H2; then
-        local link="vless://${UUID_VLESS_H2}@${link_host}:${PORT_VLESS_H2}?encryption=none&flow=&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}&type=h2#vless-h2-${NODE_NAME}"
+        local link="vless://${UUID_VLESS_H2}@${link_host}:${PORT_VLESS_H2}?encryption=none&flow=&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}&type=h2&path=/#vless-h2-${NODE_NAME}"
         local json_data="{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vless_h2\", \"link\": \"$link\"}"
         curl_post_submit "$REPORT_URL" "$json_data" "VLESS-H2"
     fi
