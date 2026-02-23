@@ -663,22 +663,8 @@
                     </div>
                     <div class="variant-section">
                         <div class="variant-section-hd">
-                            <div class="variant-section-hd-title"><span class="proto-chip tcp">TCP</span> VLESS-H2I-TLS</div>
-                            <input type="number" id="gs_proxy_port_vless_h2i" class="variant-port-input" placeholder="20007" oninput="triggerGsAutoSave()">
-                        </div>
-                        
-                    </div>
-                    <div class="variant-section">
-                        <div class="variant-section-hd">
                             <div class="variant-section-hd-title"><span class="proto-chip tcp">TCP</span> VLESS-WS-TLS</div>
                             <input type="number" id="gs_proxy_port_vless_wst" class="variant-port-input" placeholder="20015" oninput="triggerGsAutoSave()">
-                        </div>
-                        
-                    </div>
-                    <div class="variant-section">
-                        <div class="variant-section-hd">
-                            <div class="variant-section-hd-title"><span class="proto-chip tcp">TCP</span> VLESS-H2T-TLS</div>
-                            <input type="number" id="gs_proxy_port_vless_h2t" class="variant-port-input" placeholder="20016" oninput="triggerGsAutoSave()">
                         </div>
                         
                     </div>
@@ -691,11 +677,11 @@
                     </div>
                     <div class="tls-path-wrap">
                         <div class="gs-field" style="margin:0 0 10px 0;">
-                            <label class="gs-label">VLESS TLS 传输族默认 SNI 域名（WS/H2/HU-TLS）</label>
+                            <label class="gs-label">VLESS 默认 SNI 域名（Reality/WS/HU-TLS）</label>
                             <input type="text" id="gs_proxy_vless_tls_sni" class="gs-input" placeholder="www.bing.com" oninput="triggerGsAutoSave()">
                         </div>
                         <div class="gs-field" style="margin:0;">
-                            <label class="gs-label">WS / H2 / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
+                            <label class="gs-label">WS / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
                             <input type="text" class="gs-input tls-path-input" placeholder="/ray" oninput="syncTlsPath(this)">
                         </div>
                     </div>
@@ -740,13 +726,6 @@
                     </div>
                     <div class="variant-section">
                         <div class="variant-section-hd">
-                            <div class="variant-section-hd-title"><span class="proto-chip tcp">TCP</span> VMess-H2-TLS</div>
-                            <input type="number" id="gs_proxy_port_vmess_h2t" class="variant-port-input" placeholder="20013" oninput="triggerGsAutoSave()">
-                        </div>
-                        
-                    </div>
-                    <div class="variant-section">
-                        <div class="variant-section-hd">
                             <div class="variant-section-hd-title"><span class="proto-chip tcp">TCP</span> VMess-HU-TLS</div>
                             <input type="number" id="gs_proxy_port_vmess_hut" class="variant-port-input" placeholder="20014" oninput="triggerGsAutoSave()">
                         </div>
@@ -754,11 +733,11 @@
                     </div>
                     <div class="tls-path-wrap">
                         <div class="gs-field" style="margin:0 0 10px 0;">
-                            <label class="gs-label">VMess TLS 传输族默认 SNI 域名（WS/H2/HU-TLS）</label>
+                            <label class="gs-label">VMess TLS 传输族默认 SNI 域名（WS/HU-TLS）</label>
                             <input type="text" id="gs_proxy_vmess_tls_sni" class="gs-input" placeholder="www.bing.com" oninput="triggerGsAutoSave()">
                         </div>
                         <div class="gs-field" style="margin:0;">
-                            <label class="gs-label">WS / H2 / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
+                            <label class="gs-label">WS / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
                             <input type="text" class="gs-input tls-path-input" placeholder="/ray" oninput="syncTlsPath(this)">
                         </div>
                     </div>
@@ -867,13 +846,6 @@
                     </div>
                     <div class="variant-section">
                         <div class="variant-section-hd">
-                            <div class="variant-section-hd-title"><span class="proto-chip tcp">TCP</span> Trojan-H2-TLS</div>
-                            <input type="number" id="gs_proxy_port_trojan_h2t" class="variant-port-input" placeholder="20019" oninput="triggerGsAutoSave()">
-                        </div>
-                        
-                    </div>
-                    <div class="variant-section">
-                        <div class="variant-section-hd">
                             <div class="variant-section-hd-title"><span class="proto-chip tcp">TCP</span> Trojan-HU-TLS</div>
                             <input type="number" id="gs_proxy_port_trojan_hut" class="variant-port-input" placeholder="20020" oninput="triggerGsAutoSave()">
                         </div>
@@ -881,11 +853,11 @@
                     </div>
                     <div class="tls-path-wrap">
                         <div class="gs-field" style="margin:0 0 10px 0;">
-                            <label class="gs-label">Trojan TLS 传输族默认 SNI 域名（WS/H2/HU-TLS）</label>
+                            <label class="gs-label">Trojan TLS 传输族默认 SNI 域名（WS/HU-TLS）</label>
                             <input type="text" id="gs_proxy_trojan_tls_sni" class="gs-input" placeholder="www.bing.com" oninput="triggerGsAutoSave()">
                         </div>
                         <div class="gs-field" style="margin:0;">
-                            <label class="gs-label">WS / H2 / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
+                            <label class="gs-label">WS / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
                             <input type="text" class="gs-input tls-path-input" placeholder="/ray" oninput="syncTlsPath(this)">
                         </div>
                     </div>
@@ -1023,9 +995,7 @@
                 const d = result.data;
                 // VLESS 族
                 document.getElementById('gs_proxy_port_reality').value   = d.proxy_port_reality   || '';
-                document.getElementById('gs_proxy_port_vless_h2i').value = d.proxy_port_vless_h2i || '';
                 document.getElementById('gs_proxy_port_vless_wst').value = d.proxy_port_vless_wst || '';
-                document.getElementById('gs_proxy_port_vless_h2t').value = d.proxy_port_vless_h2t || '';
                 document.getElementById('gs_proxy_port_vless_hut').value = d.proxy_port_vless_hut || '';
                 // VMess 族
                 document.getElementById('gs_proxy_port_vmess_tcp').value  = d.proxy_port_vmess_tcp  || '';
@@ -1033,7 +1003,6 @@
                 document.getElementById('gs_proxy_port_vmess_http').value = d.proxy_port_vmess_http || '';
                 document.getElementById('gs_proxy_port_vmess_quic').value = d.proxy_port_vmess_quic || '';
                 document.getElementById('gs_proxy_port_vmess_wst').value  = d.proxy_port_vmess_wst  || '';
-                document.getElementById('gs_proxy_port_vmess_h2t').value  = d.proxy_port_vmess_h2t  || '';
                 document.getElementById('gs_proxy_port_vmess_hut').value  = d.proxy_port_vmess_hut  || '';
                 // Shadowsocks
                 document.getElementById('gs_proxy_port_ss').value = d.proxy_port_ss || '';
@@ -1056,7 +1025,6 @@
                 // Trojan 族
                 document.getElementById('gs_proxy_port_trojan').value     = d.proxy_port_trojan     || '';
                 document.getElementById('gs_proxy_port_trojan_wst').value = d.proxy_port_trojan_wst || '';
-                document.getElementById('gs_proxy_port_trojan_h2t').value = d.proxy_port_trojan_h2t || '';
                 document.getElementById('gs_proxy_port_trojan_hut').value = d.proxy_port_trojan_hut || '';
                 // TLS 传输路径（VLESS / VMess / Trojan 面板共用同一个值）
                 const tlsPath = d.proxy_tls_transport_path || '';
@@ -1089,9 +1057,7 @@
             const payload = {
                 // VLESS 族
                 "proxy_port_reality":   document.getElementById('gs_proxy_port_reality').value,
-                "proxy_port_vless_h2i": document.getElementById('gs_proxy_port_vless_h2i').value,
                 "proxy_port_vless_wst": document.getElementById('gs_proxy_port_vless_wst').value,
-                "proxy_port_vless_h2t": document.getElementById('gs_proxy_port_vless_h2t').value,
                 "proxy_port_vless_hut": document.getElementById('gs_proxy_port_vless_hut').value,
                 // VMess 族
                 "proxy_port_vmess_tcp":  document.getElementById('gs_proxy_port_vmess_tcp').value,
@@ -1099,7 +1065,6 @@
                 "proxy_port_vmess_http": document.getElementById('gs_proxy_port_vmess_http').value,
                 "proxy_port_vmess_quic": document.getElementById('gs_proxy_port_vmess_quic').value,
                 "proxy_port_vmess_wst":  document.getElementById('gs_proxy_port_vmess_wst').value,
-                "proxy_port_vmess_h2t":  document.getElementById('gs_proxy_port_vmess_h2t').value,
                 "proxy_port_vmess_hut":  document.getElementById('gs_proxy_port_vmess_hut').value,
                 // Shadowsocks
                 "proxy_port_ss":   document.getElementById('gs_proxy_port_ss').value,
@@ -1117,7 +1082,6 @@
                 // Trojan 族
                 "proxy_port_trojan":     document.getElementById('gs_proxy_port_trojan').value,
                 "proxy_port_trojan_wst": document.getElementById('gs_proxy_port_trojan_wst').value,
-                "proxy_port_trojan_h2t": document.getElementById('gs_proxy_port_trojan_h2t').value,
                 "proxy_port_trojan_hut": document.getElementById('gs_proxy_port_trojan_hut').value,
                 // TLS 传输路径（三个面板共用）
                 "proxy_tls_transport_path": tlsPath,

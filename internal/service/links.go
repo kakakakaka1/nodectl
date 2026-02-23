@@ -37,7 +37,6 @@ type ClashNode struct {
 	PluginOpts           map[string]interface{} `yaml:"plugin-opts,omitempty"`
 	WSOpts               map[string]interface{} `yaml:"ws-opts,omitempty"`
 	HTTPOpts             map[string]interface{} `yaml:"http-opts,omitempty"`
-	H2Opts               map[string]interface{} `yaml:"h2-opts,omitempty"`
 	GRPCOpts             map[string]interface{} `yaml:"grpc-opts,omitempty"`
 	RealityOpts          map[string]interface{} `yaml:"reality-opts,omitempty"`
 	Up                   int                    `yaml:"up,omitempty"`
@@ -186,18 +185,6 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 			}
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{"grpc-service-name": vj.Path}
-		} else if node.Network == "h2" {
-			if hostStr == "" && node.ServerName != "" {
-				hostStr = node.ServerName
-			}
-			path := vj.Path
-			if path == "" {
-				path = "/"
-			}
-			node.H2Opts = map[string]interface{}{"path": path}
-			if hostStr != "" {
-				node.H2Opts["host"] = []string{hostStr}
-			}
 		} else if node.Network == "httpupgrade" {
 			// Mihomo 侧使用 ws + v2ray-http-upgrade 表达 HTTPUpgrade 传输
 			node.Network = "ws"
@@ -256,19 +243,6 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 			}
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{"grpc-service-name": u.Query().Get("serviceName")}
-		} else if node.Network == "h2" {
-			host := u.Query().Get("host")
-			if host == "" {
-				host = node.SNI
-			}
-			path := u.Query().Get("path")
-			if path == "" {
-				path = "/"
-			}
-			node.H2Opts = map[string]interface{}{"path": path}
-			if host != "" {
-				node.H2Opts["host"] = []string{host}
-			}
 		} else if node.Network == "httpupgrade" {
 			// Mihomo 侧使用 ws + v2ray-http-upgrade 表达 HTTPUpgrade 传输
 			node.Network = "ws"
@@ -380,19 +354,6 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{
 				"grpc-service-name": u.Query().Get("serviceName"),
-			}
-		} else if node.Network == "h2" {
-			host := u.Query().Get("host")
-			if host == "" {
-				host = node.ServerName
-			}
-			path := u.Query().Get("path")
-			if path == "" {
-				path = "/"
-			}
-			node.H2Opts = map[string]interface{}{"path": path}
-			if host != "" {
-				node.H2Opts["host"] = []string{host}
 			}
 		} else if node.Network == "httpupgrade" {
 			// Mihomo 侧使用 ws + v2ray-http-upgrade 表达 HTTPUpgrade 传输

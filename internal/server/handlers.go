@@ -186,8 +186,6 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 				displayName = "Socks5"
 			case "trojan":
 				displayName = "Trojan"
-			case "vless_h2i":
-				displayName = "VLESS-H2I-TLS"
 			case "vmess_tcp":
 				displayName = "VMess-TCP"
 			case "vmess_ws":
@@ -198,20 +196,14 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 				displayName = "VMess-QUIC"
 			case "vmess_wst":
 				displayName = "VMess-WS-TLS"
-			case "vmess_h2t":
-				displayName = "VMess-H2-TLS"
 			case "vmess_hut":
 				displayName = "VMess-HU-TLS"
 			case "vless_wst":
 				displayName = "VLESS-WS-TLS"
-			case "vless_h2t":
-				displayName = "VLESS-H2T-TLS"
 			case "vless_hut":
 				displayName = "VLESS-HU-TLS"
 			case "trojan_wst":
 				displayName = "Trojan-WS-TLS"
-			case "trojan_h2t":
-				displayName = "Trojan-H2-TLS"
 			case "trojan_hut":
 				displayName = "Trojan-HU-TLS"
 			}
@@ -801,14 +793,14 @@ func apiGetSettings(w http.ResponseWriter, r *http.Request) {
 		"sys_force_http", "cf_email", "cf_api_key", "cf_domain", "cf_auto_renew", "airport_filter_invalid", "pref_speed_test_mode", "pref_speed_test_file_size",
 		"tg_bot_enabled", "tg_bot_token", "tg_bot_whitelist", "tg_bot_register_commands", "clash_proxies_update_interval", "clash_rules_update_interval", "clash_public_rules_update_interval",
 		// 新增协议与内核优化配置
-		"proxy_port_trojan", "proxy_port_vless_h2i", "proxy_hy2_sni", "proxy_tuic_sni", "proxy_enable_bbr",
+		"proxy_port_trojan", "proxy_hy2_sni", "proxy_tuic_sni", "proxy_enable_bbr",
 		// VMess 族
 		"proxy_port_vmess_tcp", "proxy_port_vmess_ws", "proxy_port_vmess_http", "proxy_port_vmess_quic",
-		"proxy_port_vmess_wst", "proxy_port_vmess_h2t", "proxy_port_vmess_hut",
+		"proxy_port_vmess_wst", "proxy_port_vmess_hut",
 		// VLESS-TLS 族
-		"proxy_port_vless_wst", "proxy_port_vless_h2t", "proxy_port_vless_hut",
+		"proxy_port_vless_wst", "proxy_port_vless_hut",
 		// Trojan-TLS 族
-		"proxy_port_trojan_wst", "proxy_port_trojan_h2t", "proxy_port_trojan_hut",
+		"proxy_port_trojan_wst", "proxy_port_trojan_hut",
 		"proxy_tls_transport_path", "proxy_vmess_tls_sni", "proxy_vless_tls_sni", "proxy_trojan_tls_sni",
 	}).Find(&configs).Error; err != nil {
 		logger.Log.Error("读取系统配置失败", "error", err, "ip", clientIP, "path", reqPath)
@@ -860,15 +852,15 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		"tg_bot_enabled": true, "tg_bot_token": true, "tg_bot_whitelist": true, "tg_bot_register_commands": true,
 		"clash_proxies_update_interval": true, "clash_rules_update_interval": true, "clash_public_rules_update_interval": true,
 		// 新增协议与内核优化配置
-		"proxy_port_trojan": true, "proxy_port_vless_h2i": true,
-		"proxy_hy2_sni": true, "proxy_tuic_sni": true, "proxy_enable_bbr": true,
+		"proxy_port_trojan": true,
+		"proxy_hy2_sni":     true, "proxy_tuic_sni": true, "proxy_enable_bbr": true,
 		// VMess 族
 		"proxy_port_vmess_tcp": true, "proxy_port_vmess_ws": true, "proxy_port_vmess_http": true, "proxy_port_vmess_quic": true,
-		"proxy_port_vmess_wst": true, "proxy_port_vmess_h2t": true, "proxy_port_vmess_hut": true,
+		"proxy_port_vmess_wst": true, "proxy_port_vmess_hut": true,
 		// VLESS-TLS 族
-		"proxy_port_vless_wst": true, "proxy_port_vless_h2t": true, "proxy_port_vless_hut": true,
+		"proxy_port_vless_wst": true, "proxy_port_vless_hut": true,
 		// Trojan-TLS 族
-		"proxy_port_trojan_wst": true, "proxy_port_trojan_h2t": true, "proxy_port_trojan_hut": true,
+		"proxy_port_trojan_wst": true, "proxy_port_trojan_hut": true,
 		"proxy_tls_transport_path": true,
 		"proxy_vmess_tls_sni":      true, "proxy_vless_tls_sni": true, "proxy_trojan_tls_sni": true,
 	}

@@ -165,13 +165,6 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 	if portTrojan == "" {
 		portTrojan = "20006"
 	}
-	portVlessH2 := configMap["proxy_port_vless_h2i"]
-	if portVlessH2 == "" {
-		portVlessH2 = configMap["proxy_port_vless_h2"] // 兼容旧键，启动后会被迁移清理
-	}
-	if portVlessH2 == "" {
-		portVlessH2 = "20007"
-	}
 	portVmessTCP := configMap["proxy_port_vmess_tcp"]
 	if portVmessTCP == "" {
 		portVmessTCP = "20008"
@@ -192,10 +185,6 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 	if portVmessWST == "" {
 		portVmessWST = "20012"
 	}
-	portVmessH2T := configMap["proxy_port_vmess_h2t"]
-	if portVmessH2T == "" {
-		portVmessH2T = "20013"
-	}
 	portVmessHUT := configMap["proxy_port_vmess_hut"]
 	if portVmessHUT == "" {
 		portVmessHUT = "20014"
@@ -204,10 +193,6 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 	if portVlessWST == "" {
 		portVlessWST = "20015"
 	}
-	portVlessH2T := configMap["proxy_port_vless_h2t"]
-	if portVlessH2T == "" {
-		portVlessH2T = "20016"
-	}
 	portVlessHUT := configMap["proxy_port_vless_hut"]
 	if portVlessHUT == "" {
 		portVlessHUT = "20017"
@@ -215,10 +200,6 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 	portTrojanWST := configMap["proxy_port_trojan_wst"]
 	if portTrojanWST == "" {
 		portTrojanWST = "20018"
-	}
-	portTrojanH2T := configMap["proxy_port_trojan_h2t"]
-	if portTrojanH2T == "" {
-		portTrojanH2T = "20019"
 	}
 	portTrojanHUT := configMap["proxy_port_trojan_hut"]
 	if portTrojanHUT == "" {
@@ -252,8 +233,7 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 		"Socks5User":  configMap["proxy_socks5_user"],
 		"Socks5Pass":  configMap["proxy_socks5_pass"],
 		// 新增协议端口
-		"PortTrojan":  portTrojan,
-		"PortVlessH2": portVlessH2,
+		"PortTrojan": portTrojan,
 		// 可配置 SNI
 		"HY2SNI":    hy2SNI,
 		"TUICSNI":   tuicSNI,
@@ -267,15 +247,12 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 		"PortVmessQUIC": portVmessQUIC,
 		// VMess+TLS 传输族端口
 		"PortVmessWST": portVmessWST,
-		"PortVmessH2T": portVmessH2T,
 		"PortVmessHUT": portVmessHUT,
 		// VLESS-TLS 传输族端口
 		"PortVlessWST": portVlessWST,
-		"PortVlessH2T": portVlessH2T,
 		"PortVlessHUT": portVlessHUT,
 		// Trojan-TLS 传输族端口
 		"PortTrojanWST": portTrojanWST,
-		"PortTrojanH2T": portTrojanH2T,
 		"PortTrojanHUT": portTrojanHUT,
 		// TLS 传输共用路径
 		"TLSTransportPath": tlsTransportPath,
