@@ -157,6 +157,9 @@ func initProxySettings() {
 		{Key: "proxy_port_trojan_hut", Value: "20020", Description: "Trojan-HTTPUpgrade-TLS 默认监听端口"},
 		// TLS 传输协议共用路径
 		{Key: "proxy_tls_transport_path", Value: "/ray", Description: "WS/H2/HTTPUpgrade 传输协议共用路径"},
+		{Key: "proxy_vmess_tls_sni", Value: "www.bing.com", Description: "VMess TLS 传输族默认客户端 SNI 伪装域名"},
+		{Key: "proxy_vless_tls_sni", Value: "www.bing.com", Description: "VLESS TLS 传输族默认客户端 SNI 伪装域名"},
+		{Key: "proxy_trojan_tls_sni", Value: "www.bing.com", Description: "Trojan TLS 传输族默认客户端 SNI 伪装域名"},
 	}
 
 	for _, config := range defaultConfigs {

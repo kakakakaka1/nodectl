@@ -39,6 +39,9 @@ FIXED_PORT_TROJAN_H2T={{.PortTrojanH2T}}
 FIXED_PORT_TROJAN_HUT={{.PortTrojanHUT}}
 # TLS 传输协议共用路径
 FIXED_TLS_TRANSPORT_PATH="{{.TLSTransportPath}}"
+FIXED_VMESS_TLS_SNI="{{.VmessTLSSNI}}"
+FIXED_VLESS_TLS_SNI="{{.VlessTLSSNI}}"
+FIXED_TROJAN_TLS_SNI="{{.TrojanTLSSNI}}"
 REPORT_URL="{{.ReportURL}}"
 INSTALL_ID="{{.InstallID}}" # 直接由后端渲染注入
 RESET_DAY="{{.ResetDay}}"
@@ -1016,6 +1019,9 @@ ENABLE_VLESS_HUT=$ENABLE_VLESS_HUT
 ENABLE_TROJAN_WST=$ENABLE_TROJAN_WST
 ENABLE_TROJAN_H2T=$ENABLE_TROJAN_H2T
 ENABLE_TROJAN_HUT=$ENABLE_TROJAN_HUT
+VMESS_TLS_SNI=$FIXED_VMESS_TLS_SNI
+VLESS_TLS_SNI=$FIXED_VLESS_TLS_SNI
+TROJAN_TLS_SNI=$FIXED_TROJAN_TLS_SNI
 CACHEEOF
 
     $ENABLE_SS && cat >> /etc/sing-box/.config_cache <<CACHEEOF
@@ -1348,6 +1354,18 @@ generate_uris() {
     }
 
     local raw_host="$PUB_IP"  # 不含中括号，用于 vmess JSON host 字段
+    local vmess_tls_sni="$FIXED_VMESS_TLS_SNI"
+    local vless_tls_sni="$FIXED_VLESS_TLS_SNI"
+    local trojan_tls_sni="$FIXED_TROJAN_TLS_SNI"
+    if [ -z "$vmess_tls_sni" ]; then
+        vmess_tls_sni="$raw_host"
+    fi
+    if [ -z "$vless_tls_sni" ]; then
+        vless_tls_sni="$raw_host"
+    fi
+    if [ -z "$trojan_tls_sni" ]; then
+        trojan_tls_sni="$raw_host"
+    fi
 
     if $ENABLE_VMESS_TCP; then
         echo "=== VMess-TCP ==="
@@ -1369,64 +1387,64 @@ generate_uris() {
 
     if $ENABLE_VMESS_QUIC; then
         echo "=== VMess-QUIC ==="
-        vmess_b64 "vmess-quic${suffix}" "$raw_host" "$PORT_VMESS_QUIC" "$UUID_VMESS" "quic" "tls" "" "$raw_host"
+        vmess_b64 "vmess-quic${suffix}" "$raw_host" "$PORT_VMESS_QUIC" "$UUID_VMESS" "quic" "tls" "" "$vmess_tls_sni"
         echo ""
     fi
 
     if $ENABLE_VMESS_WST; then
         echo "=== VMess-WS-TLS (allowInsecure) ==="
-        vmess_b64 "vmess-wst${suffix}" "$raw_host" "$PORT_VMESS_WST" "$UUID_VMESS" "ws" "tls" "$PATH_TRANSPORT" "$raw_host"
+        vmess_b64 "vmess-wst${suffix}" "$raw_host" "$PORT_VMESS_WST" "$UUID_VMESS" "ws" "tls" "$PATH_TRANSPORT" "$vmess_tls_sni"
         echo ""
     fi
 
     if $ENABLE_VMESS_H2T; then
         echo "=== VMess-H2-TLS (allowInsecure) ==="
-        vmess_b64 "vmess-h2t${suffix}" "$raw_host" "$PORT_VMESS_H2T" "$UUID_VMESS" "h2" "tls" "$PATH_TRANSPORT" "$raw_host" "h2"
+        vmess_b64 "vmess-h2t${suffix}" "$raw_host" "$PORT_VMESS_H2T" "$UUID_VMESS" "h2" "tls" "$PATH_TRANSPORT" "$vmess_tls_sni" "h2"
         echo ""
     fi
 
     if $ENABLE_VMESS_HUT; then
         echo "=== VMess-HTTPUpgrade-TLS (allowInsecure) ==="
-        vmess_b64 "vmess-hut${suffix}" "$raw_host" "$PORT_VMESS_HUT" "$UUID_VMESS" "httpupgrade" "tls" "$PATH_TRANSPORT" "$raw_host"
+        vmess_b64 "vmess-hut${suffix}" "$raw_host" "$PORT_VMESS_HUT" "$UUID_VMESS" "httpupgrade" "tls" "$PATH_TRANSPORT" "$vmess_tls_sni"
         echo ""
     fi
 
     if $ENABLE_VLESS_WST; then
         echo "=== VLESS-WS-TLS (allowInsecure) ==="
-        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_WST}?security=tls&sni=${raw_host}&type=ws&path=${PATH_TRANSPORT}&allowInsecure=1&host=${raw_host}#vless-wst${suffix}"
+        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_WST}?security=tls&sni=${vless_tls_sni}&type=ws&path=${PATH_TRANSPORT}&allowInsecure=1&host=${vless_tls_sni}#vless-wst${suffix}"
         echo ""
     fi
 
     if $ENABLE_VLESS_H2T; then
         echo "=== VLESS-H2-TLS (allowInsecure) ==="
-        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_H2T}?security=tls&sni=${raw_host}&type=h2&path=${PATH_TRANSPORT}&host=${raw_host}&allowInsecure=1&alpn=h2#vless-h2t${suffix}"
+        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_H2T}?security=tls&sni=${vless_tls_sni}&type=h2&path=${PATH_TRANSPORT}&host=${vless_tls_sni}&allowInsecure=1&alpn=h2#vless-h2t${suffix}"
         echo ""
     fi
 
     if $ENABLE_VLESS_HUT; then
         echo "=== VLESS-HTTPUpgrade-TLS (allowInsecure) ==="
-        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_HUT}?security=tls&sni=${raw_host}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${raw_host}&allowInsecure=1#vless-hut${suffix}"
+        echo "vless://${UUID_VLESS_TLS}@${host}:${PORT_VLESS_HUT}?security=tls&sni=${vless_tls_sni}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${vless_tls_sni}&allowInsecure=1#vless-hut${suffix}"
         echo ""
     fi
 
     if $ENABLE_TROJAN_WST; then
         local twst_enc=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-WS-TLS (allowInsecure) ==="
-        echo "trojan://${twst_enc}@${host}:${PORT_TROJAN_WST}?sni=${raw_host}&type=ws&path=${PATH_TRANSPORT}&allowInsecure=1#trojan-wst${suffix}"
+        echo "trojan://${twst_enc}@${host}:${PORT_TROJAN_WST}?sni=${trojan_tls_sni}&type=ws&path=${PATH_TRANSPORT}&allowInsecure=1&host=${trojan_tls_sni}#trojan-wst${suffix}"
         echo ""
     fi
 
     if $ENABLE_TROJAN_H2T; then
         local th2t_enc=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-H2-TLS (allowInsecure) ==="
-        echo "trojan://${th2t_enc}@${host}:${PORT_TROJAN_H2T}?sni=${raw_host}&type=h2&path=${PATH_TRANSPORT}&host=${raw_host}&allowInsecure=1&alpn=h2#trojan-h2t${suffix}"
+        echo "trojan://${th2t_enc}@${host}:${PORT_TROJAN_H2T}?sni=${trojan_tls_sni}&type=h2&path=${PATH_TRANSPORT}&host=${trojan_tls_sni}&allowInsecure=1&alpn=h2#trojan-h2t${suffix}"
         echo ""
     fi
 
     if $ENABLE_TROJAN_HUT; then
         local thut_enc=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-HTTPUpgrade-TLS (allowInsecure) ==="
-        echo "trojan://${thut_enc}@${host}:${PORT_TROJAN_HUT}?sni=${raw_host}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${raw_host}&allowInsecure=1#trojan-hut${suffix}"
+        echo "trojan://${thut_enc}@${host}:${PORT_TROJAN_HUT}?sni=${trojan_tls_sni}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${trojan_tls_sni}&allowInsecure=1#trojan-hut${suffix}"
         echo ""
     fi
 }
@@ -1714,6 +1732,18 @@ report_nodes() {
     }
 
     local rh="$PUB_IP"  # raw host (无中括号)
+    local vmess_tls_sni="$FIXED_VMESS_TLS_SNI"
+    local vless_tls_sni="$FIXED_VLESS_TLS_SNI"
+    local trojan_tls_sni="$FIXED_TROJAN_TLS_SNI"
+    if [ -z "$vmess_tls_sni" ]; then
+        vmess_tls_sni="$rh"
+    fi
+    if [ -z "$vless_tls_sni" ]; then
+        vless_tls_sni="$rh"
+    fi
+    if [ -z "$trojan_tls_sni" ]; then
+        trojan_tls_sni="$rh"
+    fi
 
     # 8. VMess-TCP
     if $ENABLE_VMESS_TCP; then
@@ -1732,55 +1762,55 @@ report_nodes() {
     fi
     # 11. VMess-QUIC
     if $ENABLE_VMESS_QUIC; then
-        local link=$(_vmess_b64_report "vmess-quic-${NODE_NAME}" "$rh" "$PORT_VMESS_QUIC" "$UUID_VMESS" "quic" "tls" "" "$rh")
+        local link=$(_vmess_b64_report "vmess-quic-${NODE_NAME}" "$rh" "$PORT_VMESS_QUIC" "$UUID_VMESS" "quic" "tls" "" "$vmess_tls_sni")
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vmess_quic\", \"link\": \"$link\"}" "VMess-QUIC"
     fi
     # 12. VMess-WS-TLS
     if $ENABLE_VMESS_WST; then
-        local link=$(_vmess_b64_report "vmess-wst-${NODE_NAME}" "$rh" "$PORT_VMESS_WST" "$UUID_VMESS" "ws" "tls" "$PATH_TRANSPORT" "$rh")
+        local link=$(_vmess_b64_report "vmess-wst-${NODE_NAME}" "$rh" "$PORT_VMESS_WST" "$UUID_VMESS" "ws" "tls" "$PATH_TRANSPORT" "$vmess_tls_sni")
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vmess_wst\", \"link\": \"$link\"}" "VMess-WST"
     fi
     # 13. VMess-H2-TLS
     if $ENABLE_VMESS_H2T; then
-        local link=$(_vmess_b64_report "vmess-h2t-${NODE_NAME}" "$rh" "$PORT_VMESS_H2T" "$UUID_VMESS" "h2" "tls" "$PATH_TRANSPORT" "$rh" "h2")
+        local link=$(_vmess_b64_report "vmess-h2t-${NODE_NAME}" "$rh" "$PORT_VMESS_H2T" "$UUID_VMESS" "h2" "tls" "$PATH_TRANSPORT" "$vmess_tls_sni" "h2")
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vmess_h2t\", \"link\": \"$link\"}" "VMess-H2T"
     fi
     # 14. VMess-HU-TLS
     if $ENABLE_VMESS_HUT; then
-        local link=$(_vmess_b64_report "vmess-hut-${NODE_NAME}" "$rh" "$PORT_VMESS_HUT" "$UUID_VMESS" "httpupgrade" "tls" "$PATH_TRANSPORT" "$rh")
+        local link=$(_vmess_b64_report "vmess-hut-${NODE_NAME}" "$rh" "$PORT_VMESS_HUT" "$UUID_VMESS" "httpupgrade" "tls" "$PATH_TRANSPORT" "$vmess_tls_sni")
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vmess_hut\", \"link\": \"$link\"}" "VMess-HUT"
     fi
     # 15. VLESS-WS-TLS
     if $ENABLE_VLESS_WST; then
-        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_WST}?security=tls&sni=${rh}&type=ws&path=${PATH_TRANSPORT}&allowInsecure=1&host=${rh}#vless-wst-${NODE_NAME}"
+        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_WST}?security=tls&sni=${vless_tls_sni}&type=ws&path=${PATH_TRANSPORT}&allowInsecure=1&host=${vless_tls_sni}#vless-wst-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vless_wst\", \"link\": \"$link\"}" "VLESS-WST"
     fi
     # 16. VLESS-H2-TLS
     if $ENABLE_VLESS_H2T; then
-        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_H2T}?security=tls&sni=${rh}&type=h2&path=${PATH_TRANSPORT}&host=${rh}&allowInsecure=1&alpn=h2#vless-h2t-${NODE_NAME}"
+        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_H2T}?security=tls&sni=${vless_tls_sni}&type=h2&path=${PATH_TRANSPORT}&host=${vless_tls_sni}&allowInsecure=1&alpn=h2#vless-h2t-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vless_h2t\", \"link\": \"$link\"}" "VLESS-H2T"
     fi
     # 17. VLESS-HU-TLS
     if $ENABLE_VLESS_HUT; then
-        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_HUT}?security=tls&sni=${rh}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${rh}&allowInsecure=1#vless-hut-${NODE_NAME}"
+        local link="vless://${UUID_VLESS_TLS}@${link_host}:${PORT_VLESS_HUT}?security=tls&sni=${vless_tls_sni}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${vless_tls_sni}&allowInsecure=1#vless-hut-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vless_hut\", \"link\": \"$link\"}" "VLESS-HUT"
     fi
     # 18. Trojan-WS-TLS
     if $ENABLE_TROJAN_WST; then
         local te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
-        local link="trojan://${te}@${link_host}:${PORT_TROJAN_WST}?sni=${rh}&type=ws&path=${PATH_TRANSPORT}&allowInsecure=1#trojan-wst-${NODE_NAME}"
+        local link="trojan://${te}@${link_host}:${PORT_TROJAN_WST}?sni=${trojan_tls_sni}&type=ws&path=${PATH_TRANSPORT}&allowInsecure=1&host=${trojan_tls_sni}#trojan-wst-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"trojan_wst\", \"link\": \"$link\"}" "Trojan-WST"
     fi
     # 19. Trojan-H2-TLS
     if $ENABLE_TROJAN_H2T; then
         local te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
-        local link="trojan://${te}@${link_host}:${PORT_TROJAN_H2T}?sni=${rh}&type=h2&path=${PATH_TRANSPORT}&host=${rh}&allowInsecure=1&alpn=h2#trojan-h2t-${NODE_NAME}"
+        local link="trojan://${te}@${link_host}:${PORT_TROJAN_H2T}?sni=${trojan_tls_sni}&type=h2&path=${PATH_TRANSPORT}&host=${trojan_tls_sni}&allowInsecure=1&alpn=h2#trojan-h2t-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"trojan_h2t\", \"link\": \"$link\"}" "Trojan-H2T"
     fi
     # 20. Trojan-HU-TLS
     if $ENABLE_TROJAN_HUT; then
         local te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
-        local link="trojan://${te}@${link_host}:${PORT_TROJAN_HUT}?sni=${rh}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${rh}&allowInsecure=1#trojan-hut-${NODE_NAME}"
+        local link="trojan://${te}@${link_host}:${PORT_TROJAN_HUT}?sni=${trojan_tls_sni}&type=httpupgrade&path=${PATH_TRANSPORT}&host=${trojan_tls_sni}&allowInsecure=1#trojan-hut-${NODE_NAME}"
         curl_post_submit "$REPORT_URL" "{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"trojan_hut\", \"link\": \"$link\"}" "Trojan-HUT"
     fi
 
@@ -2138,6 +2168,9 @@ generate_uris() {
     if [[ "$link_host" == *":"* ]]; then
         link_host="[$link_host]"
     fi
+    local vmess_tls_sni="${VMESS_TLS_SNI:-${TLS_SNI:-www.bing.com}}"
+    local vless_tls_sni="${VLESS_TLS_SNI:-${TLS_SNI:-www.bing.com}}"
+    local trojan_tls_sni="${TROJAN_TLS_SNI:-${TLS_SNI:-www.bing.com}}"
     local tp="${PATH_TRANSPORT:-/ray}"
 
     if [ "${ENABLE_VMESS_TCP:-false}" = "true" ]; then
@@ -2157,55 +2190,55 @@ generate_uris() {
     fi
     if [ "${ENABLE_VMESS_QUIC:-false}" = "true" ]; then
         echo "=== VMess-QUIC(TLS) ===" >> "$URI_FILE"
-        _vmess_b64 "vmess-quic${node_suffix}" "$rh" "$VMESS_QUIC_PORT" "$UUID_VMESS" "quic" "tls" "" "$rh" >> "$URI_FILE"
+        _vmess_b64 "vmess-quic${node_suffix}" "$rh" "$VMESS_QUIC_PORT" "$UUID_VMESS" "quic" "tls" "" "$vmess_tls_sni" >> "$URI_FILE"
         echo " (allowInsecure)" >> "$URI_FILE" ; echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_VMESS_WST:-false}" = "true" ]; then
         echo "=== VMess-WS-TLS ===" >> "$URI_FILE"
-        _vmess_b64 "vmess-wst${node_suffix}" "$rh" "$VMESS_WST_PORT" "$UUID_VMESS" "ws" "tls" "$tp" "$rh" >> "$URI_FILE"
+        _vmess_b64 "vmess-wst${node_suffix}" "$rh" "$VMESS_WST_PORT" "$UUID_VMESS" "ws" "tls" "$tp" "$vmess_tls_sni" >> "$URI_FILE"
         echo " (allowInsecure)" >> "$URI_FILE" ; echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_VMESS_H2T:-false}" = "true" ]; then
         echo "=== VMess-H2-TLS ===" >> "$URI_FILE"
-        _vmess_b64 "vmess-h2t${node_suffix}" "$rh" "$VMESS_H2T_PORT" "$UUID_VMESS" "h2" "tls" "$tp" "$rh" "h2" >> "$URI_FILE"
+        _vmess_b64 "vmess-h2t${node_suffix}" "$rh" "$VMESS_H2T_PORT" "$UUID_VMESS" "h2" "tls" "$tp" "$vmess_tls_sni" "h2" >> "$URI_FILE"
         echo " (allowInsecure)" >> "$URI_FILE" ; echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_VMESS_HUT:-false}" = "true" ]; then
         echo "=== VMess-HU-TLS ===" >> "$URI_FILE"
-        _vmess_b64 "vmess-hut${node_suffix}" "$rh" "$VMESS_HUT_PORT" "$UUID_VMESS" "httpupgrade" "tls" "$tp" "$rh" >> "$URI_FILE"
+        _vmess_b64 "vmess-hut${node_suffix}" "$rh" "$VMESS_HUT_PORT" "$UUID_VMESS" "httpupgrade" "tls" "$tp" "$vmess_tls_sni" >> "$URI_FILE"
         echo " (allowInsecure)" >> "$URI_FILE" ; echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_VLESS_WST:-false}" = "true" ]; then
         echo "=== VLESS-WS-TLS ===" >> "$URI_FILE"
-        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_WST_PORT}?security=tls&sni=${rh}&type=ws&path=${tp}&allowInsecure=1&host=${rh}#vless-wst${node_suffix}" >> "$URI_FILE"
+        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_WST_PORT}?security=tls&sni=${vless_tls_sni}&type=ws&path=${tp}&allowInsecure=1&host=${vless_tls_sni}#vless-wst${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_VLESS_H2T:-false}" = "true" ]; then
         echo "=== VLESS-H2-TLS ===" >> "$URI_FILE"
-        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_H2T_PORT}?security=tls&sni=${rh}&type=h2&path=${tp}&host=${rh}&allowInsecure=1&alpn=h2#vless-h2t${node_suffix}" >> "$URI_FILE"
+        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_H2T_PORT}?security=tls&sni=${vless_tls_sni}&type=h2&path=${tp}&host=${vless_tls_sni}&allowInsecure=1&alpn=h2#vless-h2t${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_VLESS_HUT:-false}" = "true" ]; then
         echo "=== VLESS-HU-TLS ===" >> "$URI_FILE"
-        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_HUT_PORT}?security=tls&sni=${rh}&type=httpupgrade&path=${tp}&host=${rh}&allowInsecure=1#vless-hut${node_suffix}" >> "$URI_FILE"
+        echo "vless://${UUID_VLESS_TLS}@${link_host}:${VLESS_HUT_PORT}?security=tls&sni=${vless_tls_sni}&type=httpupgrade&path=${tp}&host=${vless_tls_sni}&allowInsecure=1#vless-hut${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_TROJAN_WST:-false}" = "true" ]; then
         local _te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-WS-TLS ===" >> "$URI_FILE"
-        echo "trojan://${_te}@${link_host}:${TROJAN_WST_PORT}?sni=${rh}&type=ws&path=${tp}&allowInsecure=1#trojan-wst${node_suffix}" >> "$URI_FILE"
+        echo "trojan://${_te}@${link_host}:${TROJAN_WST_PORT}?sni=${trojan_tls_sni}&type=ws&path=${tp}&allowInsecure=1&host=${trojan_tls_sni}#trojan-wst${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_TROJAN_H2T:-false}" = "true" ]; then
         local _te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-H2-TLS ===" >> "$URI_FILE"
-        echo "trojan://${_te}@${link_host}:${TROJAN_H2T_PORT}?sni=${rh}&type=h2&path=${tp}&host=${rh}&allowInsecure=1&alpn=h2#trojan-h2t${node_suffix}" >> "$URI_FILE"
+        echo "trojan://${_te}@${link_host}:${TROJAN_H2T_PORT}?sni=${trojan_tls_sni}&type=h2&path=${tp}&host=${trojan_tls_sni}&allowInsecure=1&alpn=h2#trojan-h2t${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
     if [ "${ENABLE_TROJAN_HUT:-false}" = "true" ]; then
         local _te=$(printf "%s" "$PSK_TROJAN_TLS" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Trojan-HU-TLS ===" >> "$URI_FILE"
-        echo "trojan://${_te}@${link_host}:${TROJAN_HUT_PORT}?sni=${rh}&type=httpupgrade&path=${tp}&host=${rh}&allowInsecure=1#trojan-hut${node_suffix}" >> "$URI_FILE"
+        echo "trojan://${_te}@${link_host}:${TROJAN_HUT_PORT}?sni=${trojan_tls_sni}&type=httpupgrade&path=${tp}&host=${trojan_tls_sni}&allowInsecure=1#trojan-hut${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
 

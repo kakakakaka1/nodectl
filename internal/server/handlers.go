@@ -809,7 +809,7 @@ func apiGetSettings(w http.ResponseWriter, r *http.Request) {
 		"proxy_port_vless_wst", "proxy_port_vless_h2t", "proxy_port_vless_hut",
 		// Trojan-TLS 族
 		"proxy_port_trojan_wst", "proxy_port_trojan_h2t", "proxy_port_trojan_hut",
-		"proxy_tls_transport_path",
+		"proxy_tls_transport_path", "proxy_vmess_tls_sni", "proxy_vless_tls_sni", "proxy_trojan_tls_sni",
 	}).Find(&configs).Error; err != nil {
 		logger.Log.Error("读取系统配置失败", "error", err, "ip", clientIP, "path", reqPath)
 	}
@@ -870,6 +870,7 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		// Trojan-TLS 族
 		"proxy_port_trojan_wst": true, "proxy_port_trojan_h2t": true, "proxy_port_trojan_hut": true,
 		"proxy_tls_transport_path": true,
+		"proxy_vmess_tls_sni":      true, "proxy_vless_tls_sni": true, "proxy_trojan_tls_sni": true,
 	}
 
 	needRestartTgBot := false

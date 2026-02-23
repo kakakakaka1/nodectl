@@ -696,6 +696,10 @@
                         
                     </div>
                     <div class="tls-path-wrap">
+                        <div class="gs-field" style="margin:0 0 10px 0;">
+                            <label class="gs-label">VLESS TLS 传输族默认 SNI 域名（WS/H2/HU-TLS）</label>
+                            <input type="text" id="gs_proxy_vless_tls_sni" class="gs-input" placeholder="www.bing.com" oninput="triggerGsAutoSave()">
+                        </div>
                         <div class="gs-field" style="margin:0;">
                             <label class="gs-label">WS / H2 / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
                             <input type="text" class="gs-input tls-path-input" placeholder="/ray" oninput="syncTlsPath(this)">
@@ -755,6 +759,10 @@
                         
                     </div>
                     <div class="tls-path-wrap">
+                        <div class="gs-field" style="margin:0 0 10px 0;">
+                            <label class="gs-label">VMess TLS 传输族默认 SNI 域名（WS/H2/HU-TLS）</label>
+                            <input type="text" id="gs_proxy_vmess_tls_sni" class="gs-input" placeholder="www.bing.com" oninput="triggerGsAutoSave()">
+                        </div>
                         <div class="gs-field" style="margin:0;">
                             <label class="gs-label">WS / H2 / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
                             <input type="text" class="gs-input tls-path-input" placeholder="/ray" oninput="syncTlsPath(this)">
@@ -884,6 +892,10 @@
                         
                     </div>
                     <div class="tls-path-wrap">
+                        <div class="gs-field" style="margin:0 0 10px 0;">
+                            <label class="gs-label">Trojan TLS 传输族默认 SNI 域名（WS/H2/HU-TLS）</label>
+                            <input type="text" id="gs_proxy_trojan_tls_sni" class="gs-input" placeholder="www.bing.com" oninput="triggerGsAutoSave()">
+                        </div>
                         <div class="gs-field" style="margin:0;">
                             <label class="gs-label">WS / H2 / HTTPUpgrade 传输路径 (TLS 变种共用)</label>
                             <input type="text" class="gs-input tls-path-input" placeholder="/ray" oninput="syncTlsPath(this)">
@@ -1063,6 +1075,9 @@
                 // TLS 传输路径（VLESS / VMess / Trojan 面板共用同一个值）
                 const tlsPath = d.proxy_tls_transport_path || '';
                 document.querySelectorAll('.tls-path-input').forEach(inp => inp.value = tlsPath);
+                document.getElementById('gs_proxy_vmess_tls_sni').value = d.proxy_vmess_tls_sni || '';
+                document.getElementById('gs_proxy_vless_tls_sni').value = d.proxy_vless_tls_sni || '';
+                document.getElementById('gs_proxy_trojan_tls_sni').value = d.proxy_trojan_tls_sni || '';
                 // 系统优化
                 document.getElementById('gs_proxy_enable_bbr').checked = (d.proxy_enable_bbr === 'true');
             }
@@ -1122,6 +1137,9 @@
                 "proxy_port_trojan_hut": document.getElementById('gs_proxy_port_trojan_hut').value,
                 // TLS 传输路径（三个面板共用）
                 "proxy_tls_transport_path": tlsPath,
+                "proxy_vmess_tls_sni": document.getElementById('gs_proxy_vmess_tls_sni').value,
+                "proxy_vless_tls_sni": document.getElementById('gs_proxy_vless_tls_sni').value,
+                "proxy_trojan_tls_sni": document.getElementById('gs_proxy_trojan_tls_sni').value,
                 // 系统优化
                 "proxy_enable_bbr": document.getElementById('gs_proxy_enable_bbr').checked ? 'true' : 'false'
             };

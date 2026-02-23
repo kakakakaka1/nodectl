@@ -229,6 +229,18 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 	if tlsTransportPath == "" {
 		tlsTransportPath = "/ray"
 	}
+	vmessTLSSNI := configMap["proxy_vmess_tls_sni"]
+	if vmessTLSSNI == "" {
+		vmessTLSSNI = "www.bing.com"
+	}
+	vlessTLSSNI := configMap["proxy_vless_tls_sni"]
+	if vlessTLSSNI == "" {
+		vlessTLSSNI = "www.bing.com"
+	}
+	trojanTLSSNI := configMap["proxy_trojan_tls_sni"]
+	if trojanTLSSNI == "" {
+		trojanTLSSNI = "www.bing.com"
+	}
 
 	data := map[string]string{
 		"PortSS":      configMap["proxy_port_ss"],
@@ -268,6 +280,9 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 		"PortTrojanHUT": portTrojanHUT,
 		// TLS 传输共用路径
 		"TLSTransportPath": tlsTransportPath,
+		"VmessTLSSNI":      vmessTLSSNI,
+		"VlessTLSSNI":      vlessTLSSNI,
+		"TrojanTLSSNI":     trojanTLSSNI,
 		"ReportURL":        reportURL,
 		// [新增] 将节点专属参数硬编码注入到脚本中
 		"InstallID": node.InstallID,

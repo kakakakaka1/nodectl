@@ -187,6 +187,9 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{"grpc-service-name": vj.Path}
 		} else if node.Network == "h2" {
+			if hostStr == "" && node.ServerName != "" {
+				hostStr = node.ServerName
+			}
 			path := vj.Path
 			if path == "" {
 				path = "/"
@@ -254,12 +257,16 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 		} else if node.Network == "grpc" {
 			node.GRPCOpts = map[string]interface{}{"grpc-service-name": u.Query().Get("serviceName")}
 		} else if node.Network == "h2" {
+			host := u.Query().Get("host")
+			if host == "" {
+				host = node.SNI
+			}
 			path := u.Query().Get("path")
 			if path == "" {
 				path = "/"
 			}
 			node.H2Opts = map[string]interface{}{"path": path}
-			if host := u.Query().Get("host"); host != "" {
+			if host != "" {
 				node.H2Opts["host"] = []string{host}
 			}
 		} else if node.Network == "httpupgrade" {
@@ -375,12 +382,16 @@ func ParseLinkToClashNode(link string, nameSuffix string) *ClashNode {
 				"grpc-service-name": u.Query().Get("serviceName"),
 			}
 		} else if node.Network == "h2" {
+			host := u.Query().Get("host")
+			if host == "" {
+				host = node.ServerName
+			}
 			path := u.Query().Get("path")
 			if path == "" {
 				path = "/"
 			}
 			node.H2Opts = map[string]interface{}{"path": path}
-			if host := u.Query().Get("host"); host != "" {
+			if host != "" {
 				node.H2Opts["host"] = []string{host}
 			}
 		} else if node.Network == "httpupgrade" {
