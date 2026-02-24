@@ -76,7 +76,6 @@ func LoadCertificate() error {
 		return err
 	}
 	currentCert = &pair
-	logger.Log.Info("SSL 证书加载成功")
 	return nil
 }
 

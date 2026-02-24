@@ -126,12 +126,6 @@ func Start(tmplFS embed.FS) {
 		err := service.LoadCertificate()
 		certLoaded := (err == nil)
 
-		if certLoaded {
-			logger.Log.Info("SSL 证书加载成功，准备进入 HTTPS 模式", "domain", service.GetCurrentCertInfo().Domain)
-		} else {
-			logger.Log.Info("未检测到有效证书，准备进入 HTTP 模式", "msg", "如需使用 HTTPS，请在面板上传证书")
-		}
-
 		// 实例化当前 Server，统一监听 8080 端口
 		activeServer := &http.Server{
 			Addr:    ":8080",
@@ -158,10 +152,10 @@ func Start(tmplFS embed.FS) {
 		// [主线程] 启动服务并阻塞
 		var serveErr error
 		if certLoaded {
-			logger.Log.Info("HTTPS 服务已启动", "地址", "https://localhost:8080")
+			logger.Log.Info("网络服务已启动", "mode", "HTTPS", "addr", "https://localhost:8080", "domain", service.GetCurrentCertInfo().Domain)
 			serveErr = activeServer.ListenAndServeTLS("", "")
 		} else {
-			logger.Log.Info("HTTP 服务已启动", "地址", "http://localhost:8080")
+			logger.Log.Info("网络服务已启动", "mode", "HTTP", "addr", "http://localhost:8080", "msg", "如需使用 HTTPS，请在面板上传证书")
 			serveErr = activeServer.ListenAndServe()
 		}
 
