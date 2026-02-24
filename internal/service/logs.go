@@ -447,6 +447,13 @@ func enrichLogMessageWithContext(messageCN, rawMsg string, attrs map[string]stri
 		return messageCN
 	}
 
+	if shouldAppendIPForSecurityLog(rawMsg) {
+		if strings.Contains(messageCN, "IP:") || strings.Contains(messageCN, "请求IP") {
+			return messageCN
+		}
+		return fmt.Sprintf("%s；IP: %s", strings.TrimSpace(messageCN), ip)
+	}
+
 	if strings.Contains(rawMsg, "成功下发 Clash 订阅模板") || strings.Contains(rawMsg, "成功下发 V2Ray Base64 订阅") {
 		if strings.Contains(messageCN, "请求IP") {
 			return messageCN
@@ -455,6 +462,17 @@ func enrichLogMessageWithContext(messageCN, rawMsg string, attrs map[string]stri
 	}
 
 	return messageCN
+}
+
+func shouldAppendIPForSecurityLog(rawMsg string) bool {
+	rawMsg = strings.TrimSpace(rawMsg)
+	if rawMsg == "" {
+		return false
+	}
+
+	return strings.Contains(rawMsg, "未授权访问拦截") ||
+		strings.Contains(rawMsg, "管理员登录成功") ||
+		strings.Contains(rawMsg, "登录拦截")
 }
 
 func nodeGroupToCN(v string) string {
