@@ -70,7 +70,7 @@ func InitMihomo() {
 			}
 		}()
 	} else {
-		logger.Log.Info("Mihomo 测试核心已就绪", "version", GlobalMihomo.GetLocalVersion())
+		logger.Log.Debug("Mihomo 测试核心已就绪", "version", GlobalMihomo.GetLocalVersion())
 	}
 }
 

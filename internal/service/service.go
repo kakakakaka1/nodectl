@@ -50,8 +50,6 @@ func AddNode(name string, routingType int) (*database.NodePool, error) {
 		logger.Log.Error("服务层异常: 创建节点入库失败", "error", err, "node_name", name)
 		return nil, err
 	}
-
-	logger.Log.Debug("服务层: 节点记录创建成功", "uuid", node.UUID)
 	return node, nil
 }
 
@@ -121,8 +119,6 @@ func ReorderNodes(routingType int, uuids []string) error {
 		logger.Log.Error("服务层异常: 批量重排节点事务提交失败", "error", err, "routing_type", routingType)
 		return err
 	}
-
-	logger.Log.Debug("服务层: 节点批量重排完成", "routing_type", routingType, "affected_nodes", len(uuids))
 	return nil
 }
 

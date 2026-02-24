@@ -121,11 +121,31 @@ func safeBase64Decode(str string) string {
 	return ""
 }
 
+func detectLinkNodeName(link string) string {
+	trimmed := strings.TrimSpace(link)
+	if trimmed == "" {
+		return "unknown"
+	}
+
+	if u, err := url.Parse(trimmed); err == nil {
+		name := strings.TrimSpace(u.Fragment)
+		if name != "" {
+			if decoded, err := url.QueryUnescape(name); err == nil && strings.TrimSpace(decoded) != "" {
+				return strings.TrimSpace(decoded)
+			}
+			return name
+		}
+	}
+
+	return "unknown"
+}
+
 // logLinkParseSkip 统一记录链接转换失败日志，便于定位订阅生成时被忽略的节点
 func logLinkParseSkip(reason string, link string) {
 	trimmed := strings.TrimSpace(link)
+	nodeName := detectLinkNodeName(trimmed)
 	if trimmed == "" {
-		logger.Log.Warn("链接转换失败，已跳过", "reason", reason, "protocol", "unknown", "link", "<empty>")
+		logger.Log.Warn("链接转换失败，已跳过", "reason", reason, "protocol", "unknown", "node_name", nodeName, "link", "<empty>")
 		return
 	}
 
@@ -138,7 +158,7 @@ func logLinkParseSkip(reason string, link string) {
 		proto = strings.ToLower(trimmed[:idx])
 	}
 
-	logger.Log.Warn("链接转换失败，已跳过", "reason", reason, "protocol", proto, "link", trimmed)
+	logger.Log.Warn("链接转换失败，已跳过", "reason", reason, "protocol", proto, "node_name", nodeName, "link", trimmed)
 }
 
 // 3. 核心分发调度中心

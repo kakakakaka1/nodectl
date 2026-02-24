@@ -56,7 +56,7 @@ func InitGeoIP() {
 			}
 		}()
 	} else {
-		slog.Info("GeoIP 服务加载成功")
+		slog.Debug("GeoIP 服务加载成功")
 	}
 }
 

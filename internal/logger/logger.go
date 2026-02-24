@@ -155,5 +155,5 @@ func Init(initialLevel string) {
 	if !ok && strings.TrimSpace(initialLevel) != "" {
 		Log.Warn("启动时读取到非法日志等级配置，已回退为 info", "value", initialLevel)
 	}
-	Log.Info("日志组件初始化完成", slog.String("模块", "logger"), slog.String("等级", CurrentLevel()))
+	Log.Debug("日志组件初始化完成", slog.String("模块", "logger"), slog.String("等级", CurrentLevel()))
 }

@@ -61,6 +61,164 @@ func sendJSON(w http.ResponseWriter, status string, payload interface{}) {
 	json.NewEncoder(w).Encode(response)
 }
 
+func parseConfigListValue(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "<empty>" {
+		return nil
+	}
+
+	if strings.HasPrefix(raw, "[") && strings.HasSuffix(raw, "]") {
+		var arr []string
+		if err := json.Unmarshal([]byte(raw), &arr); err == nil {
+			out := make([]string, 0, len(arr))
+			for _, v := range arr {
+				v = strings.TrimSpace(v)
+				if v != "" {
+					out = append(out, v)
+				}
+			}
+			return out
+		}
+	}
+
+	raw = strings.TrimPrefix(raw, "[")
+	raw = strings.TrimSuffix(raw, "]")
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		v := strings.Trim(strings.TrimSpace(p), `"`)
+		if v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+func summarizeListDelta(oldList, newList []string) (added []string, removed []string, reordered bool) {
+	oldSet := make(map[string]struct{}, len(oldList))
+	newSet := make(map[string]struct{}, len(newList))
+
+	for _, v := range oldList {
+		if v != "" {
+			oldSet[v] = struct{}{}
+		}
+	}
+	for _, v := range newList {
+		if v != "" {
+			newSet[v] = struct{}{}
+		}
+	}
+
+	for _, v := range newList {
+		if _, ok := oldSet[v]; !ok {
+			added = append(added, v)
+		}
+	}
+	for _, v := range oldList {
+		if _, ok := newSet[v]; !ok {
+			removed = append(removed, v)
+		}
+	}
+
+	if len(added) == 0 && len(removed) == 0 && strings.Join(oldList, ",") != strings.Join(newList, ",") {
+		reordered = true
+	}
+
+	return added, removed, reordered
+}
+
+func normalizeCustomRuleLines(raw string) []string {
+	lines := strings.Split(strings.ReplaceAll(raw, "\r\n", "\n"), "\n")
+	out := make([]string, 0, len(lines))
+	seen := make(map[string]struct{}, len(lines))
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
+			continue
+		}
+		if _, ok := seen[line]; ok {
+			continue
+		}
+		seen[line] = struct{}{}
+		out = append(out, line)
+	}
+
+	return out
+}
+
+func diffCustomRuleLines(oldLines, newLines []string) (added []string, removed []string) {
+	oldSet := make(map[string]struct{}, len(oldLines))
+	newSet := make(map[string]struct{}, len(newLines))
+
+	for _, v := range oldLines {
+		oldSet[v] = struct{}{}
+	}
+	for _, v := range newLines {
+		newSet[v] = struct{}{}
+	}
+
+	for _, v := range newLines {
+		if _, ok := oldSet[v]; !ok {
+			added = append(added, v)
+		}
+	}
+	for _, v := range oldLines {
+		if _, ok := newSet[v]; !ok {
+			removed = append(removed, v)
+		}
+	}
+
+	return added, removed
+}
+
+func limitJoinedValues(values []string, max int) string {
+	if len(values) == 0 {
+		return ""
+	}
+	if max <= 0 || len(values) <= max {
+		return strings.Join(values, ",")
+	}
+	return strings.Join(values[:max], ",") + fmt.Sprintf(" 等%d项", len(values))
+}
+
+func customGroupName(rule service.CustomProxyRule) string {
+	name := strings.TrimSpace(rule.Name)
+	if name != "" {
+		return name
+	}
+	if strings.TrimSpace(rule.ID) != "" {
+		return rule.ID
+	}
+	return "未命名分组"
+}
+
+func airportRoutingTypeLabel(rt int) string {
+	switch rt {
+	case 1:
+		return "直连"
+	case 2:
+		return "落地"
+	default:
+		return "禁用"
+	}
+}
+
+func nodeRoutingTypeLabel(rt int) string {
+	switch rt {
+	case 1:
+		return "直连"
+	case 2:
+		return "落地"
+	default:
+		return "未知"
+	}
+}
+
 // ------------------- [页面渲染逻辑] -------------------
 
 // loginHandler 处理登录页面渲染和表单提交
@@ -500,7 +658,7 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(changedDetails) == 0 {
-		logger.Log.Info("节点更新成功(无字段变化)", "name", targetNode.Name, "uuid", targetNode.UUID, "ip", clientIP, "path", reqPath)
+		// 前端存在自动保存场景，无字段变化时不写日志，避免产生重复噪声
 	} else {
 		logger.Log.Info("节点更新成功",
 			"name", targetNode.Name,
@@ -764,6 +922,63 @@ func apiReorderNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.NodeUUIDs) == 0 {
+		sendJSON(w, "success", "排序已更新")
+		return
+	}
+
+	var oldNodes []database.NodePool
+	if err := database.DB.Select("uuid", "name", "routing_type", "sort_index").Where("uuid IN ?", req.NodeUUIDs).Find(&oldNodes).Error; err != nil {
+		logger.Log.Error("读取重排前节点状态失败", "error", err, "ip", clientIP, "path", reqPath)
+		sendJSON(w, "error", "保存排序失败")
+		return
+	}
+
+	oldByUUID := make(map[string]database.NodePool, len(oldNodes))
+	for _, n := range oldNodes {
+		oldByUUID[n.UUID] = n
+	}
+
+	movedDetails := make([]string, 0)
+	for _, uuid := range req.NodeUUIDs {
+		if old, ok := oldByUUID[uuid]; ok && old.RoutingType != req.TargetRoutingType {
+			name := strings.TrimSpace(old.Name)
+			if name == "" {
+				name = old.UUID
+			}
+			movedDetails = append(movedDetails, fmt.Sprintf("节点 %s；节点类型 由 %s 改为 %s", name, nodeRoutingTypeLabel(old.RoutingType), nodeRoutingTypeLabel(req.TargetRoutingType)))
+		}
+	}
+
+	oldOrder := append([]string(nil), req.NodeUUIDs...)
+	sort.Slice(oldOrder, func(i, j int) bool {
+		li, lok := oldByUUID[oldOrder[i]]
+		lj, rok := oldByUUID[oldOrder[j]]
+		if !lok && !rok {
+			return oldOrder[i] < oldOrder[j]
+		}
+		if !lok {
+			return false
+		}
+		if !rok {
+			return true
+		}
+		if li.SortIndex == lj.SortIndex {
+			return li.UUID < lj.UUID
+		}
+		return li.SortIndex < lj.SortIndex
+	})
+
+	orderChanged := false
+	if len(oldOrder) == len(req.NodeUUIDs) {
+		for i := range req.NodeUUIDs {
+			if req.NodeUUIDs[i] != oldOrder[i] {
+				orderChanged = true
+				break
+			}
+		}
+	}
+
 	err := service.ReorderNodes(req.TargetRoutingType, req.NodeUUIDs)
 	if err != nil {
 		logger.Log.Error("更新排序入库失败", "error", err, "ip", clientIP, "path", reqPath)
@@ -771,7 +986,18 @@ func apiReorderNodes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log.Info("节点排序更新成功", "target_group", req.TargetRoutingType, "ip", clientIP, "path", reqPath)
+	if len(movedDetails) > 0 {
+		logger.Log.Info("节点更新成功",
+			"changed_count", len(movedDetails),
+			"changes", strings.Join(movedDetails, " | "),
+			"target_group", req.TargetRoutingType,
+			"ip", clientIP,
+			"path", reqPath,
+		)
+	} else if orderChanged {
+		logger.Log.Info("节点排序更新成功", "target_group", req.TargetRoutingType, "ip", clientIP, "path", reqPath)
+	}
+
 	sendJSON(w, "success", "排序已更新")
 }
 
@@ -1105,7 +1331,23 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			changedDetails = append(changedDetails, fmt.Sprintf("%s: %s -> %s", k, maskValue(k, oldValue), maskValue(k, v)))
+			if k == "pref_default_install_protocols" {
+				added, removed, reordered := summarizeListDelta(parseConfigListValue(oldValue), parseConfigListValue(v))
+				if len(added) > 0 {
+					changedDetails = append(changedDetails, "默认安装协议新增: "+strings.Join(added, ","))
+				}
+				if len(removed) > 0 {
+					changedDetails = append(changedDetails, "默认安装协议删除: "+strings.Join(removed, ","))
+				}
+				if reordered {
+					changedDetails = append(changedDetails, "默认安装协议: 仅顺序变化")
+				}
+				if len(added) == 0 && len(removed) == 0 && !reordered {
+					changedDetails = append(changedDetails, "默认安装协议: 无有效变化")
+				}
+			} else {
+				changedDetails = append(changedDetails, fmt.Sprintf("%s: %s -> %s", k, maskValue(k, oldValue), maskValue(k, v)))
+			}
 		}
 	}
 
@@ -1236,8 +1478,6 @@ func apiSaveCustomClashModules(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, "error", "保存自定义模块失败")
 		return
 	}
-
-	logger.Log.Info("自定义分流模块保存成功", "ip", clientIP, "path", reqPath, "count", len(req.Modules))
 	sendJSON(w, "success", "自定义模块保存成功")
 }
 
@@ -1297,10 +1537,10 @@ func apiSaveClashSettings(w http.ResponseWriter, r *http.Request) {
 
 	changeSummary := make([]string, 0)
 	if len(added) > 0 {
-		changeSummary = append(changeSummary, "新增: "+strings.Join(added, ","))
+		changeSummary = append(changeSummary, "新增规则集: "+strings.Join(added, ","))
 	}
 	if len(removed) > 0 {
-		changeSummary = append(changeSummary, "移除: "+strings.Join(removed, ","))
+		changeSummary = append(changeSummary, "移除规则集: "+strings.Join(removed, ","))
 	}
 	if reordered {
 		changeSummary = append(changeSummary, "仅顺序变化")
@@ -1371,7 +1611,7 @@ func apiSubClash(w http.ResponseWriter, r *http.Request) {
 		subName = "NodeCTL"
 	}
 
-	logger.Log.Debug("成功下发 Clash 订阅模板", "ip", clientIP, "path", reqPath)
+	logger.Log.Info("成功下发 Clash 订阅模板", "ip", clientIP, "path", reqPath)
 	w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 	w.Header().Set("profile-title", subName)
 
@@ -1413,7 +1653,7 @@ func apiSubV2ray(w http.ResponseWriter, r *http.Request) {
 		subName = "NodeCTL"
 	}
 
-	logger.Log.Debug("成功下发 V2Ray Base64 订阅", "ip", clientIP, "path", reqPath)
+	logger.Log.Info("成功下发 V2Ray Base64 订阅", "ip", clientIP, "path", reqPath)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("profile-title", subName)
 
@@ -1473,6 +1713,29 @@ func apiGetCustomRules(w http.ResponseWriter, r *http.Request) {
 	directIcon := service.GetCustomDirectIcon()
 	proxyRules := service.GetCustomProxyRules()
 
+	groupNames := make([]string, 0, len(proxyRules))
+	for _, rule := range proxyRules {
+		name := strings.TrimSpace(rule.Name)
+		if name == "" {
+			name = strings.TrimSpace(rule.ID)
+		}
+		if name == "" {
+			name = "未命名分组"
+		}
+		groupNames = append(groupNames, name)
+	}
+	groupNamesText := "无分流组"
+	if len(groupNames) > 0 {
+		groupNamesText = strings.Join(groupNames, ",")
+	}
+
+	logger.Log.Debug("获取自定义分流规则："+groupNamesText,
+		"ip", clientIP,
+		"path", reqPath,
+		"direct_rules_len", len(strings.TrimSpace(directRaw)),
+		"proxy_group_count", len(proxyRules),
+	)
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "success",
@@ -1493,6 +1756,10 @@ func apiSaveCustomRules(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
+	oldDirectRules := service.GetCustomDirectRules()
+	oldDirectIcon := service.GetCustomDirectIcon()
+	oldProxyRules := service.GetCustomProxyRules()
 
 	var req struct {
 		DirectRules string                    `json:"direct"`
@@ -1515,7 +1782,86 @@ func apiSaveCustomRules(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Error("保存自定义分流规则失败", "error", err, "ip", clientIP, "path", reqPath)
 	}
 
-	logger.Log.Info("自定义路由规则保存成功", "ip", clientIP, "path", reqPath)
+	changedDetails := make([]string, 0)
+
+	oldDirectLines := normalizeCustomRuleLines(oldDirectRules)
+	newDirectLines := normalizeCustomRuleLines(req.DirectRules)
+	addedDirect, removedDirect := diffCustomRuleLines(oldDirectLines, newDirectLines)
+	if strings.TrimSpace(oldDirectIcon) != strings.TrimSpace(req.DirectIcon) {
+		changedDetails = append(changedDetails, fmt.Sprintf("全局直连 图标 %s -> %s", strings.TrimSpace(oldDirectIcon), strings.TrimSpace(req.DirectIcon)))
+	}
+	if len(addedDirect) > 0 {
+		changedDetails = append(changedDetails, "全局直连 添加 "+limitJoinedValues(addedDirect, 8))
+	}
+	if len(removedDirect) > 0 {
+		changedDetails = append(changedDetails, "全局直连 删除 "+limitJoinedValues(removedDirect, 8))
+	}
+
+	oldByID := make(map[string]service.CustomProxyRule, len(oldProxyRules))
+	newByID := make(map[string]service.CustomProxyRule, len(req.ProxyRules))
+	for _, rule := range oldProxyRules {
+		if id := strings.TrimSpace(rule.ID); id != "" {
+			oldByID[id] = rule
+		}
+	}
+	for _, rule := range req.ProxyRules {
+		if id := strings.TrimSpace(rule.ID); id != "" {
+			newByID[id] = rule
+		}
+	}
+
+	for id, oldRule := range oldByID {
+		if _, ok := newByID[id]; !ok {
+			changedDetails = append(changedDetails, fmt.Sprintf("删除策略组 %s", customGroupName(oldRule)))
+		}
+	}
+
+	for id, newRule := range newByID {
+		if _, ok := oldByID[id]; !ok {
+			changedDetails = append(changedDetails, fmt.Sprintf("新建策略组 %s", customGroupName(newRule)))
+		}
+	}
+
+	for _, newRule := range req.ProxyRules {
+		oldRule, ok := oldByID[strings.TrimSpace(newRule.ID)]
+
+		if !ok {
+			added := normalizeCustomRuleLines(newRule.Content)
+			if len(added) > 0 {
+				changedDetails = append(changedDetails, fmt.Sprintf("%s 添加 %s", customGroupName(newRule), limitJoinedValues(added, 8)))
+			}
+			continue
+		}
+
+		groupOld := customGroupName(oldRule)
+		groupNew := customGroupName(newRule)
+		if strings.TrimSpace(oldRule.Name) != strings.TrimSpace(newRule.Name) {
+			changedDetails = append(changedDetails, fmt.Sprintf("策略组重命名 %s -> %s", groupOld, groupNew))
+		}
+		if strings.TrimSpace(oldRule.Icon) != strings.TrimSpace(newRule.Icon) {
+			changedDetails = append(changedDetails, fmt.Sprintf("策略组 %s 图标 %s -> %s", groupNew, strings.TrimSpace(oldRule.Icon), strings.TrimSpace(newRule.Icon)))
+		}
+
+		added, removed := diffCustomRuleLines(normalizeCustomRuleLines(oldRule.Content), normalizeCustomRuleLines(newRule.Content))
+		group := groupNew
+		if len(added) > 0 {
+			changedDetails = append(changedDetails, fmt.Sprintf("%s 添加 %s", group, limitJoinedValues(added, 8)))
+		}
+		if len(removed) > 0 {
+			changedDetails = append(changedDetails, fmt.Sprintf("%s 删除 %s", group, limitJoinedValues(removed, 8)))
+		}
+	}
+
+	if len(changedDetails) == 0 {
+		logger.Log.Info("自定义分流规则保存成功(无规则变化)", "ip", clientIP, "path", reqPath)
+	} else {
+		logger.Log.Info("自定义分流规则已更新",
+			"changed_count", len(changedDetails),
+			"changes", strings.Join(changedDetails, " | "),
+			"ip", clientIP,
+			"path", reqPath,
+		)
+	}
 	sendJSON(w, "success", "自定义规则保存成功")
 }
 
@@ -1531,19 +1877,35 @@ func apiSubRuleList(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.TrimPrefix(r.URL.Path, "/sub/rules/")
 	var rawContent string
+	groupName := "未知规则组"
 
 	if path == "direct" {
 		rawContent = service.GetCustomDirectRules()
+		groupName = "全局直连"
 	} else if strings.HasPrefix(path, "proxy/") {
 		id := strings.TrimPrefix(path, "proxy/")
 		rules := service.GetCustomProxyRules()
 		for _, rule := range rules {
 			if rule.ID == id {
 				rawContent = rule.Content
+				name := strings.TrimSpace(rule.Name)
+				if name == "" {
+					name = id
+				}
+				groupName = name
 				break
 			}
 		}
+		if strings.TrimSpace(rawContent) == "" {
+			groupName = id
+		}
 	}
+
+	logger.Log.Debug("获取自定义分流规则："+groupName,
+		"ip", clientIP,
+		"path", reqPath,
+		"rules_len", len(strings.TrimSpace(rawContent)),
+	)
 
 	formattedContent := service.ParseCustomRules(rawContent)
 
@@ -1831,7 +2193,11 @@ func apiAirportList(w http.ResponseWriter, r *http.Request) {
 
 // apiAirportAdd 添加新订阅
 func apiAirportAdd(w http.ResponseWriter, r *http.Request) {
+	clientIP := r.RemoteAddr
+	reqPath := r.URL.Path
+
 	if r.Method != http.MethodPost {
+		logger.Log.Warn("非法请求方法", "method", r.Method, "ip", clientIP, "path", reqPath)
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -1841,11 +2207,13 @@ func apiAirportAdd(w http.ResponseWriter, r *http.Request) {
 		URL  string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Warn("添加机场订阅失败: JSON 解析异常", "error", err, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "格式错误")
 		return
 	}
 
 	if req.URL == "" {
+		logger.Log.Warn("添加机场订阅失败: 缺少订阅链接", "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "订阅链接不能为空")
 		return
 	}
@@ -1865,15 +2233,25 @@ func apiAirportAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := database.DB.Create(&sub).Error; err != nil {
-		logger.Log.Error("添加订阅失败", "error", err)
+		logger.Log.Error("添加机场订阅失败", "error", err, "name", req.Name, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "数据库写入失败")
 		return
 	}
 
 	// 自动触发一次同步
+	syncStatus := "成功"
 	if err := service.SyncAirportSubscription(sub.ID); err != nil {
-		logger.Log.Error("同步订阅失败", "error", err)
+		syncStatus = "失败"
+		logger.Log.Error("添加后自动同步机场订阅失败", "id", sub.ID, "name", sub.Name, "error", err, "ip", clientIP, "path", reqPath)
 	}
+
+	logger.Log.Info("机场订阅已添加",
+		"id", sub.ID,
+		"name", sub.Name,
+		"changes", fmt.Sprintf("新增订阅 %s | 自动同步 %s", sub.Name, syncStatus),
+		"ip", clientIP,
+		"path", reqPath,
+	)
 
 	sendJSON(w, "success", map[string]interface{}{
 		"message": "添加成功",
@@ -1913,7 +2291,7 @@ func apiAirportUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log.Info("手动触发机场订阅更新", "id", sub.ID, "name", sub.Name, "ip", clientIP, "path", reqPath)
+	logger.Log.Info("手动触发机场订阅同步", "id", sub.ID, "name", sub.Name, "changes", "手动同步 "+sub.Name, "ip", clientIP, "path", reqPath)
 
 	// 调用 service 层逻辑进行同步 (包含保留状态逻辑)
 	if err := service.SyncAirportSubscription(req.ID); err != nil {
@@ -1922,14 +2300,18 @@ func apiAirportUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logger.Log.Info("机场订阅更新成功", "id", sub.ID, "name", sub.Name, "ip", clientIP, "path", reqPath)
+	logger.Log.Info("机场订阅同步成功", "id", sub.ID, "name", sub.Name, "changes", "同步订阅 "+sub.Name, "ip", clientIP, "path", reqPath)
 
 	sendJSON(w, "success", "订阅已更新")
 }
 
 // apiAirportDelete 删除订阅
 func apiAirportDelete(w http.ResponseWriter, r *http.Request) {
+	clientIP := r.RemoteAddr
+	reqPath := r.URL.Path
+
 	if r.Method != http.MethodPost {
+		logger.Log.Warn("非法请求方法", "method", r.Method, "ip", clientIP, "path", reqPath)
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -1938,15 +2320,33 @@ func apiAirportDelete(w http.ResponseWriter, r *http.Request) {
 		ID string `json:"id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Warn("删除机场订阅失败: JSON 解析异常", "error", err, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "格式错误")
 		return
 	}
 
+	var sub database.AirportSub
+	if err := database.DB.Where("id = ?", req.ID).First(&sub).Error; err != nil {
+		logger.Log.Warn("删除机场订阅失败: 订阅不存在", "id", req.ID, "ip", clientIP, "path", reqPath)
+		sendJSON(w, "error", "订阅不存在")
+		return
+	}
+	var nodeCount int64
+	database.DB.Model(&database.AirportNode{}).Where("sub_id = ?", req.ID).Count(&nodeCount)
+
 	if err := service.DeleteAirportSubscription(req.ID); err != nil {
-		logger.Log.Error("删除订阅失败", "id", req.ID, "error", err)
+		logger.Log.Error("删除机场订阅失败", "id", req.ID, "name", sub.Name, "error", err, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "删除失败: "+err.Error())
 		return
 	}
+
+	logger.Log.Info("机场订阅已删除",
+		"id", sub.ID,
+		"name", sub.Name,
+		"changes", fmt.Sprintf("删除订阅 %s | 清理节点 %d 个", sub.Name, nodeCount),
+		"ip", clientIP,
+		"path", reqPath,
+	)
 
 	sendJSON(w, "success", "删除成功")
 }
@@ -1980,7 +2380,11 @@ func apiAirportNodes(w http.ResponseWriter, r *http.Request) {
 
 // apiAirportNodeRouting 修改单个节点的路由策略 (三态切换)
 func apiAirportNodeRouting(w http.ResponseWriter, r *http.Request) {
+	clientIP := r.RemoteAddr
+	reqPath := r.URL.Path
+
 	if r.Method != http.MethodPost {
+		logger.Log.Warn("非法请求方法", "method", r.Method, "ip", clientIP, "path", reqPath)
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -1990,7 +2394,15 @@ func apiAirportNodeRouting(w http.ResponseWriter, r *http.Request) {
 		RoutingType int    `json:"routing_type"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Warn("修改机场节点状态失败: JSON 解析异常", "error", err, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "格式错误")
+		return
+	}
+
+	var oldNode database.AirportNode
+	if err := database.DB.Where("id = ?", req.ID).First(&oldNode).Error; err != nil {
+		logger.Log.Warn("修改机场节点状态失败: 节点不存在", "id", req.ID, "ip", clientIP, "path", reqPath)
+		sendJSON(w, "error", "节点不存在")
 		return
 	}
 
@@ -1999,9 +2411,20 @@ func apiAirportNodeRouting(w http.ResponseWriter, r *http.Request) {
 		Where("id = ?", req.ID).
 		Update("routing_type", req.RoutingType).Error; err != nil {
 
-		logger.Log.Error("修改节点状态失败", "id", req.ID, "error", err)
+		logger.Log.Error("修改机场节点状态失败", "id", req.ID, "error", err, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "数据库更新失败")
 		return
+	}
+
+	if oldNode.RoutingType != req.RoutingType {
+		logger.Log.Info("机场订阅节点状态已更新",
+			"id", oldNode.ID,
+			"sub_id", oldNode.SubID,
+			"name", oldNode.Name,
+			"changes", fmt.Sprintf("节点 %s 状态 %s -> %s", oldNode.Name, airportRoutingTypeLabel(oldNode.RoutingType), airportRoutingTypeLabel(req.RoutingType)),
+			"ip", clientIP,
+			"path", reqPath,
+		)
 	}
 
 	sendJSON(w, "success", "状态已更新")
@@ -2009,7 +2432,11 @@ func apiAirportNodeRouting(w http.ResponseWriter, r *http.Request) {
 
 // apiAirportEdit 编辑订阅信息 (名称和URL)
 func apiAirportEdit(w http.ResponseWriter, r *http.Request) {
+	clientIP := r.RemoteAddr
+	reqPath := r.URL.Path
+
 	if r.Method != http.MethodPost {
+		logger.Log.Warn("非法请求方法", "method", r.Method, "ip", clientIP, "path", reqPath)
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -2020,12 +2447,21 @@ func apiAirportEdit(w http.ResponseWriter, r *http.Request) {
 		URL  string `json:"url"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.Log.Warn("编辑机场订阅失败: JSON 解析异常", "error", err, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "格式错误")
 		return
 	}
 
 	if req.ID == "" {
+		logger.Log.Warn("编辑机场订阅失败: 缺少订阅ID", "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "订阅ID不能为空")
+		return
+	}
+
+	var oldSub database.AirportSub
+	if err := database.DB.Where("id = ?", req.ID).First(&oldSub).Error; err != nil {
+		logger.Log.Warn("编辑机场订阅失败: 订阅不存在", "id", req.ID, "ip", clientIP, "path", reqPath)
+		sendJSON(w, "error", "订阅不存在")
 		return
 	}
 
@@ -2045,12 +2481,29 @@ func apiAirportEdit(w http.ResponseWriter, r *http.Request) {
 
 	// 执行数据库更新
 	if err := database.DB.Model(&database.AirportSub{}).Where("id = ?", req.ID).Updates(updates).Error; err != nil {
-		logger.Log.Error("编辑订阅失败", "id", req.ID, "error", err)
+		logger.Log.Error("编辑机场订阅失败", "id", req.ID, "name", oldSub.Name, "error", err, "ip", clientIP, "path", reqPath)
 		sendJSON(w, "error", "数据库更新失败")
 		return
 	}
 
-	logger.Log.Info("订阅信息已修改", "id", req.ID, "updates", updates)
+	changed := make([]string, 0, 2)
+	if req.Name != "" && req.Name != oldSub.Name {
+		changed = append(changed, fmt.Sprintf("订阅名称 %s -> %s", oldSub.Name, req.Name))
+	}
+	if req.URL != "" && req.URL != oldSub.URL {
+		changed = append(changed, "订阅链接已更新")
+	}
+	if len(changed) == 0 {
+		changed = append(changed, "提交编辑但无有效变化")
+	}
+
+	logger.Log.Info("机场订阅信息已修改",
+		"id", req.ID,
+		"name", oldSub.Name,
+		"changes", strings.Join(changed, " | "),
+		"ip", clientIP,
+		"path", reqPath,
+	)
 	sendJSON(w, "success", "修改成功")
 }
 
@@ -2111,6 +2564,9 @@ func apiGetMihomoStatus(w http.ResponseWriter, r *http.Request) {
 
 // apiTestAirportNodes 流式处理节点测速请求 (Server-Sent Events)
 func apiTestAirportNodes(w http.ResponseWriter, r *http.Request) {
+	clientIP := r.RemoteAddr
+	reqPath := r.URL.Path
+
 	// 1. 设置 SSE 必需的响应头
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -2124,25 +2580,58 @@ func apiTestAirportNodes(w http.ResponseWriter, r *http.Request) {
 
 	subID := r.URL.Query().Get("sub_id")
 	nodeID := r.URL.Query().Get("node_id")
+	subName := "全部订阅"
 
 	var nodes []database.AirportNode
 	if subID != "" {
+		var sub database.AirportSub
+		if err := database.DB.Where("id = ?", subID).First(&sub).Error; err == nil {
+			subName = sub.Name
+		} else {
+			subName = subID
+		}
 		database.DB.Where("sub_id = ?", subID).Find(&nodes)
 	} else if nodeID != "" {
 		database.DB.Where("id = ?", nodeID).Find(&nodes)
+		if len(nodes) > 0 {
+			var sub database.AirportSub
+			if err := database.DB.Where("id = ?", nodes[0].SubID).First(&sub).Error; err == nil {
+				subName = sub.Name
+			} else {
+				subName = nodes[0].SubID
+			}
+		}
 	}
 
 	if len(nodes) == 0 {
+		logger.Log.Warn("机场节点测速失败: 未找到可测速节点", "sub_id", subID, "node_id", nodeID, "ip", clientIP, "path", reqPath)
 		fmt.Fprintf(w, "data: %s\n\n", `{"node_id": "all", "type": "error", "text": "未找到需要测试的节点"}`)
 		flusher.Flush()
 		return
 	}
 
 	if !service.GlobalMihomo.IsCoreReady() {
+		logger.Log.Warn("机场节点测速失败: Mihomo 核心未就绪", "sub_id", subID, "node_id", nodeID, "ip", clientIP, "path", reqPath)
 		fmt.Fprintf(w, "data: %s\n\n", `{"node_id": "all", "type": "error", "text": "请先在设置中下载 Mihomo 核心"}`)
 		flusher.Flush()
 		return
 	}
+
+	scope := "全部节点"
+	if nodeID != "" {
+		scope = "单节点"
+	} else if subID != "" {
+		scope = "订阅全部节点"
+	}
+	logger.Log.Info("机场节点测速开始",
+		"sub_id", subID,
+		"sub_name", subName,
+		"node_id", nodeID,
+		"node_count", len(nodes),
+		"changes", fmt.Sprintf("订阅名称 %s | 测速范围 %s | 节点数 %d", subName, scope, len(nodes)),
+		"ip", clientIP,
+		"path", reqPath,
+	)
 
 	// 2. 利用 r.Context() 感知客户端断开连接
 	ctx, cancel := context.WithCancel(r.Context())
@@ -2154,11 +2643,28 @@ func apiTestAirportNodes(w http.ResponseWriter, r *http.Request) {
 	go service.GlobalMihomo.RunBatchTest(ctx, nodes, resultChan)
 
 	// 4. 死循环监听管道，来一个结果发一个给前端 (流式推送)
+	resultCount := 0
+	errorCount := 0
 	for res := range resultChan {
+		resultCount++
+		if strings.EqualFold(res.Type, "error") {
+			errorCount++
+		}
 		data, _ := json.Marshal(res)
 		fmt.Fprintf(w, "data: %s\n\n", data)
 		flusher.Flush() // 立即把缓冲区数据推给前端
 	}
+
+	logger.Log.Info("机场节点测速结束",
+		"sub_id", subID,
+		"sub_name", subName,
+		"node_id", nodeID,
+		"result_count", resultCount,
+		"error_count", errorCount,
+		"changes", fmt.Sprintf("订阅名称 %s | 测速结束 | 返回结果 %d 条 | 错误 %d 条", subName, resultCount, errorCount),
+		"ip", clientIP,
+		"path", reqPath,
+	)
 }
 
 // apiCallbackTraffic 处理节点定期的流量上报

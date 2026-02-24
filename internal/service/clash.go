@@ -86,8 +86,6 @@ func SaveCustomClashModules(modules []ClashModuleDef) error {
 		logger.Log.Error("保存自定义分流模块入库失败", "error", err)
 		return err
 	}
-
-	logger.Log.Info("自定义分流模块已落库", "count", len(modules))
 	return nil
 }
 

@@ -320,6 +320,29 @@
         text-overflow: ellipsis;
     }
 
+    .logv-state-on,
+    .logv-state-off {
+        display: inline-block;
+        border-radius: 999px;
+        padding: 0 6px;
+        font-weight: 700;
+        font-size: 12px;
+        line-height: 1.5;
+        vertical-align: baseline;
+    }
+
+    .logv-state-on {
+        color: #166534;
+        background: #dcfce7;
+        border: 1px solid #bbf7d0;
+    }
+
+    .logv-state-off {
+        color: #b91c1c;
+        background: #fee2e2;
+        border: 1px solid #fecaca;
+    }
+
     @media (max-width: 768px) {
         .logv-modal-card {
             max-width: 95%;
@@ -381,10 +404,10 @@
             <div class="logv-actions">
                 <div class="logv-capsule logv-capsule-left" id="logViewerLevelFilter">
                     <button type="button" class="logv-capsule-item active" data-level="all">全部</button>
-                    <button type="button" class="logv-capsule-item" data-level="debug">Debug</button>
-                    <button type="button" class="logv-capsule-item" data-level="info">Info</button>
-                    <button type="button" class="logv-capsule-item" data-level="warn">Warn</button>
-                    <button type="button" class="logv-capsule-item" data-level="error">Error</button>
+                    <button type="button" class="logv-capsule-item" data-level="debug">调试</button>
+                    <button type="button" class="logv-capsule-item" data-level="info">信息</button>
+                    <button type="button" class="logv-capsule-item" data-level="warn">警告</button>
+                    <button type="button" class="logv-capsule-item" data-level="error">错误</button>
                 </div>
                 <span class="logv-live-dot" id="logViewerLiveDot"></span>
                 <span class="logv-live-text" id="logViewerLiveText">实时更新</span>
@@ -462,6 +485,13 @@
         return 'info';
     }
 
+    function stylizeStateText(raw) {
+        const safe = escHTML(raw || '--');
+        return safe
+            .replace(/开启/g, '<span class="logv-state-on">开启</span>')
+            .replace(/关闭/g, '<span class="logv-state-off">关闭</span>');
+    }
+
     function setLogViewerLiveState(enabled) {
         logViewerLiveEnabled = !!enabled;
         logViewerLiveDotEl.classList.toggle('off', !logViewerLiveEnabled);
@@ -500,14 +530,16 @@
             const cls = levelClass(item.level);
             const levelCN = escHTML(item.level_cn || item.level || '信息');
             const operation = escHTML(item.operation || '系统日志');
-            const msg = escHTML(item.message_cn || item.message || '--');
+            const rawMsg = item.message_cn || item.message || '--';
+            const msg = stylizeStateText(rawMsg);
+            const msgTitle = escHTML(rawMsg);
             return `
                 <div class="logv-item">
                     <div class="logv-line">
                         <span class="logv-time">${escHTML(item.time || '--')}</span>
                         <span class="logv-level ${cls}">${levelCN}</span>
                         <span class="logv-op">${operation}</span>
-                        <span class="logv-cn" title="${msg}">${msg}</span>
+                        <span class="logv-cn" title="${msgTitle}">${msg}</span>
                     </div>
                 </div>
             `;
