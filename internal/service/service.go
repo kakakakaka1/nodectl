@@ -289,6 +289,5 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 		return "", fmt.Errorf("渲染脚本失败: %v", err)
 	}
 
-	logger.Log.Debug("服务层: 成功渲染并装配部署脚本", "script_bytes", buf.Len())
 	return buf.String(), nil
 }

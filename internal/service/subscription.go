@@ -131,7 +131,6 @@ func GenerateRawNodesYAML(routingType int, useFlag bool) (string, error) {
 		return string(rune(code))
 	})
 
-	logger.Log.Debug("Raw 节点 YAML 组装完成", "routing_type", routingType, "proxy_count", len(proxyList))
 	return yamlStr, nil
 }
 
@@ -223,7 +222,6 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 	rawStr := strings.Join(lines, "\n")
 	b64Str := base64.StdEncoding.EncodeToString([]byte(rawStr))
 
-	logger.Log.Debug("V2Ray Base64 订阅组装完成", "link_count", len(lines))
 	return b64Str, nil
 }
 
