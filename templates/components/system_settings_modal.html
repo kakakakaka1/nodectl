@@ -2051,8 +2051,9 @@
                 // 解析白名单并渲染
                 const wListStr = data.tg_bot_whitelist || '';
                 tgBotWhitelistItems = wListStr.split(',').filter(Boolean).map(s => {
-                    const parts = s.split('=');
-                    return { id: parts[0], remark: parts[1] || '' };
+                    const idx = s.indexOf('=');
+                    if (idx === -1) return { id: s.trim(), remark: '' };
+                    return { id: s.substring(0, idx).trim(), remark: s.substring(idx + 1).trim() };
                 });
                 renderTgWhitelist();
 
@@ -2198,7 +2199,11 @@
                 "cf_auto_renew": document.getElementById('sys_cf_auto_renew').checked ? 'true' : 'false', // ✨ 新增
                 "tg_bot_enabled": document.getElementById('sys_tg_bot_enabled').checked ? 'true' : 'false',
                 "tg_bot_token": document.getElementById('sys_tg_bot_token').value.trim(),
-                "tg_bot_whitelist": tgBotWhitelistItems.filter(item => item.id.trim() !== '').map(item => item.id.trim() + (item.remark.trim() ? '=' + item.remark.trim() : '')).join(','),
+                "tg_bot_whitelist": tgBotWhitelistItems.filter(item => item.id.trim() !== '').map(item => {
+                    const id = item.id.trim().replace(/[,=]/g, '');
+                    const remark = item.remark.trim().replace(/,/g, '');
+                    return id + (remark ? '=' + remark : '');
+                }).join(','),
                 "tg_bot_register_commands": document.getElementById('sys_tg_bot_register_commands').checked ? 'true' : 'false'
             };
 
@@ -2660,6 +2665,11 @@
     // ================= ✨ TG Bot 白名单管理 =================
     let tgBotWhitelistItems = [];
 
+    // HTML 属性值转义，防止特殊字符破坏 HTML 结构
+    function escTgAttr(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
     function renderTgWhitelist() {
         const container = document.getElementById('tgWhitelistContainer');
         if (!container) return;
@@ -2671,8 +2681,8 @@
 
         container.innerHTML = tgBotWhitelistItems.map((item, index) => `
             <div class="sys-list-row">
-                <input type="text" class="sys-list-input" data-idx="${index}" value="${item.remark}" placeholder="备注 (例如: 张三)" style="flex: 1;" oninput="tgBotWhitelistItems[${index}].remark = this.value; triggerSysAutoSave();" onblur="scheduleCleanEmptyTgWhitelist()">
-                <input type="text" class="sys-list-input" data-idx="${index}" value="${item.id}" placeholder="TG ID" style="flex: 2; font-family: monospace;" oninput="tgBotWhitelistItems[${index}].id = this.value; triggerSysAutoSave();" onblur="scheduleCleanEmptyTgWhitelist()">
+                <input type="text" class="sys-list-input" data-idx="${index}" value="${escTgAttr(item.remark)}" placeholder="备注 (例如: 张三)" style="flex: 1;" oninput="tgBotWhitelistItems[${index}].remark = this.value; triggerSysAutoSave();" onblur="scheduleCleanEmptyTgWhitelist()">
+                <input type="text" class="sys-list-input" data-idx="${index}" value="${escTgAttr(item.id)}" placeholder="TG ID" style="flex: 2; font-family: monospace;" oninput="tgBotWhitelistItems[${index}].id = this.value; triggerSysAutoSave();" onblur="scheduleCleanEmptyTgWhitelist()">
                 <div class="sys-list-del" onclick="deleteTgWhitelistItem(${index})" title="删除">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </div>

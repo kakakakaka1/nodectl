@@ -55,14 +55,19 @@ func runTelegramBot(ctx context.Context) {
 
 	botEnabled := strings.TrimSpace(enabledConfig.Value) == "true"
 	token := strings.TrimSpace(tokenConfig.Value)
-	whitelist := strings.TrimSpace(whitelistConfig.Value)
+	whitelist := sanitizeTgWhitelist(strings.TrimSpace(whitelistConfig.Value))
 	registerCommands := strings.TrimSpace(registerConfig.Value) == "true"
 
 	if !botEnabled {
 		return
 	}
 
-	if token == "" || whitelist == "" {
+	if token == "" {
+		logger.Log.Warn("Telegram Bot Token 未配置，Bot 未启动")
+		return
+	}
+	if whitelist == "" {
+		logger.Log.Warn("Telegram Bot 白名单为空或无有效条目，Bot 未启动")
 		return
 	}
 
@@ -118,6 +123,32 @@ func runTelegramBot(ctx context.Context) {
 			}(update)
 		}
 	}
+}
+
+// sanitizeTgWhitelist 清洗白名单字符串，仅保留 ID 为纯数字的有效条目
+func sanitizeTgWhitelist(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	parts := strings.Split(raw, ",")
+	valid := make([]string, 0, len(parts))
+	for _, item := range parts {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		entry := strings.SplitN(item, "=", 2)
+		id := strings.TrimSpace(entry[0])
+		if id == "" {
+			continue
+		}
+		if _, err := strconv.ParseInt(id, 10, 64); err != nil {
+			logger.Log.Warn("TG 白名单中发现无效条目，已忽略", "entry", item)
+			continue
+		}
+		valid = append(valid, item)
+	}
+	return strings.Join(valid, ",")
 }
 
 // 检查用户是否在白名单中

@@ -126,7 +126,6 @@ func Start(tmplFS embed.FS) {
 	// ========== C. 公开/工具 路由 ==========
 	mux.HandleFunc("/api/public/install-script", withSecure(apiPublicScript)) // 安装脚本
 	mux.HandleFunc("/api/callback/report", withSecure(apiCallbackReport))     // 节点上报
-	mux.HandleFunc("/api/callback/traffic", withSecure(apiCallbackTraffic))   // 流量信息上报接口 (兼容旧节点)
 	mux.HandleFunc("/api/callback/traffic/ws", apiCallbackTrafficWS)          // Agent WS 统一上报通道
 	// 实时流量订阅 (前端 WebSocket)
 	mux.HandleFunc("/api/traffic/live", withAuthAndSecure(apiTrafficLive)) // 前端实时流量订阅

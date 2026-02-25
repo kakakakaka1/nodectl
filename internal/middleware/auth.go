@@ -11,10 +11,30 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+// getClientIP 从请求中提取真实客户端 IP（支持反向代理场景）
+func getClientIP(r *http.Request) string {
+	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+		return ip
+	}
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if ip := strings.TrimSpace(strings.Split(xff, ",")[0]); ip != "" {
+			return ip
+		}
+	}
+	ip := r.RemoteAddr
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		if bracketIdx := strings.LastIndex(ip, "]"); bracketIdx != -1 {
+			return strings.Trim(ip[:bracketIdx+1], "[]")
+		}
+		return ip[:idx]
+	}
+	return ip
+}
+
 // Auth 鉴权中间件，用于保护需要登录才能访问的路由
 func Auth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		clientIP := r.RemoteAddr
+		clientIP := getClientIP(r)
 		reqPath := r.URL.Path
 
 		// 1. 尝试从请求中获取名为 nodectl_token 的 Cookie

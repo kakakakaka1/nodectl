@@ -33,6 +33,31 @@ var AppStartTime = time.Now()
 
 // ------------------- [通用辅助函数] -------------------
 
+// getClientIP 从请求中提取真实客户端 IP（支持反向代理场景）
+// 优先级: X-Real-IP > X-Forwarded-For 第一个 > RemoteAddr
+func getClientIP(r *http.Request) string {
+	// 1. 优先使用 X-Real-IP（Nginx 常用）
+	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+		return ip
+	}
+	// 2. 其次取 X-Forwarded-For 的第一个 IP（多级代理场景）
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if ip := strings.TrimSpace(strings.Split(xff, ",")[0]); ip != "" {
+			return ip
+		}
+	}
+	// 3. 兜底使用 RemoteAddr，并去掉端口号
+	ip := r.RemoteAddr
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		// 处理 IPv6 带方括号的情况 [::1]:port
+		if bracketIdx := strings.LastIndex(ip, "]"); bracketIdx != -1 {
+			return strings.Trim(ip[:bracketIdx+1], "[]")
+		}
+		return ip[:idx]
+	}
+	return ip
+}
+
 // sendJSON 辅助函数：智能返回 JSON 响应
 // payload 可以是 string (作为 message) 或 map (作为数据合并)
 func sendJSON(w http.ResponseWriter, status string, payload interface{}) {
@@ -223,7 +248,7 @@ func nodeRoutingTypeLabel(rt int) string {
 
 // loginHandler 处理登录页面渲染和表单提交
 func loginHandler(w http.ResponseWriter, r *http.Request) {
-	clientIP := r.RemoteAddr
+	clientIP := getClientIP(r)
 	reqPath := r.URL.Path
 
 	if r.Method == http.MethodGet {
@@ -1602,7 +1627,7 @@ func getBaseURL(r *http.Request) string {
 }
 
 func apiSubClash(w http.ResponseWriter, r *http.Request) {
-	clientIP := r.RemoteAddr
+	clientIP := getClientIP(r)
 	reqPath := r.URL.Path
 
 	if !verifySubToken(r) {
@@ -1646,7 +1671,7 @@ func apiSubClash(w http.ResponseWriter, r *http.Request) {
 }
 
 func apiSubV2ray(w http.ResponseWriter, r *http.Request) {
-	clientIP := r.RemoteAddr
+	clientIP := getClientIP(r)
 	reqPath := r.URL.Path
 
 	if !verifySubToken(r) {
@@ -1688,7 +1713,7 @@ func apiSubV2ray(w http.ResponseWriter, r *http.Request) {
 }
 
 func apiSubRaw(w http.ResponseWriter, r *http.Request) {
-	clientIP := r.RemoteAddr
+	clientIP := getClientIP(r)
 	reqPath := r.URL.Path
 
 	if !verifySubToken(r) {
@@ -1886,7 +1911,7 @@ func apiSaveCustomRules(w http.ResponseWriter, r *http.Request) {
 }
 
 func apiSubRuleList(w http.ResponseWriter, r *http.Request) {
-	clientIP := r.RemoteAddr
+	clientIP := getClientIP(r)
 	reqPath := r.URL.Path
 
 	if !verifySubToken(r) {
@@ -2779,56 +2804,6 @@ func apiGetTrafficConsumptionRank(w http.ResponseWriter, r *http.Request) {
 	sendJSON(w, "success", map[string]interface{}{
 		"rank": rank,
 	})
-}
-
-// apiCallbackTraffic 处理节点定期的流量上报
-// 功能：接收节点服务器通过 crontab 脚本上报的本周期上传/下载流量并直接覆盖更新到数据库
-func apiCallbackTraffic(w http.ResponseWriter, r *http.Request) {
-	clientIP := r.RemoteAddr
-	reqPath := r.URL.Path
-
-	// 仅允许 POST 请求
-	if r.Method != http.MethodPost {
-		logger.Log.Warn("非法请求方法", "method", r.Method, "ip", clientIP, "path", reqPath)
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// 定义接收流量数据的结构体
-	var report struct {
-		InstallID string `json:"install_id"`
-		RXBytes   int64  `json:"rx_bytes"` // 节点下载流量 (VPS 网卡的接收流量)
-		TXBytes   int64  `json:"tx_bytes"` // 节点上传流量 (VPS 网卡的发送流量)
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&report); err != nil {
-		logger.Log.Warn("解析流量上报 JSON 失败", "error", err, "ip", clientIP, "path", reqPath)
-		sendJSON(w, "error", "JSON 解析失败")
-		return
-	}
-
-	// 验证必要参数
-	if report.InstallID == "" {
-		logger.Log.Warn("流量上报缺少 install_id", "ip", clientIP, "path", reqPath)
-		sendJSON(w, "error", "缺少 install_id")
-		return
-	}
-
-	found, err := service.SaveNodeTrafficReport(report.InstallID, report.RXBytes, report.TXBytes, time.Now())
-	if err != nil {
-		logger.Log.Error("更新节点流量失败", "error", err, "install_id", report.InstallID)
-		sendJSON(w, "error", "数据库更新失败")
-		return
-	}
-
-	// 如果没有找到对应节点，返回明确错误
-	if !found {
-		logger.Log.Warn("收到未知节点的流量上报", "install_id", report.InstallID, "ip", clientIP)
-		sendJSON(w, "error", "节点不存在")
-		return
-	}
-
-	sendJSON(w, "success", "流量上报接收成功")
 }
 
 // apiCallbackTrafficWS Agent WebSocket 统一上报通道

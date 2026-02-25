@@ -18,6 +18,30 @@ import (
 )
 
 // ============================================================
+//  通用辅助函数
+// ============================================================
+
+// getClientIP 从请求中提取真实客户端 IP（支持反向代理场景）
+func getClientIP(r *http.Request) string {
+	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
+		return ip
+	}
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if ip := strings.TrimSpace(strings.Split(xff, ",")[0]); ip != "" {
+			return ip
+		}
+	}
+	ip := r.RemoteAddr
+	if idx := strings.LastIndex(ip, ":"); idx != -1 {
+		if bracketIdx := strings.LastIndex(ip, "]"); bracketIdx != -1 {
+			return strings.Trim(ip[:bracketIdx+1], "[]")
+		}
+		return ip[:idx]
+	}
+	return ip
+}
+
+// ============================================================
 //  数据结构
 // ============================================================
 
@@ -166,18 +190,19 @@ func (h *TrafficHub) resolveNodeUUID(installID string) string {
 // 支持双向通信：Agent→后端上报流量，后端→Agent下发命令
 func HandleAgentWS(w http.ResponseWriter, r *http.Request) {
 	hub := GetTrafficHub()
+	clientIP := getClientIP(r)
 
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		Subprotocols:   []string{"nodectl-agent"},
 		OriginPatterns: []string{"*"},
 	})
 	if err != nil {
-		logger.Log.Error("Agent WS 握手失败", "error", err, "ip", r.RemoteAddr)
+		logger.Log.Error("Agent WS 握手失败", "error", err, "ip", clientIP)
 		return
 	}
 	defer conn.Close(websocket.StatusNormalClosure, "connection closed")
 
-	logger.Log.Info("Agent WS 已连接", "ip", r.RemoteAddr)
+	logger.Log.Info("Agent WS 已连接", "ip", clientIP)
 
 	ctx := r.Context()
 
@@ -189,9 +214,9 @@ func HandleAgentWS(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			// 正常关闭或网络断开
 			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
-				logger.Log.Info("Agent WS 正常断开", "ip", r.RemoteAddr, "install_id", agentInstallID)
+				logger.Log.Info("Agent WS 正常断开", "ip", clientIP, "install_id", agentInstallID)
 			} else {
-				logger.Log.Warn("Agent WS 读取异常", "error", err, "ip", r.RemoteAddr, "install_id", agentInstallID)
+				logger.Log.Warn("Agent WS 读取异常", "error", err, "ip", clientIP, "install_id", agentInstallID)
 			}
 			// 注销 Agent 连接
 			if agentInstallID != "" {
@@ -205,7 +230,7 @@ func HandleAgentWS(w http.ResponseWriter, r *http.Request) {
 		// 尝试判断消息类型：命令结果 or 流量上报
 		var rawMsg map[string]interface{}
 		if err := json.Unmarshal(data, &rawMsg); err != nil {
-			logger.Log.Warn("Agent WS 消息解析失败", "error", err, "ip", r.RemoteAddr)
+			logger.Log.Warn("Agent WS 消息解析失败", "error", err, "ip", clientIP)
 			continue
 		}
 
@@ -235,7 +260,7 @@ func HandleAgentWS(w http.ResponseWriter, r *http.Request) {
 		// 否则按流量上报处理
 		var msg AgentTrafficMsg
 		if err := json.Unmarshal(data, &msg); err != nil {
-			logger.Log.Warn("Agent WS 流量消息解析失败", "error", err, "ip", r.RemoteAddr)
+			logger.Log.Warn("Agent WS 流量消息解析失败", "error", err, "ip", clientIP)
 			continue
 		}
 
@@ -250,13 +275,13 @@ func HandleAgentWS(w http.ResponseWriter, r *http.Request) {
 			hub.agentMu.Lock()
 			hub.agentConns[installID] = conn
 			hub.agentMu.Unlock()
-			logger.Log.Info("Agent WS 已注册", "install_id", installID, "ip", r.RemoteAddr)
+			logger.Log.Info("Agent WS 已注册", "install_id", installID, "ip", clientIP)
 		}
 
 		// 解析 node_uuid
 		nodeUUID := hub.resolveNodeUUID(installID)
 		if nodeUUID == "" {
-			logger.Log.Warn("Agent WS 未知节点", "install_id", installID, "ip", r.RemoteAddr)
+			logger.Log.Warn("Agent WS 未知节点", "install_id", installID, "ip", clientIP)
 			continue
 		}
 

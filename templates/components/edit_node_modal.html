@@ -352,11 +352,31 @@
         display: none;
         flex-direction: column;
         background: #fff;
+        overflow: hidden;
     }
 
     .edit-modal-card.has-content .edit-right-col {
         display: flex;
         animation: fadeIn 0.3s ease;
+    }
+
+    /* 协议列表区域可滚动，按钮固定在底部 */
+    #protocolListContainer {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    #protocolListContainer::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* 添加协议按钮固定在右栏底部 */
+    .edit-right-col #addProtocolSection {
+        flex-shrink: 0;
+        padding-top: 12px;
+        margin: 0;
     }
 
     @keyframes fadeIn {
@@ -718,6 +738,11 @@
             border-top: 1px dashed #eee;
             overflow: visible;
         }
+
+        #protocolListContainer {
+            flex: none;
+            overflow-y: visible;
+        }
     }
 
     /* ================= 内嵌命令日志面板（右栏） ================= */
@@ -906,18 +931,16 @@
                     </div>
 
                     <div id="ipEditContainer"></div>
+                </div>
 
-                    <div class="edit-section" style="margin-top: 30px;" id="addProtocolSection">
-                        <label class="section-label">包含的代理协议</label>
+                <div class="edit-right-col">
+                    <div id="protocolListContainer" class="no-scrollbar"></div>
+                    <div id="addProtocolSection">
                         <button type="button" class="btn-add-protocol-left" id="btnAddProtocolBtn"
                             onclick="showAddProtocolMenu()">
                             <span>+</span> 添加协议
                         </button>
                     </div>
-                </div>
-
-                <div class="edit-right-col no-scrollbar">
-                    <div id="protocolListContainer"></div>
                     <div id="cmdLogPanel">
                         <div class="cmd-log-header">
                             <div class="left">
@@ -1064,8 +1087,6 @@
             isLinksLocked = Object.values(node.links).some(v => v && v.includes('🔒'));
         }
 
-        const addSection = document.getElementById('addProtocolSection');
-
         if (isLinksLocked) {
             // HTTP 模式：显示顶部大警告
             container.innerHTML = `
@@ -1074,10 +1095,6 @@
                     <span><b>HTTP 安全模式：</b>仅允许写入、管理启停和删除协议。允许在安全证书界面强制开启忽略安全保护。</span>
                 </div>
             `;
-            if (addSection) addSection.style.display = 'flex';
-        } else {
-            // HTTPS 模式
-            if (addSection) addSection.style.display = 'flex';
         }
 
         // 5. 循环渲染协议卡片
@@ -1105,11 +1122,7 @@
 
         updateLayoutState();
         editModalEl.classList.add('active');
-
-        // 强制展开右侧 (HTTP 模式下也要展开，因为有警告条和可能的列表)
-        if (isLinksLocked || (node.links && Object.keys(node.links).length > 0)) {
-            editModalCard.classList.add('has-content');
-        }
+        editModalCard.classList.add('has-content');
 
         setTimeout(() => { isInitializingEdit = false; }, 100);
     }
@@ -1296,14 +1309,16 @@
     function showCmdLogPanel(title) {
         const panel = document.getElementById('cmdLogPanel');
         const protoList = document.getElementById('protocolListContainer');
+        const addSection = document.getElementById('addProtocolSection');
         const body = document.getElementById('cmdLogBody');
         const dot = document.getElementById('cmdLogDot');
         const titleEl = document.getElementById('cmdLogTitle');
         body.innerHTML = '';
         dot.className = 'status-dot';
         titleEl.textContent = title || '执行中...';
-        // 隐藏协议列表，显示日志面板
+        // 隐藏协议列表和添加按钮，显示日志面板
         protoList.style.display = 'none';
+        if (addSection) addSection.style.display = 'none';
         panel.classList.add('active');
         // 确保右栏展开
         document.getElementById('editModalCard').classList.add('has-content');
@@ -1353,8 +1368,10 @@
     function closeCmdLogPanel() {
         const panel = document.getElementById('cmdLogPanel');
         const protoList = document.getElementById('protocolListContainer');
+        const addSection = document.getElementById('addProtocolSection');
         panel.classList.remove('active');
         protoList.style.display = '';
+        if (addSection) addSection.style.display = '';
         if (_cmdLogEventSource) {
             _cmdLogEventSource.close();
             _cmdLogEventSource = null;
@@ -1613,13 +1630,9 @@
     }
 
     function updateLayoutState() {
-        const container = document.getElementById('protocolListContainer');
-        if (container.children.length > 0) {
-            editModalCard.classList.add('has-content');
-        } else {
-            editModalCard.classList.remove('has-content');
-        }
+        editModalCard.classList.add('has-content');
 
+        const container = document.getElementById('protocolListContainer');
         const existingProtos = new Set();
         container.querySelectorAll('.protocol-card').forEach(card => {
             existingProtos.add(card.getAttribute('data-proto'));
