@@ -94,6 +94,12 @@ check_root
 # -----------------------
 # 安装依赖
 install_deps() {
+    # Agent 触发的重置/重装，依赖已安装，跳过
+    if [ "${SKIP_AGENT_INSTALL:-}" = "1" ]; then
+        info "Agent 模式，跳过依赖检测"
+        return 0
+    fi
+
     info "安装系统依赖..."
     
     case "$OS" in
@@ -404,12 +410,13 @@ install_singbox() {
 
     if command -v sing-box >/dev/null 2>&1; then
         CURRENT_VERSION=$(sing-box version 2>/dev/null | head -1 || echo "unknown")
-        warn "检测到已安装 sing-box: $CURRENT_VERSION"
-        read -p "是否重新安装?(y/N): " REINSTALL
-        if [[ ! "$REINSTALL" =~ ^[Yy]$ ]]; then
+        # Agent 触发的重置/重装，sing-box 已在运行，跳过重新安装
+        if [ "${SKIP_AGENT_INSTALL:-}" = "1" ]; then
+            warn "检测到已安装 sing-box: $CURRENT_VERSION"
             info "跳过 sing-box 安装"
             return 0
         fi
+        info "检测到已安装 sing-box: $CURRENT_VERSION，将重新安装"
     fi
 
     case "$OS" in
@@ -1094,6 +1101,11 @@ setup_service
 # -----------------------
 # BBR 内核加速（借鉴开源项目 sing-box-main bbr.sh）
 apply_bbr() {
+    # Agent 触发的重置/重装，BBR 已配置过，跳过
+    if [ "${SKIP_AGENT_INSTALL:-}" = "1" ]; then
+        return 0
+    fi
+
     if [ "$FIXED_ENABLE_BBR" != "true" ]; then
         info "跳过 BBR 优化（模板参数未启用）"
         return 0
@@ -1354,12 +1366,24 @@ curl_post_submit() {
 # [重构] 安装并配置 nodectl-agent (替代旧 cron 流量上报)
 # -----------------------
 setup_agent() {
+    if [ "${SKIP_AGENT_INSTALL:-}" = "1" ]; then
+        info "由 Agent 触发的重置/重装，跳过 agent 安装"
+        return 0
+    fi
+
     if [ -z "$AGENT_WS_URL" ] || [ -z "$INSTALL_ID" ]; then
         info "未提供 Agent 参数，跳过 agent 安装"
         return 0
     fi
 
     info "━━━━━━━━━━━━ nodectl-agent 安装 ━━━━━━━━━━━━"
+
+    # 如果 agent 已在运行，跳过重新安装
+    if pidof nodectl-agent >/dev/null 2>&1; then
+        info "✅ nodectl-agent 已在运行 (PID: $(pidof nodectl-agent))，跳过安装"
+        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        return 0
+    fi
 
     # ── 1. 检测架构并下载 agent ──────────────────────────────
     local arch
@@ -1690,7 +1714,7 @@ echo "=========================================="
 report_nodes
 
 # 安装并启动 nodectl-agent (替代旧 cron 流量上报)
-setup_agent
+setup_agent || warn "Agent 安装/配置未完成，不影响 sing-box 正常运行"
 
 # -----------------------
 # 创建 sb 管理脚本
