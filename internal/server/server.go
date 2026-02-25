@@ -6,9 +6,11 @@ import (
 	"embed"
 	"html/template"
 	"log"
+	"net"
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"nodectl/internal/logger"
@@ -24,8 +26,62 @@ var restartChan = make(chan bool)
 
 type serverLogWriter struct{}
 
+type httpWarnDedupState struct {
+	lastLogged time.Time
+	suppressed int
+}
+
+type httpWarnDedup struct {
+	mu      sync.Mutex
+	window  time.Duration
+	records map[string]*httpWarnDedupState
+}
+
+func newHTTPWarnDedup(window time.Duration) *httpWarnDedup {
+	return &httpWarnDedup{
+		window:  window,
+		records: make(map[string]*httpWarnDedupState),
+	}
+}
+
+func (d *httpWarnDedup) ShouldLog(key string, now time.Time) (shouldLog bool, suppressedCount int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	rec, ok := d.records[key]
+	if !ok {
+		d.records[key] = &httpWarnDedupState{lastLogged: now}
+		return true, 0
+	}
+
+	if now.Sub(rec.lastLogged) < d.window {
+		rec.suppressed++
+		return false, 0
+	}
+
+	suppressedCount = rec.suppressed
+	rec.suppressed = 0
+	rec.lastLogged = now
+	return true, suppressedCount
+}
+
 // serverLogIPRe 匹配 Go HTTP 内部错误日志中的 IP:Port 格式
 var serverLogIPRe = regexp.MustCompile(`(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+|\[?[0-9a-fA-F:]+\]?:\d+)`)
+var serverWarnDedup = newHTTPWarnDedup(15 * time.Second)
+
+func remoteHostOnly(ipPort string) string {
+	ipPort = strings.TrimSpace(ipPort)
+	if ipPort == "" {
+		return ""
+	}
+
+	host, _, err := net.SplitHostPort(ipPort)
+	if err != nil {
+		return strings.Trim(ipPort, "[]")
+	}
+
+	return strings.Trim(host, "[]")
+}
 
 func classifyHTTPServerWarning(msg string) (reason, securityHint string) {
 	lower := strings.ToLower(msg)
@@ -49,9 +105,30 @@ func (w *serverLogWriter) Write(p []byte) (n int, err error) {
 	if msg != "" {
 		reason, hint := classifyHTTPServerWarning(msg)
 		ip := ""
+		hostOnly := ""
 		if m := serverLogIPRe.FindString(msg); m != "" {
 			ip = m
+			hostOnly = remoteHostOnly(m)
 		}
+
+		dedupKey := reason + "|" + hostOnly
+		if hostOnly == "" {
+			dedupKey = reason + "|" + msg
+		}
+
+		shouldLog, suppressedCount := serverWarnDedup.ShouldLog(dedupKey, time.Now())
+		if !shouldLog {
+			return len(p), nil
+		}
+
+		if suppressedCount > 0 {
+			if hostOnly != "" {
+				logger.Log.Warn("HTTP 服务告警重复已抑制", "reason", reason, "ip", hostOnly, "suppressed_count", suppressedCount, "window", "15s")
+			} else {
+				logger.Log.Warn("HTTP 服务告警重复已抑制", "reason", reason, "suppressed_count", suppressedCount, "window", "15s")
+			}
+		}
+
 		if ip != "" {
 			logger.Log.Warn("HTTP 服务告警", "message", msg, "reason", reason, "security_hint", hint, "ip", ip)
 		} else {
