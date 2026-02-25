@@ -97,6 +97,37 @@ stop_service_if_any() {
   fi
 }
 
+cleanup_legacy_komari_agent() {
+  log "检查并清理旧版 komari-agent"
+
+  # 1) systemd: komari-agent.service
+  if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files | grep -q '^komari-agent\.service'; then
+    warn "检测到旧服务 komari-agent.service，正在停止并禁用"
+    systemctl stop komari-agent || true
+    systemctl disable komari-agent || true
+    rm -f /etc/systemd/system/komari-agent.service
+    systemctl daemon-reload || true
+  fi
+
+  # 2) OpenRC: /etc/init.d/komari-agent
+  if command -v rc-service >/dev/null 2>&1 && [ -f /etc/init.d/komari-agent ]; then
+    warn "检测到旧服务 /etc/init.d/komari-agent，正在停止并移除"
+    rc-service komari-agent stop || true
+    rc-update del komari-agent default >/dev/null 2>&1 || true
+    rm -f /etc/init.d/komari-agent
+  fi
+
+  # 3) 兜底清理旧进程（按旧二进制路径匹配）
+  if pgrep -f '/opt/komari/agent' >/dev/null 2>&1; then
+    warn "检测到旧进程 /opt/komari/agent，正在终止"
+    pkill -f '/opt/komari/agent' || true
+  fi
+  if pgrep -f '/usr/local/komari/agent' >/dev/null 2>&1; then
+    warn "检测到旧进程 /usr/local/komari/agent，正在终止"
+    pkill -f '/usr/local/komari/agent' || true
+  fi
+}
+
 start_service_if_any() {
   if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files | grep -q "^${AGENT_SERVICE_NAME}\.service"; then
     log "启动 ${AGENT_SERVICE_NAME} (systemd)"
@@ -110,6 +141,11 @@ start_service_if_any() {
     log "启动 ${AGENT_SERVICE_NAME} (OpenRC)"
     rc-update add "${AGENT_SERVICE_NAME}" default >/dev/null 2>&1 || true
     rc-service "${AGENT_SERVICE_NAME}" restart || rc-service "${AGENT_SERVICE_NAME}" start
+    return 0
+  fi
+
+  if pidof nodectl-agent >/dev/null 2>&1; then
+    log "${AGENT_SERVICE_NAME} 已在运行，跳过 nohup 重复启动"
     return 0
   fi
 
@@ -166,7 +202,14 @@ main() {
     log "文件类型: $(file "${tmp_file}" 2>/dev/null || echo unknown)"
   fi
 
+  # 先清理旧版 komari-agent，再处理 nodectl-agent
+  cleanup_legacy_komari_agent
+
   stop_service_if_any
+
+  # 双保险：避免残留 nodectl-agent 旧进程
+  pkill -x nodectl-agent >/dev/null 2>&1 || true
+  sleep 1
 
   if [ -f "${AGENT_BIN}" ]; then
     cp -f "${AGENT_BIN}" "${backup_file}"
