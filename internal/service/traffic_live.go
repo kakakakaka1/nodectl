@@ -275,7 +275,6 @@ func HandleAgentWS(w http.ResponseWriter, r *http.Request) {
 			hub.agentMu.Lock()
 			hub.agentConns[installID] = conn
 			hub.agentMu.Unlock()
-			logger.Log.Info("Agent WS 已注册", "install_id", installID, "ip", clientIP)
 		}
 
 		// 解析 node_uuid
