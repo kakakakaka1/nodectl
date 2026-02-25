@@ -20,6 +20,7 @@ import (
 
 	"nodectl/internal/database"
 	"nodectl/internal/logger"
+	"nodectl/internal/middleware"
 	"nodectl/internal/service"
 	"nodectl/internal/version"
 
@@ -257,6 +258,17 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
+		allowed, _, retryAfter := middleware.CheckLoginAttemptAllowed(clientIP)
+		if !allowed {
+			logger.Log.Warn("登录拦截: IP短期限流生效",
+				"ip", clientIP,
+				"path", reqPath,
+				"retry_after_sec", int(retryAfter.Seconds()),
+			)
+			tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "登录尝试次数过多，请稍后再试"})
+			return
+		}
+
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 
@@ -266,7 +278,18 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		err := database.DB.Where("key = ?", "admin_username").First(&userConfig).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) || userConfig.Value != username {
-			logger.Log.Warn("登录拦截: 用户名不存在", "username", username, "ip", clientIP, "path", reqPath)
+			blocked, remaining, blockAfter := middleware.RecordLoginFailure(clientIP)
+			if blocked {
+				logger.Log.Warn("登录拦截: 用户名不存在且IP已短期封禁",
+					"username", username,
+					"ip", clientIP,
+					"path", reqPath,
+					"retry_after_sec", int(blockAfter.Seconds()),
+				)
+				tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "登录尝试次数过多，请稍后再试"})
+				return
+			}
+			logger.Log.Warn("登录拦截: 用户名不存在", "username", username, "ip", clientIP, "path", reqPath, "remaining_attempts", remaining)
 			tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "用户名或密码错误"})
 			return
 		}
@@ -274,10 +297,23 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		database.DB.Where("key = ?", "admin_password").First(&passConfig)
 		err = bcrypt.CompareHashAndPassword([]byte(passConfig.Value), []byte(password))
 		if err != nil {
-			logger.Log.Warn("登录拦截: 密码错误", "username", username, "ip", clientIP, "path", reqPath)
+			blocked, remaining, blockAfter := middleware.RecordLoginFailure(clientIP)
+			if blocked {
+				logger.Log.Warn("登录拦截: 密码错误且IP已短期封禁",
+					"username", username,
+					"ip", clientIP,
+					"path", reqPath,
+					"retry_after_sec", int(blockAfter.Seconds()),
+				)
+				tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "登录尝试次数过多，请稍后再试"})
+				return
+			}
+			logger.Log.Warn("登录拦截: 密码错误", "username", username, "ip", clientIP, "path", reqPath, "remaining_attempts", remaining)
 			tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "用户名或密码错误"})
 			return
 		}
+
+		middleware.ClearLoginFailureRecord(clientIP)
 
 		database.DB.Where("key = ?", "jwt_secret").First(&secretConfig)
 
@@ -1224,6 +1260,7 @@ func apiGetSettings(w http.ResponseWriter, r *http.Request) {
 		"proxy_port_reality", "proxy_ss_method",
 		"proxy_port_socks5", "proxy_socks5_user", "proxy_socks5_pass", "proxy_socks5_random_auth", "pref_use_emoji_flag", "sub_custom_name", "pref_ip_strategy", "pref_default_install_protocols",
 		"sys_force_http", "sys_log_level", "cf_email", "cf_api_key", "cf_domain", "cf_auto_renew", "airport_filter_invalid", "pref_speed_test_mode", "pref_speed_test_file_size", "pref_traffic_stats_retention_days",
+		"login_ip_retry_window_sec", "login_ip_max_retries", "login_ip_block_ttl_sec",
 		"tg_bot_enabled", "tg_bot_token", "tg_bot_whitelist", "tg_bot_register_commands", "clash_proxies_update_interval", "clash_rules_update_interval", "clash_public_rules_update_interval",
 		// 新增协议与内核优化配置
 		"proxy_port_trojan", "proxy_hy2_sni", "proxy_tuic_sni", "proxy_enable_bbr",
@@ -1282,6 +1319,7 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		"sub_custom_name": true, "pref_ip_strategy": true, "pref_default_install_protocols": true,
 		"sys_force_http": true, "sys_log_level": true, "cf_email": true, "cf_api_key": true, "cf_domain": true, "cf_auto_renew": true,
 		"airport_filter_invalid": true, "pref_speed_test_mode": true, "pref_speed_test_file_size": true, "pref_traffic_stats_retention_days": true,
+		"login_ip_retry_window_sec": true, "login_ip_max_retries": true, "login_ip_block_ttl_sec": true,
 		"tg_bot_enabled": true, "tg_bot_token": true, "tg_bot_whitelist": true, "tg_bot_register_commands": true,
 		"clash_proxies_update_interval": true, "clash_rules_update_interval": true, "clash_public_rules_update_interval": true,
 		// 新增协议与内核优化配置
@@ -1299,6 +1337,7 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	needRestartTgBot := false
+	needRefreshLoginRateLimit := false
 	changedDetails := make([]string, 0)
 
 	maskValue := func(key, val string) string {
@@ -1353,6 +1392,36 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 				v = strconv.Itoa(days)
 			}
 
+			if k == "login_ip_retry_window_sec" {
+				v = strings.TrimSpace(v)
+				sec, err := strconv.Atoi(v)
+				if err != nil || sec < 30 || sec > 86400 {
+					sendJSON(w, "error", "登录失败计数窗口无效，仅支持 30-86400 秒")
+					return
+				}
+				v = strconv.Itoa(sec)
+			}
+
+			if k == "login_ip_max_retries" {
+				v = strings.TrimSpace(v)
+				count, err := strconv.Atoi(v)
+				if err != nil || count < 1 || count > 100 {
+					sendJSON(w, "error", "登录最大重试次数无效，仅支持 1-100 次")
+					return
+				}
+				v = strconv.Itoa(count)
+			}
+
+			if k == "login_ip_block_ttl_sec" {
+				v = strings.TrimSpace(v)
+				sec, err := strconv.Atoi(v)
+				if err != nil || sec < 30 || sec > 86400 {
+					sendJSON(w, "error", "登录封禁时长无效，仅支持 30-86400 秒")
+					return
+				}
+				v = strconv.Itoa(sec)
+			}
+
 			if k != "sys_log_level" && oldValue == v {
 				continue
 			}
@@ -1360,6 +1429,12 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 			if k == "tg_bot_enabled" || k == "tg_bot_token" || k == "tg_bot_whitelist" || k == "tg_bot_register_commands" {
 				if oldConfig.Value != v {
 					needRestartTgBot = true
+				}
+			}
+
+			if k == "login_ip_retry_window_sec" || k == "login_ip_max_retries" || k == "login_ip_block_ttl_sec" {
+				if oldConfig.Value != v {
+					needRefreshLoginRateLimit = true
 				}
 			}
 
@@ -1398,6 +1473,12 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	if needRestartTgBot {
 		go service.RestartTelegramBot()
+	}
+
+	if needRefreshLoginRateLimit {
+		if err := middleware.ReloadLoginRateLimitConfigFromDB(); err != nil {
+			logger.Log.Error("热更新登录IP限流配置失败", "error", err, "ip", clientIP, "path", reqPath)
+		}
 	}
 
 	if len(changedDetails) == 0 {

@@ -3,13 +3,222 @@ package middleware
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"nodectl/internal/database"
 	"nodectl/internal/logger"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+const (
+	defaultLoginRetryWindowSec = 600
+	defaultMaxLoginRetries     = 5
+	defaultLoginBlockTTLSec    = 900
+)
+
+type ipLoginAttemptState struct {
+	FailedCount  int
+	WindowStart  time.Time
+	BlockedUntil time.Time
+	LastSeen     time.Time
+}
+
+var (
+	loginAttemptMu    sync.Mutex
+	ipLoginAttemptMap = make(map[string]*ipLoginAttemptState)
+	loginRetryWindow  = time.Duration(defaultLoginRetryWindowSec) * time.Second
+	maxLoginRetries   = defaultMaxLoginRetries
+	loginBlockTTL     = time.Duration(defaultLoginBlockTTLSec) * time.Second
+)
+
+func sanitizeLoginLimitConfig(retryWindowSec, maxRetries, blockTTLSec int) (int, int, int) {
+	if retryWindowSec < 30 {
+		retryWindowSec = 30
+	}
+	if retryWindowSec > 86400 {
+		retryWindowSec = 86400
+	}
+
+	if maxRetries < 1 {
+		maxRetries = 1
+	}
+	if maxRetries > 100 {
+		maxRetries = 100
+	}
+
+	if blockTTLSec < 30 {
+		blockTTLSec = 30
+	}
+	if blockTTLSec > 86400 {
+		blockTTLSec = 86400
+	}
+
+	return retryWindowSec, maxRetries, blockTTLSec
+}
+
+// UpdateLoginRateLimitConfig 更新登录 IP 限流参数（秒/次数）。
+func UpdateLoginRateLimitConfig(retryWindowSec, maxRetries, blockTTLSec int) {
+	retryWindowSec, maxRetries, blockTTLSec = sanitizeLoginLimitConfig(retryWindowSec, maxRetries, blockTTLSec)
+
+	loginAttemptMu.Lock()
+	defer loginAttemptMu.Unlock()
+
+	loginRetryWindow = time.Duration(retryWindowSec) * time.Second
+	maxLoginRetries = maxRetries
+	loginBlockTTL = time.Duration(blockTTLSec) * time.Second
+
+	// 配置变更后清空历史计数，避免旧窗口参数影响新策略。
+	ipLoginAttemptMap = make(map[string]*ipLoginAttemptState)
+}
+
+// ReloadLoginRateLimitConfigFromDB 从数据库读取登录 IP 限流配置并应用到内存。
+func ReloadLoginRateLimitConfigFromDB() error {
+	keys := []string{
+		"login_ip_retry_window_sec",
+		"login_ip_max_retries",
+		"login_ip_block_ttl_sec",
+	}
+
+	var cfgList []database.SysConfig
+	if err := database.DB.Where("key IN ?", keys).Find(&cfgList).Error; err != nil {
+		return err
+	}
+
+	raw := map[string]string{}
+	for _, c := range cfgList {
+		raw[c.Key] = strings.TrimSpace(c.Value)
+	}
+
+	retryWindowSec := defaultLoginRetryWindowSec
+	maxRetries := defaultMaxLoginRetries
+	blockTTLSec := defaultLoginBlockTTLSec
+
+	if v, ok := raw["login_ip_retry_window_sec"]; ok && v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			retryWindowSec = parsed
+		} else {
+			logger.Log.Warn("登录限流配置解析失败，回退默认值", "key", "login_ip_retry_window_sec", "value", v, "error", err)
+		}
+	}
+	if v, ok := raw["login_ip_max_retries"]; ok && v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			maxRetries = parsed
+		} else {
+			logger.Log.Warn("登录限流配置解析失败，回退默认值", "key", "login_ip_max_retries", "value", v, "error", err)
+		}
+	}
+	if v, ok := raw["login_ip_block_ttl_sec"]; ok && v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil {
+			blockTTLSec = parsed
+		} else {
+			logger.Log.Warn("登录限流配置解析失败，回退默认值", "key", "login_ip_block_ttl_sec", "value", v, "error", err)
+		}
+	}
+
+	UpdateLoginRateLimitConfig(retryWindowSec, maxRetries, blockTTLSec)
+	return nil
+}
+
+// CheckLoginAttemptAllowed 检查指定 IP 当前是否允许继续尝试登录。
+// 返回值: 允许登录、剩余尝试次数、若被封禁则剩余等待时长。
+func CheckLoginAttemptAllowed(ip string) (bool, int, time.Duration) {
+	now := time.Now()
+	loginAttemptMu.Lock()
+	defer loginAttemptMu.Unlock()
+
+	cleanupExpiredLoginAttemptsLocked(now)
+
+	state, ok := ipLoginAttemptMap[ip]
+	if !ok {
+		return true, maxLoginRetries, 0
+	}
+
+	state.LastSeen = now
+
+	if state.BlockedUntil.After(now) {
+		return false, 0, state.BlockedUntil.Sub(now)
+	}
+
+	if now.Sub(state.WindowStart) >= loginRetryWindow {
+		state.FailedCount = 0
+		state.WindowStart = now
+	}
+
+	remaining := maxLoginRetries - state.FailedCount
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return true, remaining, 0
+}
+
+// RecordLoginFailure 记录指定 IP 的一次登录失败。
+// 返回值: 是否已触发封禁、剩余可尝试次数、若封禁则封禁剩余时长。
+func RecordLoginFailure(ip string) (bool, int, time.Duration) {
+	now := time.Now()
+	loginAttemptMu.Lock()
+	defer loginAttemptMu.Unlock()
+
+	cleanupExpiredLoginAttemptsLocked(now)
+
+	state, ok := ipLoginAttemptMap[ip]
+	if !ok {
+		state = &ipLoginAttemptState{
+			WindowStart: now,
+			LastSeen:    now,
+		}
+		ipLoginAttemptMap[ip] = state
+	}
+
+	state.LastSeen = now
+
+	if state.BlockedUntil.After(now) {
+		return true, 0, state.BlockedUntil.Sub(now)
+	}
+
+	if now.Sub(state.WindowStart) >= loginRetryWindow {
+		state.FailedCount = 0
+		state.WindowStart = now
+	}
+
+	state.FailedCount++
+	remaining := maxLoginRetries - state.FailedCount
+	if remaining <= 0 {
+		state.BlockedUntil = now.Add(loginBlockTTL)
+		state.FailedCount = maxLoginRetries
+		return true, 0, loginBlockTTL
+	}
+
+	return false, remaining, 0
+}
+
+// ClearLoginFailureRecord 在登录成功后清理指定 IP 的失败计数。
+func ClearLoginFailureRecord(ip string) {
+	loginAttemptMu.Lock()
+	defer loginAttemptMu.Unlock()
+	delete(ipLoginAttemptMap, ip)
+}
+
+func cleanupExpiredLoginAttemptsLocked(now time.Time) {
+	for ip, state := range ipLoginAttemptMap {
+		if state == nil {
+			delete(ipLoginAttemptMap, ip)
+			continue
+		}
+
+		if state.BlockedUntil.After(now) {
+			continue
+		}
+
+		if now.Sub(state.LastSeen) > loginRetryWindow+loginBlockTTL {
+			delete(ipLoginAttemptMap, ip)
+		}
+	}
+}
 
 // getClientIP 从请求中提取真实客户端 IP（支持反向代理场景）
 func getClientIP(r *http.Request) string {

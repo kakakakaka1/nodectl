@@ -66,6 +66,9 @@ func initBasicSettings() {
 		{Key: "pref_speed_test_mode", Value: "ping_speed", Description: "节点测速模式"},
 		{Key: "pref_speed_test_file_size", Value: "50", Description: "节点测速文件大小(MB)"},
 		{Key: "pref_traffic_stats_retention_days", Value: "30", Description: "流量统计记录最长保留天数"},
+		{Key: "login_ip_retry_window_sec", Value: "600", Description: "同IP登录失败计数窗口时长(秒)"},
+		{Key: "login_ip_max_retries", Value: "5", Description: "同IP登录失败最大重试次数"},
+		{Key: "login_ip_block_ttl_sec", Value: "900", Description: "同IP登录失败触发后封禁时长(秒)"},
 		// Telegram Bot 配置
 		{Key: "tg_bot_enabled", Value: "false", Description: "是否启用 Telegram Bot"},
 		{Key: "tg_bot_token", Value: "", Description: "Telegram Bot Token"},

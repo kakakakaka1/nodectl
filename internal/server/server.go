@@ -72,6 +72,9 @@ func Start(tmplFS embed.FS) {
 	service.InitCertManager() // 初始化证书目录
 	//避免空指针报错
 	service.InitMihomo()
+	if err := middleware.ReloadLoginRateLimitConfigFromDB(); err != nil {
+		logger.Log.Warn("加载登录IP限流配置失败，已使用默认策略", "error", err)
+	}
 	// 2. 预编译解析模板
 	tmpl = template.Must(template.ParseFS(tmplFS, "templates/*.html", "templates/components/*.html"))
 
