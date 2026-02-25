@@ -2820,3 +2820,163 @@ func apiCallbackTraffic(w http.ResponseWriter, r *http.Request) {
 
 	sendJSON(w, "success", "流量上报接收成功")
 }
+
+// apiCallbackTrafficWS Agent WebSocket 统一上报通道
+// 路由: /api/callback/traffic/ws
+// 无需登录鉴权 (Agent 通过 install_id 身份识别)
+func apiCallbackTrafficWS(w http.ResponseWriter, r *http.Request) {
+	service.HandleAgentWS(w, r)
+}
+
+// apiTrafficLive 前端实时流量订阅 (WebSocket)
+// 路由: /api/traffic/live?node_uuid=...
+// 需要登录鉴权
+func apiTrafficLive(w http.ResponseWriter, r *http.Request) {
+	service.HandleTrafficLive(w, r)
+}
+
+// ------------------- [节点控制接口] -------------------
+
+// apiNodeControlResetLinks 远程重置节点链接
+// 路由: POST /api/node/control/reset-links
+// 请求体: { "uuid": "节点UUID" }
+func apiNodeControlResetLinks(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		sendJSON(w, "error", "仅支持 POST 请求")
+		return
+	}
+
+	var req struct {
+		UUID string `json:"uuid"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UUID == "" {
+		sendJSON(w, "error", "参数错误: uuid 不能为空")
+		return
+	}
+
+	// 查找节点
+	var node database.NodePool
+	if err := database.DB.Where("uuid = ?", req.UUID).First(&node).Error; err != nil {
+		sendJSON(w, "error", "节点不存在")
+		return
+	}
+
+	// 检查节点是否在线
+	if !service.IsNodeOnline(node.InstallID) {
+		sendJSON(w, "error", "节点不在线，无法执行命令")
+		return
+	}
+
+	// 下发命令
+	result, err := service.DispatchCommandToNode(node.InstallID, "reset-links", nil, 30*time.Second)
+	if err != nil {
+		logger.Log.Error("重置链接命令失败", "uuid", req.UUID, "error", err)
+		sendJSON(w, "error", fmt.Sprintf("命令执行失败: %v", err))
+		return
+	}
+
+	if result.Status == "ok" {
+		logger.Log.Info("节点链接已重置", "uuid", req.UUID, "node_name", node.Name)
+		sendJSON(w, "success", "节点链接已重置")
+	} else {
+		sendJSON(w, "error", fmt.Sprintf("重置失败: %s", result.Message))
+	}
+}
+
+// apiNodeControlReinstall 远程重新安装节点 sing-box
+// 路由: POST /api/node/control/reinstall-singbox
+// 请求体: { "uuid": "节点UUID" }
+func apiNodeControlReinstall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		sendJSON(w, "error", "仅支持 POST 请求")
+		return
+	}
+
+	var req struct {
+		UUID string `json:"uuid"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.UUID == "" {
+		sendJSON(w, "error", "参数错误: uuid 不能为空")
+		return
+	}
+
+	// 查找节点
+	var node database.NodePool
+	if err := database.DB.Where("uuid = ?", req.UUID).First(&node).Error; err != nil {
+		sendJSON(w, "error", "节点不存在")
+		return
+	}
+
+	// 检查节点是否在线
+	if !service.IsNodeOnline(node.InstallID) {
+		sendJSON(w, "error", "节点不在线，无法执行命令")
+		return
+	}
+
+	// 下发命令（重装可能比较慢，给 120 秒超时）
+	result, err := service.DispatchCommandToNode(node.InstallID, "reinstall-singbox", nil, 120*time.Second)
+	if err != nil {
+		logger.Log.Error("重装 sing-box 命令失败", "uuid", req.UUID, "error", err)
+		sendJSON(w, "error", fmt.Sprintf("命令执行失败: %v", err))
+		return
+	}
+
+	if result.Status == "ok" {
+		logger.Log.Info("节点已重装 sing-box", "uuid", req.UUID, "node_name", node.Name)
+		sendJSON(w, "success", "sing-box 已重新安装")
+	} else {
+		sendJSON(w, "error", fmt.Sprintf("重装失败: %s", result.Message))
+	}
+}
+
+// apiNodeOnlineStatus 查询节点在线状态
+// 路由: GET /api/node/online-status?uuid=...
+func apiNodeOnlineStatus(w http.ResponseWriter, r *http.Request) {
+	nodeUUID := strings.TrimSpace(r.URL.Query().Get("uuid"))
+
+	if nodeUUID == "" {
+		// 返回所有节点状态
+		var nodes []database.NodePool
+		database.DB.Find(&nodes)
+
+		statusList := make([]map[string]interface{}, 0, len(nodes))
+		for _, node := range nodes {
+			online := service.IsNodeOnline(node.InstallID)
+			item := map[string]interface{}{
+				"uuid":   node.UUID,
+				"name":   node.Name,
+				"online": online,
+			}
+			if live := service.GetNodeLiveState(node.InstallID); live != nil {
+				item["rx_rate_bps"] = live.RXRateBps
+				item["tx_rate_bps"] = live.TXRateBps
+				item["last_live_at"] = live.LastLiveAt.Unix()
+			}
+			statusList = append(statusList, item)
+		}
+		sendJSON(w, "success", map[string]interface{}{
+			"nodes": statusList,
+		})
+		return
+	}
+
+	// 查询单个节点
+	var node database.NodePool
+	if err := database.DB.Where("uuid = ?", nodeUUID).First(&node).Error; err != nil {
+		sendJSON(w, "error", "节点不存在")
+		return
+	}
+
+	online := service.IsNodeOnline(node.InstallID)
+	result := map[string]interface{}{
+		"uuid":   node.UUID,
+		"name":   node.Name,
+		"online": online,
+	}
+	if live := service.GetNodeLiveState(node.InstallID); live != nil {
+		result["rx_rate_bps"] = live.RXRateBps
+		result["tx_rate_bps"] = live.TXRateBps
+		result["last_live_at"] = live.LastLiveAt.Unix()
+	}
+	sendJSON(w, "success", result)
+}

@@ -72,6 +72,12 @@ func initBasicSettings() {
 		{Key: "tg_bot_whitelist", Value: "", Description: "允许使用 Bot 的 TG User ID (逗号分隔)"},
 		{Key: "tg_bot_register_commands", Value: "false", Description: "是否清理历史菜单并注册 /sub 指令"},
 		{Key: "sys_log_level", Value: "info", Description: "系统日志等级 (debug/info/warn/error)"},
+		// Agent 相关配置
+		{Key: "agent_ws_push_interval_sec", Value: "2", Description: "Agent 实时速率推送间隔 (秒)"},
+		{Key: "agent_snapshot_interval_sec", Value: "300", Description: "Agent 累计流量快照间隔 (秒)"},
+		{Key: "agent_ws_reconnect_max_backoff_sec", Value: "60", Description: "Agent WS 重连最大退避时间 (秒)"},
+		{Key: "agent_ws_read_timeout_sec", Value: "20", Description: "Agent WS 读取超时 (秒)"},
+		{Key: "pref_traffic_offline_grace_sec", Value: "20", Description: "节点离线宽限期 (秒)，超过此时间无心跳则标记离线"},
 	}
 
 	for _, config := range defaultConfigs {

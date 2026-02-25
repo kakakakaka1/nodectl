@@ -41,6 +41,11 @@ FIXED_TROJAN_TLS_SNI="{{.TrojanTLSSNI}}"
 REPORT_URL="{{.ReportURL}}"
 INSTALL_ID="{{.InstallID}}" # 直接由后端渲染注入
 RESET_DAY="{{.ResetDay}}"
+# Agent 相关参数 (由后端模板注入)
+AGENT_DOWNLOAD_URL="{{.AgentDownloadURL}}"
+AGENT_WS_URL="{{.AgentWSURL}}"
+AGENT_WS_PUSH_INTERVAL_SEC="{{.AgentWSPushIntervalSec}}"
+AGENT_SNAPSHOT_INTERVAL_SEC="{{.AgentSnapshotIntervalSec}}"
 # -----------------------
 # 彩色输出函数
 info() { echo -e "\033[1;34m[INFO]\033[0m $*"; }
@@ -1346,379 +1351,143 @@ curl_post_submit() {
 }
 
 # -----------------------
+# [重构] 安装并配置 nodectl-agent (替代旧 cron 流量上报)
 # -----------------------
-# 辅助函数：检测当前运行的 crond 是否来自 busybox（精简版）
-# 返回 0 表示是 busybox crond（精简版），返回 1 表示是独立完整版 crond
-# -----------------------
-_is_busybox_crond() {
-    local crond_bin
-    crond_bin=$(command -v crond 2>/dev/null) || return 1
-    # busybox crond 实际上是 busybox 的软链接或内置 applet
-    if readlink -f "$crond_bin" 2>/dev/null | grep -q busybox; then
+setup_agent() {
+    if [ -z "$AGENT_WS_URL" ] || [ -z "$INSTALL_ID" ]; then
+        info "未提供 Agent 参数，跳过 agent 安装"
         return 0
     fi
-    # 也可能是直接内嵌的 busybox applet（无软链接但二进制本身包含 busybox）
-    if strings "$crond_bin" 2>/dev/null | grep -q BusyBox; then
-        return 0
-    fi
-    return 1
-}
 
-# -----------------------
-# [增强] 确保 Cron 环境存在并启动 (兼容跨平台及 Docker 环境)
-# 修复：Alpine 精简版 busybox crond 不支持用户级 crontab，导致定时任务静默失效
-# -----------------------
-ensure_cron() {
-    info "━━━━━━━━━━━━ Cron 环境检测 ━━━━━━━━━━━━"
+    info "━━━━━━━━━━━━ nodectl-agent 安装 ━━━━━━━━━━━━"
 
-    # ── 1. 诊断当前 cron 状态 ──────────────────────────────
-    local cron_cmd=""
-    local cron_running=false
-    local cron_is_busybox=false
+    # ── 1. 清理旧 cron 流量上报 ──────────────────────────────
+    info "清理旧 cron 流量上报任务..."
+    crontab -l 2>/dev/null | grep -v "singbox_traffic" > /tmp/crontab_clean.tmp 2>/dev/null && \
+        crontab /tmp/crontab_clean.tmp 2>/dev/null || true
+    rm -f /tmp/crontab_clean.tmp
+    rm -f /usr/local/bin/singbox_traffic.sh
+    # 清理 supercronic 残留
+    pkill -f "supercronic.*singbox_crontab" 2>/dev/null || true
+    rm -f /etc/singbox_crontab
+    rm -f /etc/local.d/singbox_cron.start
+    info "旧 cron 流量任务已清理 ✓"
 
-    if command -v crond >/dev/null 2>&1; then
-        cron_cmd="crond"
-    elif command -v cron >/dev/null 2>&1; then
-        cron_cmd="cron"
-    fi
-
-    if [ -n "$cron_cmd" ]; then
-        info "检测到 cron 可执行文件: $(command -v $cron_cmd)"
-        if _is_busybox_crond; then
-            cron_is_busybox=true
-            warn "当前 crond 为 BusyBox 精简版 —— 不支持 crontab -e 用户级任务，定时上报将静默失效！"
-        else
-            info "当前 crond 为独立完整版 ✓"
-        fi
-    else
-        warn "未检测到 crond / cron 可执行文件"
-    fi
-
-    # 检测 crond 进程是否正在运行
-    if pgrep -x crond >/dev/null 2>&1 || pgrep -x cron >/dev/null 2>&1; then
-        cron_running=true
-        info "cron 守护进程状态: 运行中 ✓"
-    else
-        warn "cron 守护进程状态: 未运行"
-    fi
-
-    # ── 2. 按系统类型进行安装 / 修复 ──────────────────────────
-    info "──────────────────────────────────────"
-
-    if command -v apt-get >/dev/null 2>&1; then
-        # ── Debian / Ubuntu 系列 ────────────────────────────
-        info "系统类型: Debian/Ubuntu，包管理器: apt-get"
-        if ! command -v cron >/dev/null 2>&1 && ! command -v crond >/dev/null 2>&1; then
-            info "cron 未安装，正在安装 cron..."
-            apt-get update -q 2>&1 | tail -1
-            if apt-get install -y cron 2>&1 | grep -E "已安装|already installed|Unpacking|upgrade"; then
-                info "cron 安装成功 ✓"
-            else
-                warn "cron 安装可能失败，请手动检查"
-            fi
-        else
-            info "cron 已安装，跳过安装步骤 ✓"
-        fi
-        # 尝试启动
-        if systemctl enable cron --now 2>&1 | grep -qv "Failed\|error" || \
-           service cron start 2>&1 | grep -qv "fail"; then
-            info "cron 服务已通过 systemd/init 启动 ✓"
-        else
-            info "非 systemd 环境，尝试直接启动 cron 守护进程..."
-            cron 2>/dev/null &
-            sleep 1
-            if pgrep -x cron >/dev/null 2>&1; then
-                info "cron 守护进程启动成功 ✓"
-            else
-                warn "cron 守护进程启动失败，流量定时上报可能无效"
-            fi
-        fi
-
-    elif command -v yum >/dev/null 2>&1 || command -v dnf >/dev/null 2>&1; then
-        # ── CentOS / RHEL / Fedora 系列 ─────────────────────
-        local pkg_mgr="yum"
-        command -v dnf >/dev/null 2>&1 && pkg_mgr="dnf"
-        info "系统类型: RHEL/CentOS，包管理器: $pkg_mgr"
-        if ! command -v crond >/dev/null 2>&1; then
-            info "cronie 未安装，正在安装..."
-            if $pkg_mgr install -y cronie 2>&1 | grep -E "已安装|already installed|Installing|Installed"; then
-                info "cronie 安装成功 ✓"
-            else
-                warn "cronie 安装可能失败，请手动检查"
-            fi
-        else
-            info "crond 已安装，跳过安装步骤 ✓"
-        fi
-        if systemctl enable crond --now 2>&1 | grep -qv "Failed\|error" || \
-           service crond start 2>&1 | grep -qv "fail"; then
-            info "crond 服务已启动 ✓"
-        else
-            crond 2>/dev/null &
-            sleep 1
-            pgrep -x crond >/dev/null 2>&1 && info "crond 守护进程启动成功 ✓" || \
-                warn "crond 启动失败，流量定时上报可能无效"
-        fi
-
-    elif command -v apk >/dev/null 2>&1; then
-        # ── Alpine Linux 系列 ────────────────────────────────
-        info "系统类型: Alpine Linux，包管理器: apk"
-        info "Alpine 注意: 内置 BusyBox crond 为精简版，不支持用户级 crontab，需安装完整版 dcron"
-
-        # 判断是否需要替换 busybox crond
-        local need_install=false
-        if $cron_is_busybox; then
-            warn "检测到 BusyBox 精简版 crond，必须替换为完整版 dcron，否则定时任务无法运行！"
-            need_install=true
-        elif ! command -v crond >/dev/null 2>&1; then
-            warn "未检测到 crond，需要安装 dcron"
-            need_install=true
-        else
-            # 进一步验证：测试当前 crond 是否真正支持 /var/spool/cron/crontabs/root
-            if ! ls /var/spool/cron/crontabs/ >/dev/null 2>&1 && ! $cron_running; then
-                warn "crond 已安装但未运行且 crontabs 目录异常，尝试重装 dcron..."
-                need_install=true
-            else
-                info "当前 crond 为完整版且运行正常，跳过安装 ✓"
-            fi
-        fi
-
-        if $need_install; then
-            info "步骤 1/4: 停止所有 crond 进程..."
-            pkill -x crond 2>/dev/null || killall crond 2>/dev/null || true
-            sleep 1
-            if ! pgrep -x crond >/dev/null 2>&1; then
-                info "  已停止所有 crond 进程 ✓"
-            else
-                warn "  部分 crond 进程仍在运行，继续尝试..."
-            fi
-
-            info "步骤 2/4: 卸载旧版 cron 组件（busybox-extras/dcron）..."
-            apk del dcron busybox-extras 2>&1 | grep -E "Purging|OK|ERROR" || true
-            info "  旧版组件清理完成 ✓"
-
-            info "步骤 3/4: 安装完整版 dcron..."
-            if apk add --no-cache dcron 2>&1 | tee /dev/fd/2 | grep -qE "OK|Installing|already installed"; then
-                info "  dcron 安装成功 ✓"
-            else
-                warn "  dcron 安装失败！尝试备用方案: supercronic..."
-                # 备用方案：使用 supercronic（纯静态二进制，无需 crond 守护进程）
-                _install_supercronic_alpine || {
-                    warn "所有 cron 方案均失败，流量定时上报将无法工作"
-                    return 1
-                }
-                return 0
-            fi
-
-            info "步骤 4/4: 启动 dcron 守护进程..."
-            # 确保 crontabs 目录存在
-            mkdir -p /var/spool/cron/crontabs
-            # 使用 dcron 的标准启动方式：-b 表示后台守护，-l 8 表示日志级别
-            crond -b -l 8 2>/dev/null || crond -b 2>/dev/null || crond &
-            sleep 1
-            if pgrep -x crond >/dev/null 2>&1; then
-                info "  dcron 守护进程启动成功 ✓"
-                # 尝试注册到 OpenRC（Alpine 的 init 系统），确保重启后自动恢复
-                if command -v rc-update >/dev/null 2>&1; then
-                    rc-update add dcron default 2>/dev/null && \
-                        info "  已注册到 OpenRC (rc-update add dcron default) ✓" || true
-                fi
-            else
-                warn "  dcron 守护进程启动失败！尝试 supercronic 备用方案..."
-                _install_supercronic_alpine || {
-                    warn "所有 cron 方案均失败，流量定时上报将无法工作"
-                    return 1
-                }
-                return 0
-            fi
-        fi
-
-    else
-        warn "未识别的系统环境（无 apt-get / yum / apk），无法自动安装 cron"
-        warn "流量定时上报功能可能无法正常工作，请手动安装 cron 后重新执行安装脚本"
-        return 1
-    fi
-
-    # ── 3. 最终验证 ──────────────────────────────────────────
-    info "──────────────────────────────────────"
-    if pgrep -x crond >/dev/null 2>&1 || pgrep -x cron >/dev/null 2>&1; then
-        info "✅ Cron 服务最终状态: 运行中"
-    else
-        warn "⚠️  Cron 服务最终状态: 未运行，定时上报可能失效"
-    fi
-    info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-}
-
-# -----------------------
-# 备用方案：在 Alpine 中安装 supercronic 作为 cron 替代品
-# supercronic 是纯静态二进制，专为容器设计，无需守护进程，兼容标准 crontab 格式
-# -----------------------
-_install_supercronic_alpine() {
-    info "备用方案: 尝试安装 supercronic (容器友好的 cron 替代品)..."
-    local sc_url=""
+    # ── 2. 检测架构并下载 agent ──────────────────────────────
     local arch
     arch=$(uname -m)
+    local ARCH_NAME=""
     case "$arch" in
-        x86_64)  sc_url="https://github.com/aptible/supercronic/releases/latest/download/supercronic-linux-amd64" ;;
-        aarch64) sc_url="https://github.com/aptible/supercronic/releases/latest/download/supercronic-linux-arm64" ;;
-        armv7*)  sc_url="https://github.com/aptible/supercronic/releases/latest/download/supercronic-linux-arm" ;;
+        x86_64|amd64)  ARCH_NAME="amd64" ;;
+        aarch64|arm64) ARCH_NAME="arm64" ;;
         *)
-            warn "supercronic 不支持当前架构: $arch"
+            err "nodectl-agent 不支持当前架构: $arch (仅支持 amd64/arm64)"
             return 1
             ;;
     esac
 
-    if curl -fsSL "$sc_url" -o /usr/local/bin/supercronic 2>/dev/null; then
-        chmod +x /usr/local/bin/supercronic
-        info "supercronic 安装成功 ✓ (架构: $arch)"
-        # 标记使用 supercronic 模式，供 setup_traffic_monitor 识别
-        CRON_MODE="supercronic"
-        return 0
+    local agent_url
+    agent_url=$(echo "$AGENT_DOWNLOAD_URL" | sed "s/__ARCH__/$ARCH_NAME/g")
+
+    local AGENT_BIN="/usr/local/bin/nodectl-agent"
+
+    info "下载 nodectl-agent ($ARCH_NAME)..."
+    info "  URL: $agent_url"
+    if curl -fsSL "$agent_url" -o "$AGENT_BIN"; then
+        chmod +x "$AGENT_BIN"
+        info "nodectl-agent 下载成功 ✓"
     else
-        warn "supercronic 下载失败（可能网络不可达）"
+        err "nodectl-agent 下载失败"
         return 1
     fi
+
+    # ── 3. 生成配置文件 ──────────────────────────────────────
+    local AGENT_CONF_DIR="/etc/nodectl-agent"
+    local AGENT_CONF="$AGENT_CONF_DIR/config.json"
+
+    mkdir -p "$AGENT_CONF_DIR"
+
+    cat > "$AGENT_CONF" <<AGENT_CFG
+{
+  "install_id": "$INSTALL_ID",
+  "ws_url": "$AGENT_WS_URL",
+  "ws_push_interval_sec": ${AGENT_WS_PUSH_INTERVAL_SEC:-2},
+  "snapshot_interval_sec": ${AGENT_SNAPSHOT_INTERVAL_SEC:-300},
+  "interface": "auto",
+  "reset_day": ${RESET_DAY:-0},
+  "log_level": "info"
 }
+AGENT_CFG
 
-# -----------------------
-# [修改] 配置流量监控与定时上报机制 (Bash + Cron 伪 Agent)
-# -----------------------
-setup_traffic_monitor() {
-    # 如果没有提供参数，则不配置流量监控
-    if [ -z "$REPORT_URL" ] || [ -z "$INSTALL_ID" ]; then
-        info "未提供上报参数，跳过流量监控配置"
-        return 0
-    fi
+    info "配置文件已写入: $AGENT_CONF ✓"
 
-    # 全局标记：cron 运行模式，默认 native，备用 supercronic
-    CRON_MODE="native"
+    # ── 4. 创建本地状态目录 ──────────────────────────────────
+    mkdir -p /var/lib/nodectl-agent
 
-    # 1. 确保系统有 cron 环境（含详细诊断输出）
-    ensure_cron || true # 即使安装失败也继续尝试，利用兜底逻辑
+    # ── 5. 注册系统服务 ──────────────────────────────────────
+    if [ "$OS" = "alpine" ]; then
+        # OpenRC 服务
+        cat > /etc/init.d/nodectl-agent <<'OPENRC_SVC'
+#!/sbin/openrc-run
+name="nodectl-agent"
+description="NodeCtl Agent - 流量采集与上报"
+command="/usr/local/bin/nodectl-agent"
+command_args="--config /etc/nodectl-agent/config.json"
+command_background=true
+pidfile="/run/nodectl-agent.pid"
+output_log="/var/log/nodectl-agent.log"
+error_log="/var/log/nodectl-agent.log"
 
-    TRAFFIC_SCRIPT="/usr/local/bin/singbox_traffic.sh"
-    
-    # [优化 1] 精准替换 URL 末尾的 report 为 traffic，防止误伤域名
-    TRAFFIC_URL=$(echo "$REPORT_URL" | sed 's|/report$|/traffic|')
-    RESET_VAL="${RESET_DAY:-0}"
-    
-    info "配置流量监控机制 (重置日: ${RESET_VAL:-不重置})..."
-    
-    # 动态生成我们的 "伪 Agent" 脚本
-    cat > "$TRAFFIC_SCRIPT" <<EOF
-#!/bin/sh
-REPORT_URL="$TRAFFIC_URL"
-INSTALL_ID="$INSTALL_ID"
-RESET_DAY="$RESET_VAL"
-
-# 智能获取主网卡接口名称
-IFACE=\$(ip route get 1.1.1.1 2>/dev/null | awk '/dev/ {for(i=1;i<=NF;i++) if(\$i=="dev") print \$(i+1)}' | head -n1)
-if [ -z "\$IFACE" ]; then exit 0; fi
-
-# 读取系统当前网卡统计 (单位: Bytes)
-RAW_RX=\$(cat /sys/class/net/\$IFACE/statistics/rx_bytes 2>/dev/null || echo 0)
-RAW_TX=\$(cat /sys/class/net/\$IFACE/statistics/tx_bytes 2>/dev/null || echo 0)
-
-CACHE_FILE="/etc/sing-box/.traffic_cache"
-
-# [优化 2] 确保缓存目录存在，防止误删导致写入失败
-mkdir -p "\$(dirname "\$CACHE_FILE")"
-
-# 加载本地历史缓存
-if [ -f "\$CACHE_FILE" ]; then
-    . "\$CACHE_FILE"
-else
-    PREV_RAW_RX=\$RAW_RX
-    PREV_RAW_TX=\$RAW_TX
-    ACCUMULATED_RX=0
-    ACCUMULATED_TX=0
-    LAST_RESET_MONTH=\$(date +%Y%m)
-fi
-
-# ================= 流量重置逻辑 =================
-CURRENT_DAY=\$(date +%d)
-CURRENT_MONTH=\$(date +%Y%m)
-CURRENT_DAY_NUM=\$((10#\$CURRENT_DAY)) # 强制按10进制解析，防止08/09报错
-
-if [ "\$RESET_DAY" -gt 0 ] && [ "\$CURRENT_MONTH" != "\$LAST_RESET_MONTH" ] && [ "\$CURRENT_DAY_NUM" -ge "\$RESET_DAY" ]; then
-    ACCUMULATED_RX=0
-    ACCUMULATED_TX=0
-    LAST_RESET_MONTH=\$CURRENT_MONTH
-fi
-
-# ================= 计算增量逻辑 =================
-# 检测服务器是否发生过重启 (当前网卡值小于记录的网卡值)
-if [ "\$RAW_RX" -lt "\${PREV_RAW_RX:-0}" ]; then
-    DELTA_RX=\$RAW_RX
-    DELTA_TX=\$RAW_TX
-else
-    DELTA_RX=\$((\$RAW_RX - \$PREV_RAW_RX))
-    DELTA_TX=\$((\$RAW_TX - \$PREV_RAW_TX))
-fi
-
-[ "\$DELTA_RX" -lt 0 ] && DELTA_RX=0
-[ "\$DELTA_TX" -lt 0 ] && DELTA_TX=0
-
-ACCUMULATED_RX=\$((ACCUMULATED_RX + DELTA_RX))
-ACCUMULATED_TX=\$((ACCUMULATED_TX + DELTA_TX))
-
-# ================= 保存缓存并上报 =================
-cat > "\$CACHE_FILE" <<CACHE_EOF
-PREV_RAW_RX=\$RAW_RX
-PREV_RAW_TX=\$RAW_TX
-ACCUMULATED_RX=\$ACCUMULATED_RX
-ACCUMULATED_TX=\$ACCUMULATED_TX
-LAST_RESET_MONTH=\$LAST_RESET_MONTH
-CACHE_EOF
-
-JSON_DATA="{\\"install_id\\": \\"\$INSTALL_ID\\", \\"rx_bytes\\": \$ACCUMULATED_RX, \\"tx_bytes\\": \$ACCUMULATED_TX}"
-
-curl -s -4 -X POST -H "Content-Type: application/json" -d "\$JSON_DATA" "\$REPORT_URL" >/dev/null 2>&1 || \\
-curl -s -6 -X POST -H "Content-Type: application/json" -d "\$JSON_DATA" "\$REPORT_URL" >/dev/null 2>&1
-
-EOF
-
-    chmod +x "$TRAFFIC_SCRIPT"
-
-    # ── 2. 挂载定时任务（区分 native cron 和 supercronic 两种模式）──
-    if [ "${CRON_MODE:-native}" = "supercronic" ]; then
-        # supercronic 模式：写入独立 crontab 文件并以后台进程方式运行
-        local sc_crontab="/etc/singbox_crontab"
-        echo "*/5 * * * * sh $TRAFFIC_SCRIPT" > "$sc_crontab"
-        # 防止重复启动
-        pkill -f "supercronic.*singbox_crontab" 2>/dev/null || true
-        nohup /usr/local/bin/supercronic "$sc_crontab" >/var/log/supercronic_singbox.log 2>&1 &
-        info "定时任务已通过 supercronic 挂载 (PID: $!)"
-
-        # 同样尝试注册开机自启（写入 /etc/local.d/ 是 Alpine 的 local 服务方式）
-        if [ -d /etc/local.d ]; then
-            cat > /etc/local.d/singbox_cron.start <<'AUTOSTART'
-#!/bin/sh
-nohup /usr/local/bin/supercronic /etc/singbox_crontab >/var/log/supercronic_singbox.log 2>&1 &
-AUTOSTART
-            chmod +x /etc/local.d/singbox_cron.start
-            rc-update add local default 2>/dev/null || true
-            info "已注册 supercronic 开机自启 (/etc/local.d/singbox_cron.start) ✓"
-        fi
+depend() {
+    need net
+    after firewall
+}
+OPENRC_SVC
+        chmod +x /etc/init.d/nodectl-agent
+        rc-update add nodectl-agent default 2>/dev/null || true
+        rc-service nodectl-agent restart 2>/dev/null || \
+            rc-service nodectl-agent start 2>/dev/null || true
+        info "OpenRC 服务已注册并启动 ✓"
     else
-        # native cron 模式：使用 crontab 命令挂载
-        crontab -l 2>/dev/null | grep -v "singbox_traffic.sh" > /tmp/crontab.tmp || true
-        echo "*/5 * * * * sh $TRAFFIC_SCRIPT" >> /tmp/crontab.tmp
-        crontab /tmp/crontab.tmp
-        rm -f /tmp/crontab.tmp
-        info "定时任务已挂载到系统 crontab (每5分钟)"
+        # systemd 服务
+        cat > /etc/systemd/system/nodectl-agent.service <<'SYSTEMD_SVC'
+[Unit]
+Description=NodeCtl Agent - 流量采集与上报
+After=network-online.target
+Wants=network-online.target
 
-        # 验证 crontab 写入是否成功
-        if crontab -l 2>/dev/null | grep -q "singbox_traffic.sh"; then
-            info "crontab 写入验证: 成功 ✓"
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nodectl-agent --config /etc/nodectl-agent/config.json
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SYSTEMD_SVC
+        systemctl daemon-reload
+        systemctl enable nodectl-agent
+        systemctl restart nodectl-agent
+        info "systemd 服务已注册并启动 ✓"
+    fi
+
+    # ── 6. 验证 ──────────────────────────────────────────────
+    sleep 2
+    if pgrep -x nodectl-agent >/dev/null 2>&1; then
+        info "✅ nodectl-agent 运行中 (PID: $(pgrep -x nodectl-agent))"
+    else
+        warn "⚠️ nodectl-agent 进程未检测到，请检查日志"
+        if [ "$OS" != "alpine" ]; then
+            warn "  查看日志: journalctl -u nodectl-agent -n 20"
         else
-            warn "crontab 写入验证: 未检测到任务条目，定时上报可能失效"
+            warn "  查看日志: tail -20 /var/log/nodectl-agent.log"
         fi
     fi
-    
-    # ── 3. 立即触发首次上报（让面板瞬间变绿）──────────────────
-    sh "$TRAFFIC_SCRIPT" >/dev/null 2>&1 &
-    
-    info "✅ 流量监控配置完成 (上报间隔: 5 分钟，已触发首次心跳)"
+
+    info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
 # -----------------------
@@ -1932,8 +1701,8 @@ echo "=========================================="
 # 执行上报
 report_nodes
 
-# 配置并启动流量监控
-setup_traffic_monitor
+# 安装并启动 nodectl-agent (替代旧 cron 流量上报)
+setup_agent
 
 # -----------------------
 # 创建 sb 管理脚本
@@ -2513,114 +2282,111 @@ action_uninstall() {
     info "卸载完成"
 }
 
-# 查看定时流量上报任务状态
+# 查看 nodectl-agent 状态
 action_traffic_status() {
-    local TRAFFIC_SCRIPT="/usr/local/bin/singbox_traffic.sh"
-    local TRAFFIC_CACHE="/etc/sing-box/.traffic_cache"
-    local SC_CRONTAB="/etc/singbox_crontab"
-
     echo ""
-    echo "━━━━━━━━━━━━ 定时流量上报状态 ━━━━━━━━━━━━"
+    echo "━━━━━━━━━━━━ nodectl-agent 状态 ━━━━━━━━━━━━"
 
-    # 上报脚本
-    if [ -f "$TRAFFIC_SCRIPT" ]; then
-        echo "  上报脚本: 存在 ✓"
+    # Agent 进程
+    if pgrep -x nodectl-agent >/dev/null 2>&1; then
+        local AGENT_PID
+        AGENT_PID=$(pgrep -x nodectl-agent | head -n1)
+        echo "  Agent 进程: 运行中 (PID: $AGENT_PID) ✓"
     else
-        echo "  上报脚本: 不存在 ✗ (请重新安装)"
+        echo "  Agent 进程: 未运行 ✗"
     fi
 
-    # Cron 模式检测
-    if [ -f "$SC_CRONTAB" ]; then
-        echo "  Cron 模式: supercronic"
-        if pgrep -f "supercronic.*singbox_crontab" >/dev/null 2>&1; then
-            SC_PID=$(pgrep -f "supercronic.*singbox_crontab" | head -n1)
-            echo "  supercronic 进程: 运行中 (PID: $SC_PID) ✓"
-        else
-            echo "  supercronic 进程: 未运行 ✗"
-        fi
+    # Agent 二进制
+    if [ -f /usr/local/bin/nodectl-agent ]; then
+        local AGENT_VER
+        AGENT_VER=$(/usr/local/bin/nodectl-agent --version 2>/dev/null || echo "unknown")
+        echo "  Agent 版本: $AGENT_VER"
     else
-        echo "  Cron 模式: 系统 cron"
-        if crontab -l 2>/dev/null | grep -q "singbox_traffic.sh"; then
-            echo "  crontab 任务: 已注册 ✓"
-        else
-            echo "  crontab 任务: 未注册 ✗"
-        fi
-        if pgrep -x crond >/dev/null 2>&1 || pgrep -x cron >/dev/null 2>&1; then
-            echo "  crond 进程: 运行中 ✓"
-        else
-            echo "  crond 进程: 未运行 ✗"
-        fi
+        echo "  Agent 二进制: 未安装 ✗"
     fi
 
-    # 上报缓存
+    # 配置文件
+    local AGENT_CONF="/etc/nodectl-agent/config.json"
+    if [ -f "$AGENT_CONF" ]; then
+        echo "  配置文件: 存在 ✓"
+        if command -v jq >/dev/null 2>&1; then
+            local WS_URL
+            WS_URL=$(jq -r '.ws_url // "N/A"' "$AGENT_CONF" 2>/dev/null)
+            echo "  WS 地址: $WS_URL"
+        fi
+    else
+        echo "  配置文件: 不存在 ✗"
+    fi
+
+    # 状态文件
+    local STATE_FILE="/var/lib/nodectl-agent/state.json"
+    if [ -f "$STATE_FILE" ]; then
+        echo ""
+        echo "  持久化状态:"
+        if command -v jq >/dev/null 2>&1; then
+            local LAST_REPORT ACC_RX ACC_TX
+            LAST_REPORT=$(jq -r '.last_report_at // "N/A"' "$STATE_FILE" 2>/dev/null)
+            ACC_RX=$(jq -r '.accumulated_rx // 0' "$STATE_FILE" 2>/dev/null)
+            ACC_TX=$(jq -r '.accumulated_tx // 0' "$STATE_FILE" 2>/dev/null)
+            local RX_MB TX_MB
+            RX_MB=$(awk "BEGIN{printf \"%.2f\", ${ACC_RX:-0}/1048576}")
+            TX_MB=$(awk "BEGIN{printf \"%.2f\", ${ACC_TX:-0}/1048576}")
+            echo "    上次上报: $LAST_REPORT"
+            echo "    累计下载: ${RX_MB} MB"
+            echo "    累计上传: ${TX_MB} MB"
+        else
+            cat "$STATE_FILE"
+        fi
+    else
+        echo "  持久化状态: 未找到 (可能尚未首次上报)"
+    fi
+
+    # 服务状态
     echo ""
-    if [ -f "$TRAFFIC_CACHE" ]; then
-        local ACC_TX=0 ACC_RX=0
-        ACC_TX=$(grep '^ACCUMULATED_TX=' "$TRAFFIC_CACHE" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || echo 0)
-        ACC_RX=$(grep '^ACCUMULATED_RX=' "$TRAFFIC_CACHE" 2>/dev/null | cut -d= -f2 | tr -d '[:space:]' || echo 0)
-        ACC_TX=${ACC_TX:-0}; ACC_RX=${ACC_RX:-0}
-        local TX_MB=$(awk "BEGIN{printf \"%.2f\", ${ACC_TX}/1048576}")
-        local RX_MB=$(awk "BEGIN{printf \"%.2f\", ${ACC_RX}/1048576}")
-        local CACHE_TIME
-        CACHE_TIME=$(stat -c '%y' "$TRAFFIC_CACHE" 2>/dev/null | cut -c1-16 || \
-                     stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$TRAFFIC_CACHE" 2>/dev/null || echo "unknown")
-        echo "  缓存数据:"
-        echo "    起此期累计上传: ${TX_MB} MB"
-        echo "    起此期累计下载: ${RX_MB} MB"
-        echo "    缓存更新时间: $CACHE_TIME"
-    else
-        echo "  上报缓存: 未找到 (可能尚未首次上报)"
+    if command -v systemctl >/dev/null 2>&1; then
+        echo "  服务状态:"
+        systemctl status nodectl-agent --no-pager 2>/dev/null | head -5 | sed 's/^/    /'
+    elif command -v rc-service >/dev/null 2>&1; then
+        echo "  服务状态:"
+        rc-service nodectl-agent status 2>/dev/null | sed 's/^/    /'
     fi
+
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
-# 重启定时流量上报任务
+# 重启 nodectl-agent 服务
 action_traffic_restart() {
-    local TRAFFIC_SCRIPT="/usr/local/bin/singbox_traffic.sh"
-    local SC_CRONTAB="/etc/singbox_crontab"
+    info "正在重启 nodectl-agent..."
 
-    if [ ! -f "$TRAFFIC_SCRIPT" ]; then
-        err "上报脚本不存在: $TRAFFIC_SCRIPT，请重新安装"
-        return 1
-    fi
-
-    if [ -f "$SC_CRONTAB" ]; then
-        # supercronic 模式
-        info "正在重启 supercronic 流量上报任务..."
-        pkill -f "supercronic.*singbox_crontab" 2>/dev/null || true
+    if command -v systemctl >/dev/null 2>&1; then
+        systemctl restart nodectl-agent
         sleep 1
-        nohup /usr/local/bin/supercronic "$SC_CRONTAB" >/var/log/supercronic_singbox.log 2>&1 &
-        sleep 1
-        if pgrep -f "supercronic.*singbox_crontab" >/dev/null 2>&1; then
-            info "✅ supercronic 已重启 (PID: $(pgrep -f 'supercronic.*singbox_crontab' | head -n1))"
+        if systemctl is-active --quiet nodectl-agent; then
+            info "✅ nodectl-agent 已重启"
         else
-            err "supercronic 重启失败，请检查 /var/log/supercronic_singbox.log"
+            err "nodectl-agent 重启失败"
+            journalctl -u nodectl-agent -n 10 --no-pager 2>/dev/null
+        fi
+    elif command -v rc-service >/dev/null 2>&1; then
+        rc-service nodectl-agent restart
+        sleep 1
+        if pgrep -x nodectl-agent >/dev/null 2>&1; then
+            info "✅ nodectl-agent 已重启"
+        else
+            err "nodectl-agent 重启失败"
+            tail -10 /var/log/nodectl-agent.log 2>/dev/null
         fi
     else
-        # 系统 cron 模式：重启 crond
-        info "正在重启系统 cron 服务..."
-        if command -v systemctl >/dev/null 2>&1; then
-            systemctl restart cron 2>/dev/null || systemctl restart crond 2>/dev/null || true
-        elif command -v service >/dev/null 2>&1; then
-            service cron restart 2>/dev/null || service crond restart 2>/dev/null || true
-        elif command -v rc-service >/dev/null 2>&1; then
-            rc-service dcron restart 2>/dev/null || rc-service crond restart 2>/dev/null || true
-        else
-            pkill -x crond 2>/dev/null || true
-            sleep 1
-            crond -b -l 8 2>/dev/null || crond 2>/dev/null &
-        fi
+        pkill -x nodectl-agent 2>/dev/null || true
         sleep 1
-        if pgrep -x crond >/dev/null 2>&1 || pgrep -x cron >/dev/null 2>&1; then
-            info "✅ cron 服务已重启"
+        /usr/local/bin/nodectl-agent --config /etc/nodectl-agent/config.json &
+        sleep 1
+        if pgrep -x nodectl-agent >/dev/null 2>&1; then
+            info "✅ nodectl-agent 已重启 (PID: $(pgrep -x nodectl-agent | head -n1))"
         else
-            warn "⚠ crond 进程未检测到，上报可能失效"
+            err "nodectl-agent 重启失败"
         fi
     fi
-
-    info "立即触发一次上报..."
-    sh "$TRAFFIC_SCRIPT" >/dev/null 2>&1 &
-    info "✅ 已触发首次上报，纥5秒后可在面板查看最新流量数据"
 }
 
 # 动态生成菜单
@@ -2751,11 +2517,11 @@ MENU
     option=$((option + 1))
 
     MENU_MAP[$option]="traffic_status"
-    echo "$((option))) 查看定时上报任务状态"
+    echo "$((option))) 查看 Agent 上报状态"
     option=$((option + 1))
 
     MENU_MAP[$option]="traffic_restart"
-    echo "$((option))) 重启定时流量上报任务"
+    echo "$((option))) 重启 Agent 上报服务"
     option=$((option + 1))
 
     MENU_MAP[$option]="uninstall"

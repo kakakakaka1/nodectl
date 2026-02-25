@@ -174,6 +174,31 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 		reportURL = cleanPanelURL + "/api/callback/report"
 	}
 
+	// 拼接 Agent WebSocket 上报地址
+	agentWSURL := ""
+	if panelURL != "" {
+		cleanPanelURL := strings.TrimRight(panelURL, "/")
+		// http → ws, https → wss
+		wsURL := cleanPanelURL
+		wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
+		wsURL = strings.Replace(wsURL, "http://", "ws://", 1)
+		agentWSURL = wsURL + "/api/callback/traffic/ws"
+	}
+
+	// Agent 下载地址（GitHub Releases，含架构占位符供脚本 sed 替换）
+	// 注意：使用 __ARCH__ 而非 ${ARCH_NAME}，避免 bash 双引号赋值时提前展开为空
+	agentDownloadURL := "https://github.com/hobin66/nodectl/releases/latest/download/nodectl-agent-linux-__ARCH__"
+
+	// Agent 配置参数（从 sys_config 读取，提供默认值）
+	agentWSPushInterval := configMap["agent_ws_push_interval_sec"]
+	if agentWSPushInterval == "" {
+		agentWSPushInterval = "2"
+	}
+	agentSnapshotInterval := configMap["agent_snapshot_interval_sec"]
+	if agentSnapshotInterval == "" {
+		agentSnapshotInterval = "300"
+	}
+
 	// 读取可配置 SNI，提供兜底默认值
 	hy2SNI := configMap["proxy_hy2_sni"]
 	if hy2SNI == "" {
@@ -289,6 +314,11 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 		// [新增] 将节点专属参数硬编码注入到脚本中
 		"InstallID": node.InstallID,
 		"ResetDay":  fmt.Sprintf("%d", node.ResetDay), // int 转 string
+		// [新增] Agent 相关模板变量
+		"AgentDownloadURL":         agentDownloadURL,
+		"AgentWSURL":               agentWSURL,
+		"AgentWSPushIntervalSec":   agentWSPushInterval,
+		"AgentSnapshotIntervalSec": agentSnapshotInterval,
 	}
 
 	tplContent := SingboxScriptTpl // 默认使用打包在二进制里的 embed 模板

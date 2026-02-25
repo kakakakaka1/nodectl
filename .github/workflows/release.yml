@@ -52,17 +52,60 @@ jobs:
           path: bin/nodectl-${{ matrix.goos }}-${{ matrix.goarch }}
 
   # ==========================================
+  # 阶段 1b: 交叉编译 Agent 二进制文件
+  # ==========================================
+  build-agent:
+    name: Build Agent Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux]
+        goarch: [amd64, arm64]
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true
+
+      - name: Build Agent Binary
+        env:
+          CGO_ENABLED: 0 
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir -p bin
+          go build -trimpath -ldflags="-s -w -X 'nodectl/internal/version.Version=${{ github.event.inputs.version }}'" -o bin/nodectl-agent-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/nodectl-agent/main.go
+
+      - name: Upload Agent Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-binary-${{ matrix.goarch }}
+          path: bin/nodectl-agent-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  # ==========================================
   # 阶段 2: 发布到 GitHub Releases
   # ==========================================
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [build, build-agent]
     runs-on: ubuntu-latest
     steps:
       - name: Download all compiled binaries
         uses: actions/download-artifact@v4
         with:
           pattern: binary-*
+          path: bin
+          merge-multiple: true
+
+      - name: Download all agent binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: agent-binary-*
           path: bin
           merge-multiple: true
 

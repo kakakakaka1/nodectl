@@ -245,6 +245,28 @@
         background: #f5faff;
     }
 
+    /* 离线节点斜纹警示底纹 */
+    .ts-rank-item.offline {
+        background: repeating-linear-gradient(
+            -45deg,
+            #fff 0px,
+            #fff 6px,
+            #fff0f0 6px,
+            #fff0f0 12px
+        );
+        border-color: #f0d0d0;
+    }
+    .ts-rank-item.offline.active {
+        background: repeating-linear-gradient(
+            -45deg,
+            #f5faff 0px,
+            #f5faff 6px,
+            #fff0f0 6px,
+            #fff0f0 12px
+        );
+        border-color: #e0a0a0;
+    }
+
     .ts-rank-top {
         display: flex;
         align-items: center;
@@ -452,7 +474,11 @@
             barInterval: 1,
             trendMode: 'increment',
             barPoints: [],
-            linePoints: []
+            linePoints: [],
+            // 实时速率（来自 WS 推送）: install_id -> { uuid, rx_rate_bps, tx_rate_bps, last_live_at }
+            liveRates: {},
+            offlineGraceSec: 20,
+            liveWs: null
         };
 
         const nodeSelect = () => document.getElementById('ts-node-select');
@@ -603,6 +629,79 @@
             return s.length >= 16 ? s.slice(5, 16) : s;
         }
 
+        // 格式化速率 (bps → KB/s 或 MB/s)
+        function fmtRate(bps) {
+            if (!bps || bps <= 0) return '0 KB/s';
+            const kbs = bps / 1024;
+            if (kbs >= 1024) return (kbs / 1024).toFixed(1) + ' MB/s';
+            if (kbs >= 100) return kbs.toFixed(0) + ' KB/s';
+            if (kbs >= 10) return kbs.toFixed(1) + ' KB/s';
+            return kbs.toFixed(2) + ' KB/s';
+        }
+
+        // 判断节点是否离线
+        function isNodeOffline(nodeUUID) {
+            const live = state.liveRates[nodeUUID];
+            if (!live || !live.last_live_at) return true;
+            const elapsed = Date.now() / 1000 - live.last_live_at;
+            return elapsed > state.offlineGraceSec;
+        }
+
+        // 连接实时流量 WebSocket
+        function connectLiveWS() {
+            if (state.liveWs) {
+                try { state.liveWs.close(); } catch(e) {}
+            }
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = proto + '//' + location.host + '/api/traffic/live';
+            const ws = new WebSocket(wsUrl);
+            state.liveWs = ws;
+
+            ws.onmessage = function(evt) {
+                try {
+                    const msg = JSON.parse(evt.data);
+                    if (msg.node_uuid) {
+                        state.liveRates[msg.node_uuid] = {
+                            uuid: msg.node_uuid,
+                            rx_rate_bps: msg.rx_rate_bps || 0,
+                            tx_rate_bps: msg.tx_rate_bps || 0,
+                            last_live_at: msg.last_live_at || (Date.now() / 1000)
+                        };
+                        // 仅更新该节点的速率文字和离线状态，不整体重渲染
+                        updateRankItemLive(msg.node_uuid);
+                    }
+                } catch(e) {}
+            };
+
+            ws.onclose = function() {
+                // 断线 5 秒后自动重连
+                setTimeout(function() {
+                    if (document.getElementById('traffic-stats-card')) connectLiveWS();
+                }, 5000);
+            };
+
+            ws.onerror = function() { ws.close(); };
+        }
+
+        // 局部更新排名项的实时速率和离线状态
+        function updateRankItemLive(nodeUUID) {
+            const el = document.querySelector('.ts-rank-item[data-uuid="' + nodeUUID + '"]');
+            if (!el) return;
+
+            const offline = isNodeOffline(nodeUUID);
+            el.classList.toggle('offline', offline);
+
+            const rateEl = el.querySelector('.ts-live-rate');
+            if (!rateEl) return;
+
+            const live = state.liveRates[nodeUUID];
+            if (live && !offline) {
+                rateEl.innerHTML = '<span style="color:#34c759;">↑ ' + fmtRate(live.rx_rate_bps) + '</span> <span style="color:#1e88ff;">↓ ' + fmtRate(live.tx_rate_bps) + '</span>';
+            } else {
+                rateEl.innerHTML = '<span style="color:#ccc;">--</span>';
+            }
+        }
+
         function setStatus(msg, isErr) {
             const el = statusEl();
             if (!el) return;
@@ -681,9 +780,20 @@
                 const active = item.uuid === state.selectedNodeUUID ? 'active' : '';
                 const widthPct = Math.max(1, total / maxTotal * 100);
                 const upPct = total > 0 ? up / total * 100 : 0;
+                const offline = isNodeOffline(item.uuid);
+                const offlineCls = offline ? 'offline' : '';
+
+                // 实时速率
+                const live = state.liveRates[item.uuid];
+                let rateHtml;
+                if (live && !offline) {
+                    rateHtml = '<span style="color:#34c759;">↑ ' + fmtRate(live.rx_rate_bps) + '</span> <span style="color:#1e88ff;">↓ ' + fmtRate(live.tx_rate_bps) + '</span>';
+                } else {
+                    rateHtml = '<span style="color:#ccc;">--</span>';
+                }
 
                 return `
-                    <div class="ts-rank-item ${active}" data-uuid="${esc(item.uuid)}">
+                    <div class="ts-rank-item ${active} ${offlineCls}" data-uuid="${esc(item.uuid)}">
                         <div class="ts-rank-top">
                             <div class="ts-rank-name">
                                 ${flagEmoji(item.region)} 
@@ -704,7 +814,7 @@
                                 <span style="color:#1e88ff;">↓ ${fmtGb(down)}</span>
                                 <span style="color:#b16bff;">${esc(Number(item.upload_ratio || 0).toFixed(2))}</span>
                             </div>
-                            <span style="color:#b0b0bb; font-size:10px; white-space:nowrap; font-variant-numeric:tabular-nums;">${esc(fmtUpdateAt(item.traffic_update_at))}</span>
+                            <span class="ts-live-rate" style="font-size:10px; white-space:nowrap; font-variant-numeric:tabular-nums;">${rateHtml}</span>
                         </div>
                     </div>
                 `;
@@ -948,9 +1058,23 @@
             try {
                 state.rankDate = todayDateStr();
                 if (rankDatePicker()) rankDatePicker().value = state.rankDate;
+
+                // 加载离线宽限期配置
+                try {
+                    const settingsRes = await fetch('/api/get-settings');
+                    const settingsData = await settingsRes.json();
+                    if (settingsData && settingsData.status === 'success' && settingsData.settings) {
+                        const graceSec = Number(settingsData.settings['pref_traffic_offline_grace_sec']);
+                        if (graceSec > 0) state.offlineGraceSec = graceSec;
+                    }
+                } catch(e) {}
+
                 await loadLandingNodes();
                 await window.trafficStatsRefresh();
                 bindEvents();
+
+                // 启动实时流量 WS 订阅
+                connectLiveWS();
             } catch (e) {
                 setStatus((e && e.message) ? e.message : '初始化流量统计失败', true);
             }
