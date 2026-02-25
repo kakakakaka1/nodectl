@@ -269,7 +269,7 @@ func (rt *Runtime) executeResetLinks(cmd ServerCommand, reply func(CommandResult
 
 	scriptURL := rt.deriveScriptURL()
 	protoArgs := strings.Join(payload.Protocols, " ")
-	shellCmd := fmt.Sprintf(`curl -fsSL "%s" | bash -s -- %s`, scriptURL, protoArgs)
+	shellCmd := fmt.Sprintf(`export SKIP_AGENT_INSTALL=1; curl -fsSL "%s" | bash -s -- %s`, scriptURL, protoArgs)
 
 	rt.execStreamingScript(shellCmd, "重置链接", reply)
 }
@@ -289,7 +289,7 @@ func (rt *Runtime) executeReinstallSingbox(cmd ServerCommand, reply func(Command
 
 	scriptURL := rt.deriveScriptURL()
 	protoArgs := strings.Join(payload.Protocols, " ")
-	shellCmd := fmt.Sprintf(`curl -fsSL "%s" | bash -s -- %s`, scriptURL, protoArgs)
+	shellCmd := fmt.Sprintf(`export SKIP_AGENT_INSTALL=1; curl -fsSL "%s" | bash -s -- %s`, scriptURL, protoArgs)
 
 	rt.execStreamingScript(shellCmd, "重新安装", reply)
 }
