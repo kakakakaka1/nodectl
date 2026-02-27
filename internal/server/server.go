@@ -221,6 +221,12 @@ func Start(tmplFS embed.FS) {
 	mux.HandleFunc("/api/update-mihomo", withAuthAndSecure(apiUpdateMihomo)) // 新增
 	mux.HandleFunc("/api/get-mihomo-status", withAuthAndSecure(apiGetMihomoStatus))
 
+	// ========== 数据库管理 ==========
+	mux.HandleFunc("/api/db/status", withAuthAndSecure(apiGetDBStatus))
+	mux.HandleFunc("/api/db/test-connection", withAuthAndSecure(apiTestDBConnection))
+	mux.HandleFunc("/api/db/switch", withAuthAndSecure(apiSwitchDatabase))
+	mux.HandleFunc("/api/db/migrate", withAuthAndSecure(apiMigrateDatabase))
+
 	// ========== C. 公开/工具 路由 ==========
 	mux.HandleFunc("/api/public/install-script", withSecure(apiPublicScript)) // 安装脚本
 	mux.HandleFunc("/api/callback/report", withSecure(apiCallbackReport))     // 节点上报

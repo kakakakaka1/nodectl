@@ -2,20 +2,97 @@ package database
 
 import (
 	"crypto/rand"
+	"database/sql"
+	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"nodectl/internal/logger"
 
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
 // DB 全局数据库实例
 var DB *gorm.DB
+
+// dbMu 保护数据库切换操作的互斥锁
+var dbMu sync.RWMutex
+
+// ------------------- [数据库配置] -------------------
+
+// DBConfig 数据库连接配置 (存储在 data/dbconfig.json)
+type DBConfig struct {
+	Type     string `json:"type"`               // "sqlite" 或 "postgres"
+	Host     string `json:"host,omitempty"`     // PostgreSQL 主机地址
+	Port     int    `json:"port,omitempty"`     // PostgreSQL 端口
+	User     string `json:"user,omitempty"`     // PostgreSQL 用户名
+	Password string `json:"password,omitempty"` // PostgreSQL 密码
+	DBName   string `json:"dbname,omitempty"`   // PostgreSQL 数据库名
+	SSLMode  string `json:"sslmode,omitempty"`  // PostgreSQL SSL 模式 (disable/require/verify-full)
+}
+
+// DBStatus 数据库状态信息
+type DBStatus struct {
+	Type      string `json:"type"`       // 当前数据库类型
+	SizeBytes int64  `json:"size_bytes"` // 数据库大小 (bytes)
+	SizeHuman string `json:"size_human"` // 人类可读大小
+	Healthy   bool   `json:"healthy"`    // 健康状态
+	HealthMsg string `json:"health_msg"` // 健康信息
+	// PostgreSQL 连接参数 (密码脱敏)
+	Host       string           `json:"host,omitempty"`
+	Port       int              `json:"port,omitempty"`
+	User       string           `json:"user,omitempty"`
+	DBName     string           `json:"dbname,omitempty"`
+	SSLMode    string           `json:"sslmode,omitempty"`
+	TableCount int              `json:"table_count"` // 表数量
+	RecordInfo map[string]int64 `json:"record_info"` // 各表记录数
+}
+
+const dbConfigPath = "data/dbconfig.json"
+
+// LoadDBConfig 从文件加载数据库配置
+func LoadDBConfig() DBConfig {
+	data, err := os.ReadFile(dbConfigPath)
+	if err != nil {
+		// 文件不存在，返回默认 SQLite 配置
+		return DBConfig{Type: "sqlite"}
+	}
+	var cfg DBConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		logger.Log.Warn("解析数据库配置文件失败，使用默认 SQLite", "err", err)
+		return DBConfig{Type: "sqlite"}
+	}
+	if cfg.Type == "" {
+		cfg.Type = "sqlite"
+	}
+	return cfg
+}
+
+// SaveDBConfig 保存数据库配置到文件
+func SaveDBConfig(cfg DBConfig) error {
+	if err := os.MkdirAll("data", os.ModePerm); err != nil {
+		return fmt.Errorf("创建 data 目录失败: %w", err)
+	}
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %w", err)
+	}
+	return os.WriteFile(dbConfigPath, data, 0600)
+}
+
+// GetCurrentDBConfig 获取当前数据库配置 (密码脱敏)
+func GetCurrentDBConfig() DBConfig {
+	cfg := LoadDBConfig()
+	cfg.Password = "" // 脱敏
+	return cfg
+}
 
 // ------------------- [模型定义区] -------------------
 
@@ -151,29 +228,19 @@ func (n *AirportNode) BeforeCreate(tx *gorm.DB) (err error) {
 
 // ------------------- 数据库初始化 -------------------
 
-// InitDB 初始化数据库连接并同步表结构
-func InitDB() {
-
-	if err := os.MkdirAll("data", os.ModePerm); err != nil {
-		logger.Log.Error("创建 data 目录失败", "err", err.Error())
-		panic("NodeCTL工作目录初始化失败")
-	}
+// openSQLite 打开 SQLite 数据库连接
+func openSQLite() (*gorm.DB, error) {
 	dbPath := filepath.Join("data", "nodectl.db")
-
-	// 1. 打开 SQLite 数据库
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{
 		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
 	})
 	if err != nil {
-		logger.Log.Error("连接 nodectl.db 失败", "err", err.Error())
-		panic("数据库连接失败")
+		return nil, fmt.Errorf("连接 SQLite 失败: %w", err)
 	}
 
-	// 2. 配置 SQLite 的连接池
 	sqlDB, err := db.DB()
 	if err != nil {
-		logger.Log.Error("获取底层 sql.DB 失败", "err", err.Error())
-		panic(err)
+		return nil, fmt.Errorf("获取底层 sql.DB 失败: %w", err)
 	}
 	sqlDB.SetMaxOpenConns(1)
 	sqlDB.SetMaxIdleConns(1)
@@ -181,24 +248,374 @@ func InitDB() {
 
 	// 启用 SQLite 外键约束
 	db.Exec("PRAGMA foreign_keys = ON")
+	return db, nil
+}
 
-	// 3. 自动迁移所有的表
-	err = db.AutoMigrate(
+// buildPostgresDSN 构建 PostgreSQL DSN 连接字符串
+func buildPostgresDSN(cfg DBConfig) string {
+	if cfg.Port == 0 {
+		cfg.Port = 5432
+	}
+	if cfg.SSLMode == "" {
+		cfg.SSLMode = "disable"
+	}
+	return fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s TimeZone=Asia/Shanghai",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.DBName, cfg.SSLMode)
+}
+
+// openPostgres 打开 PostgreSQL 数据库连接
+func openPostgres(cfg DBConfig) (*gorm.DB, error) {
+	dsn := buildPostgresDSN(cfg)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Warn),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("连接 PostgreSQL 失败: %w", err)
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("获取底层 sql.DB 失败: %w", err)
+	}
+	sqlDB.SetMaxOpenConns(25)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(time.Hour)
+
+	return db, nil
+}
+
+// autoMigrateAll 自动迁移所有表结构
+func autoMigrateAll(db *gorm.DB) error {
+	return db.AutoMigrate(
 		&NodePool{},
 		&NodeTrafficStat{},
 		&SysConfig{},
 		&AirportSub{},
 		&AirportNode{},
 	)
-	if err != nil {
+}
+
+// InitDB 初始化数据库连接并同步表结构
+func InitDB() {
+	if err := os.MkdirAll("data", os.ModePerm); err != nil {
+		logger.Log.Error("创建 data 目录失败", "err", err.Error())
+		panic("NodeCTL工作目录初始化失败")
+	}
+
+	cfg := LoadDBConfig()
+
+	var db *gorm.DB
+	var err error
+
+	switch cfg.Type {
+	case "postgres":
+		db, err = openPostgres(cfg)
+		if err != nil {
+			logger.Log.Error("连接 PostgreSQL 失败，回退到 SQLite", "err", err.Error())
+			// 回退到 SQLite
+			db, err = openSQLite()
+			if err != nil {
+				logger.Log.Error("SQLite 回退也失败", "err", err.Error())
+				panic("数据库连接失败")
+			}
+			// 更新配置为 SQLite
+			cfg.Type = "sqlite"
+			_ = SaveDBConfig(cfg)
+			logger.Log.Warn("已自动回退到 SQLite 数据库")
+		} else {
+			logger.Log.Info("数据库引擎已启动", "type", "PostgreSQL", "host", cfg.Host, "dbname", cfg.DBName)
+		}
+	default:
+		db, err = openSQLite()
+		if err != nil {
+			logger.Log.Error("连接 SQLite 失败", "err", err.Error())
+			panic("数据库连接失败")
+		}
+		logger.Log.Info("数据库引擎已启动", "type", "SQLite")
+	}
+
+	// 自动迁移所有的表
+	if err := autoMigrateAll(db); err != nil {
 		logger.Log.Error("自动同步表结构失败", "err", err.Error())
 		panic("数据库表结构迁移失败")
 	}
 
-	// 4. 赋值给全局变量
+	// 赋值给全局变量
 	DB = db
 
-	// 5. 调用外部模块初始化默认系统设置
+	// 调用外部模块初始化默认系统设置
+	initDefaultConfigs()
+}
+
+// ------------------- 数据库管理功能 -------------------
+
+// GetDBStatus 获取当前数据库的状态信息
+func GetDBStatus() DBStatus {
+	cfg := LoadDBConfig()
+	status := DBStatus{
+		Type:       cfg.Type,
+		Host:       cfg.Host,
+		Port:       cfg.Port,
+		User:       cfg.User,
+		DBName:     cfg.DBName,
+		SSLMode:    cfg.SSLMode,
+		RecordInfo: make(map[string]int64),
+	}
+
+	// 健康检查
+	sqlDB, err := DB.DB()
+	if err != nil {
+		status.Healthy = false
+		status.HealthMsg = "无法获取数据库连接: " + err.Error()
+		return status
+	}
+	if err := sqlDB.Ping(); err != nil {
+		status.Healthy = false
+		status.HealthMsg = "数据库连接异常: " + err.Error()
+		return status
+	}
+	status.Healthy = true
+	status.HealthMsg = "运行正常"
+
+	// 获取数据库大小
+	if cfg.Type == "postgres" {
+		var size int64
+		row := sqlDB.QueryRow("SELECT pg_database_size(current_database())")
+		if err := row.Scan(&size); err == nil {
+			status.SizeBytes = size
+			status.SizeHuman = formatBytesHuman(size)
+		}
+	} else {
+		dbPath := filepath.Join("data", "nodectl.db")
+		if info, err := os.Stat(dbPath); err == nil {
+			status.SizeBytes = info.Size()
+			status.SizeHuman = formatBytesHuman(info.Size())
+		}
+	}
+
+	// 获取各表记录数
+	var count int64
+	DB.Model(&NodePool{}).Count(&count)
+	status.RecordInfo["node_pool"] = count
+	DB.Model(&NodeTrafficStat{}).Count(&count)
+	status.RecordInfo["node_traffic_stats"] = count
+	DB.Model(&SysConfig{}).Count(&count)
+	status.RecordInfo["sys_config"] = count
+	DB.Model(&AirportSub{}).Count(&count)
+	status.RecordInfo["airport_subs"] = count
+	DB.Model(&AirportNode{}).Count(&count)
+	status.RecordInfo["airport_nodes"] = count
+
+	status.TableCount = 5
+	return status
+}
+
+// TestPostgresConnection 测试 PostgreSQL 连接是否可用
+func TestPostgresConnection(cfg DBConfig) (string, error) {
+	dsn := buildPostgresDSN(cfg)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: gormlogger.Default.LogMode(gormlogger.Silent),
+	})
+	if err != nil {
+		return "", fmt.Errorf("连接失败: %w", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return "", fmt.Errorf("获取连接失败: %w", err)
+	}
+	defer sqlDB.Close()
+
+	if err := sqlDB.Ping(); err != nil {
+		return "", fmt.Errorf("Ping 失败: %w", err)
+	}
+
+	// 获取版本信息
+	var version string
+	row := sqlDB.QueryRow("SELECT version()")
+	if err := row.Scan(&version); err != nil {
+		return "连接成功 (无法获取版本)", nil
+	}
+	return version, nil
+}
+
+// SwitchDatabase 切换数据库引擎
+func SwitchDatabase(cfg DBConfig) error {
+	dbMu.Lock()
+	defer dbMu.Unlock()
+
+	var newDB *gorm.DB
+	var err error
+
+	switch cfg.Type {
+	case "postgres":
+		newDB, err = openPostgres(cfg)
+	default:
+		cfg.Type = "sqlite"
+		newDB, err = openSQLite()
+	}
+
+	if err != nil {
+		return fmt.Errorf("打开新数据库失败: %w", err)
+	}
+
+	// 自动迁移表结构
+	if err := autoMigrateAll(newDB); err != nil {
+		return fmt.Errorf("新数据库表结构迁移失败: %w", err)
+	}
+
+	// 初始化默认配置 (使用新的DB)
+	oldDB := DB
+	DB = newDB
+
+	// 初始化默认系统设置到新数据库
 	initDefaultConfigs()
 
+	// 关闭旧连接
+	if oldDB != nil {
+		if sqlDB, err := oldDB.DB(); err == nil {
+			sqlDB.Close()
+		}
+	}
+
+	// 保存配置
+	if err := SaveDBConfig(cfg); err != nil {
+		return fmt.Errorf("保存配置文件失败: %w", err)
+	}
+
+	logger.Log.Info("数据库引擎已切换", "type", cfg.Type)
+	return nil
+}
+
+// MigrateToPostgres 从 SQLite 迁移所有数据到 PostgreSQL
+func MigrateToPostgres(pgCfg DBConfig) error {
+	// 1. 打开 SQLite 源数据库
+	srcDB, err := openSQLite()
+	if err != nil {
+		return fmt.Errorf("打开 SQLite 源数据库失败: %w", err)
+	}
+	srcSqlDB, _ := srcDB.DB()
+	defer srcSqlDB.Close()
+
+	// 2. 打开 PostgreSQL 目标数据库
+	dstDB, err := openPostgres(pgCfg)
+	if err != nil {
+		return fmt.Errorf("连接 PostgreSQL 目标数据库失败: %w", err)
+	}
+
+	// 3. 在目标数据库上创建表结构
+	if err := autoMigrateAll(dstDB); err != nil {
+		return fmt.Errorf("目标数据库表结构迁移失败: %w", err)
+	}
+
+	// 4. 逐表迁移数据
+	// 4.1 迁移 SysConfig
+	if err := migrateTable[SysConfig](srcDB, dstDB, "sys_config"); err != nil {
+		return fmt.Errorf("迁移 sys_config 失败: %w", err)
+	}
+
+	// 4.2 迁移 NodePool
+	if err := migrateTable[NodePool](srcDB, dstDB, "node_pool"); err != nil {
+		return fmt.Errorf("迁移 node_pool 失败: %w", err)
+	}
+
+	// 4.3 迁移 NodeTrafficStat (可能数据量大，分批处理)
+	if err := migrateTableBatched[NodeTrafficStat](srcDB, dstDB, "node_traffic_stats", 500); err != nil {
+		return fmt.Errorf("迁移 node_traffic_stats 失败: %w", err)
+	}
+
+	// 4.4 迁移 AirportSub
+	if err := migrateTable[AirportSub](srcDB, dstDB, "airport_subs"); err != nil {
+		return fmt.Errorf("迁移 airport_subs 失败: %w", err)
+	}
+
+	// 4.5 迁移 AirportNode
+	if err := migrateTable[AirportNode](srcDB, dstDB, "airport_nodes"); err != nil {
+		return fmt.Errorf("迁移 airport_nodes 失败: %w", err)
+	}
+
+	logger.Log.Info("数据迁移完成: SQLite → PostgreSQL")
+	return nil
+}
+
+// migrateTable 通用表迁移器 (全量读取后写入)
+func migrateTable[T any](src, dst *gorm.DB, tableName string) error {
+	var records []T
+	if err := src.Find(&records).Error; err != nil {
+		return fmt.Errorf("读取源表 %s 失败: %w", tableName, err)
+	}
+	if len(records) == 0 {
+		logger.Log.Info("迁移跳过空表", "table", tableName)
+		return nil
+	}
+
+	// 先清空目标表
+	dst.Exec("DELETE FROM " + tableName)
+
+	// 批量插入 (禁用钩子以避免 UUID 重新生成)
+	if err := dst.Session(&gorm.Session{SkipHooks: true}).CreateInBatches(records, 100).Error; err != nil {
+		return fmt.Errorf("写入目标表 %s 失败: %w", tableName, err)
+	}
+
+	logger.Log.Info("表迁移成功", "table", tableName, "records", len(records))
+	return nil
+}
+
+// migrateTableBatched 分批迁移大表
+func migrateTableBatched[T any](src, dst *gorm.DB, tableName string, batchSize int) error {
+	// 先清空目标表
+	dst.Exec("DELETE FROM " + tableName)
+
+	var total int64
+	src.Model(new(T)).Count(&total)
+	if total == 0 {
+		logger.Log.Info("迁移跳过空表", "table", tableName)
+		return nil
+	}
+
+	offset := 0
+	migrated := int64(0)
+	for {
+		var batch []T
+		if err := src.Offset(offset).Limit(batchSize).Find(&batch).Error; err != nil {
+			return fmt.Errorf("读取源表 %s (offset=%d) 失败: %w", tableName, offset, err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+		if err := dst.Session(&gorm.Session{SkipHooks: true}).CreateInBatches(batch, batchSize).Error; err != nil {
+			return fmt.Errorf("写入目标表 %s (offset=%d) 失败: %w", tableName, offset, err)
+		}
+		migrated += int64(len(batch))
+		offset += batchSize
+		logger.Log.Debug("批量迁移进度", "table", tableName, "migrated", migrated, "total", total)
+	}
+
+	logger.Log.Info("大表迁移成功", "table", tableName, "records", migrated)
+	return nil
+}
+
+// ------------------- 辅助函数 -------------------
+
+// formatBytesHuman 格式化字节数为人类可读形式
+func formatBytesHuman(bytes int64) string {
+	const (
+		KB = 1024
+		MB = KB * 1024
+		GB = MB * 1024
+	)
+	switch {
+	case bytes >= GB:
+		return fmt.Sprintf("%.2f GB", float64(bytes)/float64(GB))
+	case bytes >= MB:
+		return fmt.Sprintf("%.2f MB", float64(bytes)/float64(MB))
+	case bytes >= KB:
+		return fmt.Sprintf("%.2f KB", float64(bytes)/float64(KB))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
+
+// GetUnderlyingDB 获取底层 sql.DB 实例 (用于外部模块的 Ping、Stats 等)
+func GetUnderlyingDB() (*sql.DB, error) {
+	return DB.DB()
 }

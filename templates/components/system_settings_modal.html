@@ -388,7 +388,7 @@
         color: #fff;
         cursor: pointer;
         pointer-events: auto;
-        box-shadow: 0 1px 4px rgba(0,122,255,0.25);
+        box-shadow: 0 1px 4px rgba(0, 122, 255, 0.25);
     }
 
     .btn-sys-token-confirm.active:hover {
@@ -1302,6 +1302,14 @@
                         </svg></div>
                 </div>
 
+                <div class="sys-nav-card" data-sys-id="database" onclick="selectSysCategory('database', this)">
+                    <div class="sys-nav-name">🗄️ 数据库配置</div>
+                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
+                            stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg></div>
+                </div>
+
                 <div class="sys-nav-card" data-sys-id="monitor" onclick="selectSysCategory('monitor', this)">
                     <div class="sys-nav-name">💻 系统监控</div>
                     <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
@@ -1432,7 +1440,8 @@
                                         <path d="M12 8h.01"></path>
                                     </svg>
                                     <div class="sys-tooltip-content">
-                                        <p style="margin: 0; padding-bottom: 4px; font-weight: 600; color: #fff;">登录限流参数</p>
+                                        <p style="margin: 0; padding-bottom: 4px; font-weight: 600; color: #fff;">登录限流参数
+                                        </p>
                                         <p style="margin: 0; padding-bottom: 4px;">• <b>计数窗口:</b> 在该时间段内累计失败次数</p>
                                         <p style="margin: 0; padding-bottom: 4px;">• <b>最大重试:</b> 达到次数后立即封禁该 IP</p>
                                         <p style="margin: 0;">• <b>封禁时长:</b> 封禁后需等待此时长才能继续尝试</p>
@@ -1450,8 +1459,8 @@
                             </div>
                             <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
                                 <span style="font-size: 12px; color: #666; font-weight: 600;">最大重试（次）</span>
-                                <input type="number" id="sys_login_ip_max_retries" class="sys-input"
-                                    placeholder="默认: 5" min="1" max="100" oninput="triggerSysAutoSave()"
+                                <input type="number" id="sys_login_ip_max_retries" class="sys-input" placeholder="默认: 5"
+                                    min="1" max="100" oninput="triggerSysAutoSave()"
                                     style="width: 100%; border-radius: 6px;">
                             </div>
                             <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
@@ -1690,8 +1699,10 @@
                                         <path d="M12 8h.01"></path>
                                     </svg>
                                     <div class="sys-tooltip-content">
-                                        <p style="margin: 0; padding-bottom: 4px; font-weight: 600; color: #fff;">参数说明</p>
-                                        <p style="margin: 0; padding-bottom: 4px;">• <b>流量记录最长保存时间:</b> 仅保留最近 N 天历史数据，超期自动清理。</p>
+                                        <p style="margin: 0; padding-bottom: 4px; font-weight: 600; color: #fff;">参数说明
+                                        </p>
+                                        <p style="margin: 0; padding-bottom: 4px;">• <b>流量记录最长保存时间:</b> 仅保留最近 N
+                                            天历史数据，超期自动清理。</p>
                                         <p style="margin: 0;">• <b>节点离线宽限期:</b> 超过该秒数无心跳即标记离线（建议 10~60 秒）。</p>
                                     </div>
                                 </div>
@@ -1715,7 +1726,8 @@
                     </div>
 
                     <div class="sys-pref-row" style="flex-direction: column; align-items: flex-start; gap: 12px;">
-                        <div class="sys-pref-info" style="width: 100%; flex-direction: row; align-items: center; gap: 6px;">
+                        <div class="sys-pref-info"
+                            style="width: 100%; flex-direction: row; align-items: center; gap: 6px;">
                             <span class="sys-pref-title">🚀 默认安装协议</span>
                         </div>
                         <div class="sys-proto-groups-wrap" id="sysDefaultInstallProtocolGroups"></div>
@@ -1947,6 +1959,166 @@
                     </div>
                 </div>
 
+                <div class="sys-form-section" id="sys-form-database" style="display:none;">
+                    <!-- ====== 数据库状态卡片 ====== -->
+                    <div class="sys-field">
+                        <label class="sys-label">当前数据库状态</label>
+                        <div class="cert-status-card" id="dbStatusCard">
+                            <div class="cert-row">
+                                <span>数据库引擎</span>
+                                <span class="cert-val" id="dbEngineDisplay">加载中...</span>
+                            </div>
+                            <div class="cert-row">
+                                <span>数据库大小</span>
+                                <span class="cert-val" id="dbSizeDisplay">--</span>
+                            </div>
+                            <div class="cert-row">
+                                <span>健康状态</span>
+                                <span class="cert-val" id="dbHealthDisplay">检查中...</span>
+                            </div>
+                            <div class="cert-row">
+                                <span>数据表数量</span>
+                                <span class="cert-val" id="dbTableCountDisplay">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ====== 数据库引擎切换 ====== -->
+                    <div class="sys-field">
+                        <label class="sys-label">选择数据库引擎</label>
+                        <table
+                            style="width:100%; border-collapse: collapse; border: 1px solid #e5e5ea; border-radius: 10px; overflow: hidden; font-size: 13px;">
+                            <thead>
+                                <tr style="background: #f5f5f7;">
+                                    <th
+                                        style="padding: 10px 14px; text-align: left; font-weight: 600; color: #555; border-bottom: 1px solid #e5e5ea;">
+                                        引擎</th>
+                                    <th
+                                        style="padding: 10px 14px; text-align: left; font-weight: 600; color: #555; border-bottom: 1px solid #e5e5ea;">
+                                        说明</th>
+                                    <th
+                                        style="padding: 10px 14px; text-align: center; font-weight: 600; color: #555; border-bottom: 1px solid #e5e5ea;">
+                                        选择</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr id="dbRowSqlite" style="transition: background 0.2s;">
+                                    <td style="padding: 12px 14px; font-weight: 600; color: #333;">SQLite</td>
+                                    <td style="padding: 12px 14px; color: #666;">轻量级嵌入式数据库，零配置，适合小规模部署</td>
+                                    <td style="padding: 12px 14px; text-align: center;">
+                                        <input type="radio" name="db_engine_select" value="sqlite" id="dbRadioSqlite"
+                                            onchange="onDBEngineRadioChange()"
+                                            style="width: 18px; height: 18px; cursor: pointer; accent-color: #007aff;">
+                                    </td>
+                                </tr>
+                                <tr id="dbRowPostgres"
+                                    style="border-top: 1px solid #e5e5ea; transition: background 0.2s;">
+                                    <td style="padding: 12px 14px; font-weight: 600; color: #333;">PostgreSQL</td>
+                                    <td style="padding: 12px 14px; color: #666;">企业级关系型数据库，支持高并发与复杂查询</td>
+                                    <td style="padding: 12px 14px; text-align: center;">
+                                        <input type="radio" name="db_engine_select" value="postgres"
+                                            id="dbRadioPostgres" onchange="onDBEngineRadioChange()"
+                                            style="width: 18px; height: 18px; cursor: pointer; accent-color: #007aff;">
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- ====== PostgreSQL 连接参数 (选择 postgres 后才显示) ====== -->
+                    <div id="dbPgParamsSection" style="display: none;">
+                        <div class="sys-field">
+                            <label class="sys-label">PostgreSQL 连接参数</label>
+                            <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                                <div style="flex: 3;">
+                                    <label
+                                        style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">主机地址</label>
+                                    <input type="text" id="db_pg_host" class="sys-input" placeholder="例如: 127.0.0.1"
+                                        oninput="checkDBTestBtnVisibility()">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label
+                                        style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">端口</label>
+                                    <input type="number" id="db_pg_port" class="sys-input" placeholder="5432"
+                                        value="5432" oninput="checkDBTestBtnVisibility()">
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <label
+                                    style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">数据库名</label>
+                                <input type="text" id="db_pg_dbname" class="sys-input" placeholder="例如: nodectl"
+                                    oninput="checkDBTestBtnVisibility()">
+                            </div>
+                            <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                                <div style="flex: 1;">
+                                    <label
+                                        style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">用户名</label>
+                                    <input type="text" id="db_pg_user" class="sys-input" placeholder="例如: postgres"
+                                        oninput="checkDBTestBtnVisibility()">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label
+                                        style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">密码</label>
+                                    <input type="password" id="db_pg_password" class="sys-input" placeholder="数据库密码"
+                                        oninput="checkDBTestBtnVisibility()">
+                                </div>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <label
+                                    style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">SSL
+                                    模式</label>
+                                <select id="db_pg_sslmode" class="sys-select">
+                                    <option value="disable">disable (不加密)</option>
+                                    <option value="require">require (强制加密)</option>
+                                    <option value="verify-full">verify-full (完整验证)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- 测试连接按钮 (所有参数填写后才显示) -->
+                        <div id="dbTestBtnWrap" style="display: none; margin-bottom: 20px;">
+                            <button type="button" id="btnDBTestConn" class="btn-sys-geo-action btn-sys-geo-update"
+                                onclick="testDBConnectionAction()" style="font-size: 13px;">
+                                🔌 测试连接
+                            </button>
+                            <div id="dbTestResult" style="margin-top: 8px; font-size: 12px; color: #666;"></div>
+                        </div>
+
+                        <!-- 切换按钮 -->
+                        <div style="margin-bottom: 20px;">
+                            <button type="button" id="btnDBSwitch" class="btn-sys-geo-action"
+                                onclick="switchDatabaseAction()"
+                                style="background: #007aff; color: white; font-size: 13px;" disabled>
+                                🔄 切换到 PostgreSQL
+                            </button>
+                            <div class="sys-desc" style="margin-top: 8px;">切换前请确保已通过连接测试。切换后系统将使用新数据库。</div>
+                        </div>
+                    </div>
+
+                    <!-- 切换回 SQLite 按钮 (当前是 postgres 才显示) -->
+                    <div id="dbSwitchBackWrap" style="display: none; margin-bottom: 20px;">
+                        <button type="button" class="btn-sys-geo-action" onclick="switchBackToSqlite()"
+                            style="background: #f5f5f7; color: #333; border: 1px solid #e5e5ea; font-size: 13px;">
+                            ↩️ 切换回 SQLite
+                        </button>
+                        <div class="sys-desc" style="margin-top: 8px;">将数据库引擎切换回内置的 SQLite。注意：切换后将使用本地 SQLite 数据。</div>
+                    </div>
+
+                    <!-- ====== 数据迁移区域 ====== -->
+                    <div id="dbMigrateSection" style="display: none;">
+                        <div class="sys-field">
+                            <label class="sys-label">📦 数据迁移 (SQLite → PostgreSQL)</label>
+                            <div class="sys-desc" style="margin-bottom: 12px;">将当前 SQLite 数据库中的所有数据迁移到
+                                PostgreSQL。迁移过程中会先清空目标库中的数据再写入。</div>
+                            <button type="button" id="btnDBMigrate" class="btn-sys-geo-action btn-sys-geo-update"
+                                onclick="migrateDatabaseAction()" style="font-size: 13px;">
+                                🚀 开始迁移数据
+                            </button>
+                            <div id="dbMigrateResult" style="margin-top: 10px; font-size: 12px; color: #666;"></div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -1997,6 +2169,8 @@
             checkMihomoStatus();
         } else if (catId === 'monitor') {
             startSysMonitor(); // ✨ 开启系统实时监控
+        } else if (catId === 'database') {
+            loadDBStatus(); // 加载数据库状态
         }
 
         if (isMobile) {
@@ -2962,6 +3136,277 @@
         tgBotWhitelistItems.splice(index, 1);
         renderTgWhitelist();
         triggerSysAutoSave();
+    }
+    // ================= 🗄️ 数据库配置管理 =================
+    let dbCurrentType = 'sqlite'; // 当前数据库类型
+    let dbTestPassed = false; // 测试是否通过
+
+    async function loadDBStatus() {
+        try {
+            const res = await fetch('/api/db/status');
+            const result = await res.json();
+            if (result.status === 'success') {
+                const d = result.data;
+                const cfg = result.config;
+                dbCurrentType = d.type || 'sqlite';
+
+                // 渲染状态卡片
+                const engineEl = document.getElementById('dbEngineDisplay');
+                if (d.type === 'postgres') {
+                    engineEl.innerText = 'PostgreSQL';
+                    engineEl.style.color = '#336791';
+                } else {
+                    engineEl.innerText = 'SQLite';
+                    engineEl.style.color = '#0f9d58';
+                }
+                document.getElementById('dbSizeDisplay').innerText = d.size_human || '--';
+
+                const healthEl = document.getElementById('dbHealthDisplay');
+                if (d.healthy) {
+                    healthEl.innerText = '✅ 运行正常';
+                    healthEl.className = 'cert-val secure';
+                } else {
+                    healthEl.innerText = '❌ ' + (d.health_msg || '异常');
+                    healthEl.className = 'cert-val warning';
+                }
+                document.getElementById('dbTableCountDisplay').innerText = d.table_count || '--';
+
+                // 设置 radio
+                if (dbCurrentType === 'postgres') {
+                    document.getElementById('dbRadioPostgres').checked = true;
+                    document.getElementById('dbRowPostgres').style.background = '#f0f7ff';
+                    document.getElementById('dbRowSqlite').style.background = '';
+                } else {
+                    document.getElementById('dbRadioSqlite').checked = true;
+                    document.getElementById('dbRowSqlite').style.background = '#f0fff4';
+                    document.getElementById('dbRowPostgres').style.background = '';
+                }
+
+                // 显示/隐藏相关区域
+                updateDBUIVisibility();
+
+                // 如果当前是 postgres，填充连接参数
+                if (cfg && cfg.type === 'postgres') {
+                    document.getElementById('db_pg_host').value = cfg.host || '';
+                    document.getElementById('db_pg_port').value = cfg.port || 5432;
+                    document.getElementById('db_pg_dbname').value = cfg.dbname || '';
+                    document.getElementById('db_pg_user').value = cfg.user || '';
+                    document.getElementById('db_pg_sslmode').value = cfg.sslmode || 'disable';
+                }
+            }
+        } catch (e) {
+            console.error('加载数据库状态失败', e);
+            document.getElementById('dbEngineDisplay').innerText = '加载失败';
+        }
+    }
+
+    function onDBEngineRadioChange() {
+        const selected = document.querySelector('input[name="db_engine_select"]:checked').value;
+
+        // 高亮当前选中行
+        document.getElementById('dbRowSqlite').style.background = selected === 'sqlite' ? '#f0fff4' : '';
+        document.getElementById('dbRowPostgres').style.background = selected === 'postgres' ? '#f0f7ff' : '';
+
+        updateDBUIVisibility();
+    }
+
+    function updateDBUIVisibility() {
+        const selected = document.querySelector('input[name="db_engine_select"]:checked');
+        const selectedType = selected ? selected.value : dbCurrentType;
+
+        const pgSection = document.getElementById('dbPgParamsSection');
+        const switchBackWrap = document.getElementById('dbSwitchBackWrap');
+        const migrateSection = document.getElementById('dbMigrateSection');
+
+        if (selectedType === 'postgres') {
+            pgSection.style.display = 'block';
+            // 如果当前已经是 postgres，显示切回按钮，隐藏切换按钮
+            if (dbCurrentType === 'postgres') {
+                document.getElementById('btnDBSwitch').style.display = 'none';
+                switchBackWrap.style.display = 'block';
+                migrateSection.style.display = 'none';
+            } else {
+                document.getElementById('btnDBSwitch').style.display = 'flex';
+                switchBackWrap.style.display = 'none';
+                // 显示迁移区域 (当前 sqlite，选了 postgres)
+                migrateSection.style.display = 'block';
+            }
+            checkDBTestBtnVisibility();
+        } else {
+            pgSection.style.display = 'none';
+            migrateSection.style.display = 'none';
+            // 如果当前是 postgres 但选了 sqlite，显示切换回按钮
+            if (dbCurrentType === 'postgres') {
+                switchBackWrap.style.display = 'block';
+            } else {
+                switchBackWrap.style.display = 'none';
+            }
+        }
+    }
+
+    function checkDBTestBtnVisibility() {
+        const host = document.getElementById('db_pg_host').value.trim();
+        const dbname = document.getElementById('db_pg_dbname').value.trim();
+        const user = document.getElementById('db_pg_user').value.trim();
+        const password = document.getElementById('db_pg_password').value.trim();
+
+        const testWrap = document.getElementById('dbTestBtnWrap');
+        if (host && dbname && user && password) {
+            testWrap.style.display = 'block';
+        } else {
+            testWrap.style.display = 'none';
+            dbTestPassed = false;
+            document.getElementById('btnDBSwitch').disabled = true;
+        }
+    }
+
+    function collectPgParams() {
+        return {
+            host: document.getElementById('db_pg_host').value.trim(),
+            port: parseInt(document.getElementById('db_pg_port').value) || 5432,
+            dbname: document.getElementById('db_pg_dbname').value.trim(),
+            user: document.getElementById('db_pg_user').value.trim(),
+            password: document.getElementById('db_pg_password').value.trim(),
+            sslmode: document.getElementById('db_pg_sslmode').value
+        };
+    }
+
+    async function testDBConnectionAction() {
+        const btn = document.getElementById('btnDBTestConn');
+        const resultEl = document.getElementById('dbTestResult');
+        btn.disabled = true;
+        btn.innerHTML = '⏳ 正在测试连接...';
+        btn.className = 'btn-sys-geo-action btn-sys-geo-loading';
+        resultEl.innerHTML = '';
+
+        try {
+            const params = collectPgParams();
+            const res = await fetch('/api/db/test-connection', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                dbTestPassed = true;
+                btn.innerHTML = '✅ 连接成功';
+                btn.className = 'btn-sys-geo-action btn-sys-geo-latest';
+                resultEl.innerHTML = '<span style="color: #16a34a;">' + (json.version || '连接成功') + '</span>';
+                document.getElementById('btnDBSwitch').disabled = false;
+            } else {
+                dbTestPassed = false;
+                btn.innerHTML = '❌ 连接失败，点击重试';
+                btn.className = 'btn-sys-geo-action btn-sys-geo-error';
+                resultEl.innerHTML = '<span style="color: #d74242;">' + (json.message || '未知错误') + '</span>';
+                document.getElementById('btnDBSwitch').disabled = true;
+            }
+        } catch (e) {
+            dbTestPassed = false;
+            btn.innerHTML = '❌ 请求失败，点击重试';
+            btn.className = 'btn-sys-geo-action btn-sys-geo-error';
+            resultEl.innerHTML = '<span style="color: #d74242;">网络请求失败</span>';
+            document.getElementById('btnDBSwitch').disabled = true;
+        }
+        btn.disabled = false;
+    }
+
+    async function switchDatabaseAction() {
+        if (!dbTestPassed) {
+            alert('请先通过连接测试');
+            return;
+        }
+        if (!confirm('确认要切换到 PostgreSQL 吗？\n切换后系统将使用新的数据库引擎。\n\n注意：如果新数据库为空，您可能需要先执行数据迁移。')) {
+            return;
+        }
+
+        const btn = document.getElementById('btnDBSwitch');
+        btn.disabled = true;
+        btn.innerHTML = '⏳ 切换中...';
+
+        try {
+            const params = collectPgParams();
+            params.type = 'postgres';
+            const res = await fetch('/api/db/switch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                alert('✅ ' + (json.message || '数据库切换成功'));
+                await loadDBStatus();
+            } else {
+                alert('❌ 切换失败: ' + (json.message || '未知错误'));
+            }
+        } catch (e) {
+            alert('❌ 请求失败，请检查网络');
+        }
+        btn.disabled = false;
+        btn.innerHTML = '🔄 切换到 PostgreSQL';
+    }
+
+    async function switchBackToSqlite() {
+        if (!confirm('确认要切换回 SQLite 吗？\n切换后系统将使用本地嵌入式数据库。')) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/db/switch', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ type: 'sqlite' })
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                alert('✅ ' + (json.message || '已切换回 SQLite'));
+                await loadDBStatus();
+            } else {
+                alert('❌ 切换失败: ' + (json.message || '未知错误'));
+            }
+        } catch (e) {
+            alert('❌ 请求失败，请检查网络');
+        }
+    }
+
+    async function migrateDatabaseAction() {
+        const params = collectPgParams();
+        if (!params.host || !params.user || !params.dbname || !params.password) {
+            alert('请先填写完整的 PostgreSQL 连接参数');
+            return;
+        }
+        if (!confirm('确认要执行数据迁移吗？\n\n⚠️ 此操作会清空目标 PostgreSQL 中的同名表数据，然后将 SQLite 的数据复制过去。\n\n建议先备份 PostgreSQL 数据库。')) {
+            return;
+        }
+
+        const btn = document.getElementById('btnDBMigrate');
+        const resultEl = document.getElementById('dbMigrateResult');
+        btn.disabled = true;
+        btn.innerHTML = '⏳ 迁移中，请稍候...';
+        btn.className = 'btn-sys-geo-action btn-sys-geo-loading';
+        resultEl.innerHTML = '<span style="color: #888;">正在迁移数据，这可能需要一些时间...</span>';
+
+        try {
+            const res = await fetch('/api/db/migrate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(params)
+            });
+            const json = await res.json();
+            if (json.status === 'success') {
+                btn.innerHTML = '✅ 迁移完成';
+                btn.className = 'btn-sys-geo-action btn-sys-geo-latest';
+                resultEl.innerHTML = '<span style="color: #16a34a;">🎉 ' + (json.message || '数据迁移成功') + '</span>';
+            } else {
+                btn.innerHTML = '❌ 迁移失败，点击重试';
+                btn.className = 'btn-sys-geo-action btn-sys-geo-error';
+                resultEl.innerHTML = '<span style="color: #d74242;">' + (json.message || '迁移失败') + '</span>';
+            }
+        } catch (e) {
+            btn.innerHTML = '❌ 请求失败，点击重试';
+            btn.className = 'btn-sys-geo-action btn-sys-geo-error';
+            resultEl.innerHTML = '<span style="color: #d74242;">网络请求失败</span>';
+        }
+        btn.disabled = false;
     }
 </script>
 {{end}}
