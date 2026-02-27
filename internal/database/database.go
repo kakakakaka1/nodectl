@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -345,6 +346,13 @@ func InitDB() {
 
 	// 调用外部模块初始化默认系统设置
 	initDefaultConfigs()
+
+	// PostgreSQL: 保障序列值与历史数据对齐（避免 duplicate key on node_traffic_stats_pkey）
+	if strings.EqualFold(cfg.Type, "postgres") {
+		if err := SyncNodeTrafficStatSequence(); err != nil {
+			logger.Log.Warn("同步 node_traffic_stats 序列失败", "err", err.Error())
+		}
+	}
 }
 
 // ------------------- 数据库管理功能 -------------------
@@ -470,6 +478,13 @@ func SwitchDatabase(cfg DBConfig) error {
 	// 初始化默认系统设置到新数据库
 	initDefaultConfigs()
 
+	// PostgreSQL: 切换后主动对齐序列
+	if strings.EqualFold(cfg.Type, "postgres") {
+		if err := SyncNodeTrafficStatSequence(); err != nil {
+			logger.Log.Warn("切换后同步 node_traffic_stats 序列失败", "err", err.Error())
+		}
+	}
+
 	// 关闭旧连接
 	if oldDB != nil {
 		if sqlDB, err := oldDB.DB(); err == nil {
@@ -533,8 +548,37 @@ func MigrateToPostgres(pgCfg DBConfig) error {
 		return fmt.Errorf("迁移 airport_nodes 失败: %w", err)
 	}
 
+	// 5. 修正 PostgreSQL 自增序列，避免后续写入撞主键
+	if err := syncNodeTrafficStatSequenceForDB(dstDB); err != nil {
+		return fmt.Errorf("同步 node_traffic_stats 序列失败: %w", err)
+	}
+
 	logger.Log.Info("数据迁移完成: SQLite → PostgreSQL")
 	return nil
+}
+
+// SyncNodeTrafficStatSequence 同步 node_traffic_stats.id 的 PostgreSQL 序列到当前最大 ID。
+// 典型场景：从 SQLite 迁移后已写入显式 ID，但序列仍停留在较小值，导致后续插入报 23505。
+func SyncNodeTrafficStatSequence() error {
+	if DB == nil {
+		return nil
+	}
+	return syncNodeTrafficStatSequenceForDB(DB)
+}
+
+func syncNodeTrafficStatSequenceForDB(db *gorm.DB) error {
+	if db == nil {
+		return nil
+	}
+
+	// nextval 将返回 max(id)+1（当表为空时返回 1）
+	return db.Exec(`
+		SELECT setval(
+			pg_get_serial_sequence('node_traffic_stats', 'id'),
+			COALESCE((SELECT MAX(id) FROM node_traffic_stats), 0) + 1,
+			false
+		)
+	`).Error
 }
 
 // migrateTable 通用表迁移器 (全量读取后写入)

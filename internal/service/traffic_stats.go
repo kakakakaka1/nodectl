@@ -12,6 +12,65 @@ import (
 	"gorm.io/gorm"
 )
 
+func isNodeTrafficStatsPrimaryKeyConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "node_traffic_stats_pkey") && strings.Contains(msg, "SQLSTATE 23505")
+}
+
+func saveNodeTrafficReportOnce(installID string, rxBytes, txBytes int64, reportedAt time.Time) (bool, error) {
+	found := false
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		var node database.NodePool
+		if err := tx.Where("install_id = ?", installID).First(&node).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil
+			}
+			return err
+		}
+		found = true
+
+		if err := tx.Model(&database.NodePool{}).
+			Where("uuid = ?", node.UUID).
+			Updates(map[string]interface{}{
+				"traffic_down":      rxBytes,
+				"traffic_up":        txBytes,
+				"traffic_update_at": reportedAt,
+				"updated_at":        time.Now(),
+			}).Error; err != nil {
+			return err
+		}
+
+		rec := database.NodeTrafficStat{
+			NodeUUID:   node.UUID,
+			ReportedAt: reportedAt,
+			HourKey:    hourKey(reportedAt),
+			TwoHourKey: twoHourKey(reportedAt),
+			DayKey:     dayKey(reportedAt),
+			TXBytes:    txBytes,
+			RXBytes:    rxBytes,
+		}
+		if err := tx.Create(&rec).Error; err != nil {
+			return err
+		}
+
+		retentionDays := loadTrafficRetentionDays(tx)
+		if err := cleanupExpiredTrafficStats(tx, reportedAt, retentionDays); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return false, err
+	}
+
+	return found, nil
+}
+
 type TrafficLandingNode struct {
 	UUID      string `json:"uuid"`
 	InstallID string `json:"install_id"`
@@ -152,54 +211,21 @@ func SaveNodeTrafficReport(installID string, rxBytes, txBytes int64, reportedAt 
 		reportedAt = time.Now()
 	}
 
-	found := false
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		var node database.NodePool
-		if err := tx.Where("install_id = ?", installID).First(&node).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
-				return nil
-			}
-			return err
-		}
-		found = true
+	found, err := saveNodeTrafficReportOnce(installID, rxBytes, txBytes, reportedAt)
+	if err == nil {
+		return found, nil
+	}
 
-		if err := tx.Model(&database.NodePool{}).
-			Where("uuid = ?", node.UUID).
-			Updates(map[string]interface{}{
-				"traffic_down":      rxBytes,
-				"traffic_up":        txBytes,
-				"traffic_update_at": reportedAt,
-				"updated_at":        time.Now(),
-			}).Error; err != nil {
-			return err
-		}
-
-		rec := database.NodeTrafficStat{
-			NodeUUID:   node.UUID,
-			ReportedAt: reportedAt,
-			HourKey:    hourKey(reportedAt),
-			TwoHourKey: twoHourKey(reportedAt),
-			DayKey:     dayKey(reportedAt),
-			TXBytes:    txBytes,
-			RXBytes:    rxBytes,
-		}
-		if err := tx.Create(&rec).Error; err != nil {
-			return err
-		}
-
-		retentionDays := loadTrafficRetentionDays(tx)
-		if err := cleanupExpiredTrafficStats(tx, reportedAt, retentionDays); err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	if err != nil {
+	if !isNodeTrafficStatsPrimaryKeyConflict(err) {
 		return false, err
 	}
 
-	return found, nil
+	// PostgreSQL 序列漂移自愈：同步序列后重试一次
+	if syncErr := database.SyncNodeTrafficStatSequence(); syncErr != nil {
+		return false, fmt.Errorf("写入失败且序列同步失败: %v; 原始错误: %w", syncErr, err)
+	}
+
+	return saveNodeTrafficReportOnce(installID, rxBytes, txBytes, reportedAt)
 }
 
 // GetTrafficLandingNodes 返回可用于统计的落地节点列表。
