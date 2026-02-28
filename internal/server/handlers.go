@@ -1258,7 +1258,7 @@ func apiGetSettings(w http.ResponseWriter, r *http.Request) {
 	if err := database.DB.Where("key IN ?", []string{
 		"panel_url", "sub_token", "proxy_port_ss", "proxy_port_hy2", "proxy_port_tuic",
 		"proxy_port_reality", "proxy_ss_method",
-		"proxy_port_socks5", "proxy_socks5_user", "proxy_socks5_pass", "proxy_socks5_random_auth", "pref_use_emoji_flag", "sub_custom_name", "pref_ip_strategy", "pref_default_install_protocols",
+		"proxy_port_socks5", "proxy_socks5_user", "proxy_socks5_pass", "proxy_socks5_random_auth", "pref_use_emoji_flag", "pref_force_protocol_prefix", "sub_custom_name", "pref_ip_strategy", "pref_default_install_protocols",
 		"sys_force_http", "sys_log_level", "cf_email", "cf_api_key", "cf_domain", "cf_auto_renew", "airport_filter_invalid", "pref_speed_test_mode", "pref_speed_test_file_size", "pref_traffic_stats_retention_days",
 		"login_ip_retry_window_sec", "login_ip_max_retries", "login_ip_block_ttl_sec",
 		"tg_bot_enabled", "tg_bot_token", "tg_bot_whitelist", "tg_bot_register_commands", "clash_proxies_update_interval", "clash_rules_update_interval", "clash_public_rules_update_interval",
@@ -1315,7 +1315,7 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 	validKeys := map[string]bool{
 		"panel_url": true, "sub_token": true, "proxy_port_ss": true, "proxy_port_hy2": true,
 		"proxy_port_tuic": true, "proxy_port_reality": true,
-		"proxy_ss_method": true, "proxy_port_socks5": true, "proxy_socks5_user": true, "proxy_socks5_pass": true, "proxy_socks5_random_auth": true, "pref_use_emoji_flag": true,
+		"proxy_ss_method": true, "proxy_port_socks5": true, "proxy_socks5_user": true, "proxy_socks5_pass": true, "proxy_socks5_random_auth": true, "pref_use_emoji_flag": true, "pref_force_protocol_prefix": true,
 		"sub_custom_name": true, "pref_ip_strategy": true, "pref_default_install_protocols": true,
 		"sys_force_http": true, "sys_log_level": true, "cf_email": true, "cf_api_key": true, "cf_domain": true, "cf_auto_renew": true,
 		"airport_filter_invalid": true, "pref_speed_test_mode": true, "pref_speed_test_file_size": true, "pref_traffic_stats_retention_days": true,

@@ -40,9 +40,20 @@ func GenerateRawNodesYAML(routingType int, useFlag bool) (string, error) {
 		ipStrategy = "ipv4_prefer"
 	}
 
+	var forcePrefixConfig database.SysConfig
+	database.DB.Where("key = ?", "pref_force_protocol_prefix").First(&forcePrefixConfig)
+	forcePrefix := forcePrefixConfig.Value == "true"
+
 	var proxyList []*ClashNode
 
 	for _, node := range nodes {
+		enabledProtocolCount := 0
+		for p := range node.Links {
+			if !contains(node.DisabledLinks, p) {
+				enabledProtocolCount++
+			}
+		}
+
 		for proto, link := range node.Links {
 			if contains(node.DisabledLinks, proto) {
 				continue
@@ -57,7 +68,12 @@ func GenerateRawNodesYAML(routingType int, useFlag bool) (string, error) {
 
 			// 根据 IP 策略可能生成 1 个，也可能生成 2 个(双栈)，也可能跳过(0个)
 			for _, ipOpt := range ipOptions {
-				baseName := fmt.Sprintf("%s-%s%s", strings.ToLower(proto), node.Name, ipOpt.Suffix)
+				var baseName string
+				if forcePrefix || enabledProtocolCount > 1 {
+					baseName = fmt.Sprintf("%s-%s%s", strings.ToLower(proto), node.Name, ipOpt.Suffix)
+				} else {
+					baseName = fmt.Sprintf("%s%s", node.Name, ipOpt.Suffix)
+				}
 				proxyNode := ParseProxyLink(link, baseName, node.Region, useFlag)
 				if proxyNode != nil {
 					if ipOpt.IP != "" {
@@ -161,9 +177,20 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 		ipStrategy = "ipv4_prefer"
 	}
 
+	var forcePrefixConfig database.SysConfig
+	database.DB.Where("key = ?", "pref_force_protocol_prefix").First(&forcePrefixConfig)
+	forcePrefix := forcePrefixConfig.Value == "true"
+
 	var lines []string
 
 	for _, node := range nodes {
+		enabledProtocolCount := 0
+		for p := range node.Links {
+			if !contains(node.DisabledLinks, p) {
+				enabledProtocolCount++
+			}
+		}
+
 		for proto, link := range node.Links {
 			if contains(node.DisabledLinks, proto) {
 				continue
@@ -177,7 +204,12 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 			ipOptions := determineIPs(node, ipStrategy, protoIPMode)
 
 			for _, ipOpt := range ipOptions {
-				baseName := fmt.Sprintf("%s-%s%s", strings.ToLower(proto), node.Name, ipOpt.Suffix)
+				var baseName string
+				if forcePrefix || enabledProtocolCount > 1 {
+					baseName = fmt.Sprintf("%s-%s%s", strings.ToLower(proto), node.Name, ipOpt.Suffix)
+				} else {
+					baseName = fmt.Sprintf("%s%s", node.Name, ipOpt.Suffix)
+				}
 				finalName := baseName
 				if useFlag && node.Region != "" {
 					flag := getEmojiFlag(node.Region)

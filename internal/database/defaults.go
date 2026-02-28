@@ -44,6 +44,7 @@ func initBasicSettings() {
 		// 初始化 Clash 分流规则的存储 Key
 		{Key: "clash_active_modules", Value: "", Description: "Clash 分流规则启用列表"},
 		{Key: "pref_use_emoji_flag", Value: "true", Description: "订阅节点是否添加国旗前缀"},
+		{Key: "pref_force_protocol_prefix", Value: "false", Description: "强制节点名称加上协议前缀"},
 		{Key: "sub_custom_name", Value: "NodeCTL", Description: "自定义订阅名称"},
 		{Key: "pref_default_install_protocols", Value: "[]", Description: "默认安装协议列表(JSON数组)"},
 		{Key: "geo_db_version", Value: "", Description: "GeoIP 数据库版本号"},

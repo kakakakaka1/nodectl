@@ -1590,6 +1590,17 @@
                 <div class="sys-form-section" id="sys-form-pref" style="display:none;">
                     <div class="sys-pref-row" style="align-items: center;">
                         <div class="sys-pref-info">
+                            <span class="sys-pref-title">🔗 强制添加协议前缀</span>
+                            <span class="sys-pref-desc">强制保护重名；关闭则单协议节点省略协议前缀。</span>
+                        </div>
+                        <label class="sys-toggle-switch">
+                            <input type="checkbox" id="sys_pref_force_protocol_prefix" onchange="triggerSysAutoSave()">
+                            <span class="sys-toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div class="sys-pref-row" style="align-items: center;">
+                        <div class="sys-pref-info">
                             <span class="sys-pref-title">🌍 节点名称显示国旗</span>
                         </div>
                         <label class="sys-toggle-switch">
@@ -2330,6 +2341,7 @@
                 document.getElementById('sys_panel_url').value = data.panel_url || '';
                 document.getElementById('sys_sub_token').value = data.sub_token || '';
                 document.getElementById('sys_pref_flag').checked = data.pref_use_emoji_flag !== 'false';
+                document.getElementById('sys_pref_force_protocol_prefix').checked = (data.pref_force_protocol_prefix === 'true');
                 document.getElementById('sys_pref_ip_strategy').value = data.pref_ip_strategy || 'ipv4_prefer';
                 document.getElementById('sys_airport_filter_invalid').checked = (data.airport_filter_invalid === 'true');
                 document.getElementById('sys_pref_speed_test_mode').value = data.pref_speed_test_mode || 'ping_speed';
@@ -2555,6 +2567,7 @@
                 "panel_url": document.getElementById('sys_panel_url').value.trim(),
                 "sub_token": document.getElementById('sys_sub_token').value.trim(),
                 "pref_use_emoji_flag": document.getElementById('sys_pref_flag').checked ? "true" : "false",
+                "pref_force_protocol_prefix": document.getElementById('sys_pref_force_protocol_prefix').checked ? "true" : "false",
                 "pref_ip_strategy": document.getElementById('sys_pref_ip_strategy').value,
                 "pref_default_install_protocols": collectSysDefaultInstallProtocols(),
                 "airport_filter_invalid": document.getElementById('sys_airport_filter_invalid').checked ? "true" : "false", // ✨ 新增：提交剔除无效节点开关
