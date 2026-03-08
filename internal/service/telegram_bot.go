@@ -206,6 +206,119 @@ func sendNodeStatusNotification(nodeName string, online bool, eventTime time.Tim
 	return sentAny
 }
 
+// SendAdminLoginNotification 发送后台登录通知到 TG 白名单用户
+// success=true 表示登录成功；success=false 表示登录失败
+func SendAdminLoginNotification(username, loginIP string, loginTime time.Time, success bool, reason string) bool {
+	keys := []string{"tg_bot_enabled", "tg_bot_token", "tg_bot_whitelist", "tg_login_notify_mode", "tg_login_notify_enabled"}
+	var cfgList []database.SysConfig
+	if err := database.DB.Where("key IN ?", keys).Find(&cfgList).Error; err != nil {
+		logger.Log.Warn("读取 TG 登录通知配置失败", "error", err)
+		return false
+	}
+
+	cfg := map[string]string{}
+	for _, c := range cfgList {
+		cfg[c.Key] = strings.TrimSpace(c.Value)
+	}
+
+	if cfg["tg_bot_enabled"] != "true" {
+		return false
+	}
+
+	mode := strings.TrimSpace(cfg["tg_login_notify_mode"])
+	if mode == "" {
+		// 兼容旧版本布尔配置
+		if strings.TrimSpace(cfg["tg_login_notify_enabled"]) == "true" {
+			mode = "all"
+		} else {
+			mode = "off"
+		}
+	}
+
+	switch mode {
+	case "off":
+		return false
+	case "success_only":
+		if !success {
+			return false
+		}
+	case "failure_only":
+		if success {
+			return false
+		}
+	case "all":
+		// continue
+	default:
+		return false
+	}
+
+	if !success && strings.TrimSpace(reason) == "" {
+		reason = "未知原因"
+	}
+
+	if success {
+		reason = ""
+	}
+
+	if cfg["tg_bot_enabled"] != "true" {
+		return false
+	}
+
+	token := cfg["tg_bot_token"]
+	if token == "" {
+		return false
+	}
+
+	users := parseTGNotifyUsers(cfg["tg_bot_whitelist"])
+	if len(users) == 0 {
+		return false
+	}
+
+	bot, err := tgbotapi.NewBotAPI(token)
+	if err != nil {
+		logger.Log.Warn("初始化 TG Bot 失败，无法发送登录通知", "error", err)
+		return false
+	}
+
+	if strings.TrimSpace(username) == "" {
+		username = "unknown"
+	}
+	if strings.TrimSpace(loginIP) == "" {
+		loginIP = "unknown"
+	}
+
+	countryZh := "未知"
+	if GlobalGeoIP != nil {
+		if name := strings.TrimSpace(GlobalGeoIP.GetCountryNameZhCN(loginIP)); name != "" {
+			countryZh = name
+		}
+	}
+
+	title := "✅ 管理后台登录成功"
+	timeLabel := "登录时间"
+	if !success {
+		title = "⚠️ 管理后台登录失败"
+		timeLabel = "失败时间"
+	}
+
+	msgText := fmt.Sprintf("%s\n账号：%s\n%s：%s\n登录IP：%s\n归属地：%s", title, username, timeLabel, loginTime.Format("2006-01-02 15:04:05"), loginIP, countryZh)
+	if !success {
+		msgText += fmt.Sprintf("\n失败原因：%s", reason)
+	}
+
+	sentAny := false
+	for _, uid := range users {
+		msg := tgbotapi.NewMessage(uid, msgText)
+		if _, err := bot.Send(msg); err != nil {
+			logger.Log.Warn("发送 TG 登录通知失败", "user_id", uid, "username", username, "ip", loginIP, "error", err)
+			continue
+		}
+		sentAny = true
+	}
+
+	return sentAny
+}
+
 // OnNodeConnectionStatusChanged 在节点 WS 连接状态变化时触发。
 func OnNodeConnectionStatusChanged(installID string, online bool) {
 	installID = strings.TrimSpace(installID)

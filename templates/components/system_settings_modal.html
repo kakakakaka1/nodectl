@@ -403,6 +403,92 @@
         border-color: #2da44e;
     }
 
+    .sys-offline-table-wrap {
+        border: 1px solid #e5e5ea;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .sys-offline-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        table-layout: fixed;
+    }
+
+    .sys-offline-table thead tr {
+        background: #f0f7ff;
+        color: #0f3b73;
+    }
+
+    .sys-offline-table th {
+        padding: 8px 10px;
+        font-weight: 600;
+    }
+
+    .sys-offline-col-select {
+        width: 32px;
+    }
+
+    .sys-offline-col-status {
+        width: 100px;
+    }
+
+    .sys-offline-col-grace {
+        width: 130px;
+    }
+
+    .sys-offline-th-select,
+    .sys-offline-td-select {
+        text-align: left;
+        padding: 8px 4px 8px 8px;
+    }
+
+    .sys-offline-th-name,
+    .sys-offline-td-name {
+        text-align: left;
+    }
+
+    .sys-offline-td-name {
+        padding: 8px 8px;
+    }
+
+    .sys-offline-name-text {
+        font-weight: 600;
+        color: #1d1d1f;
+        font-size: 13px;
+        line-height: 1.35;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .sys-offline-th-status,
+    .sys-offline-th-grace,
+    .sys-offline-td-status,
+    .sys-offline-td-grace {
+        text-align: center;
+        padding: 8px 8px;
+    }
+
+    .sys-offline-status-badge {
+        display: inline-block;
+        min-width: 48px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        font-size: 12px;
+    }
+
+    .sys-offline-grace-input {
+        width: 80px;
+        padding: 5px 6px;
+        text-align: center;
+        display: inline-block;
+        font-size: 12px;
+    }
+
     .sys-batch-inline-wrap {
         display: flex;
         align-items: center;
@@ -544,6 +630,45 @@
 
         .sys-batch-inline-cancel {
             padding: 4px 8px;
+            font-size: 11px;
+        }
+
+        .sys-offline-col-select {
+            width: 24px;
+        }
+
+        .sys-offline-col-status,
+        .sys-offline-col-grace {
+            width: 25%;
+        }
+
+        .sys-offline-th-select,
+        .sys-offline-td-select {
+            padding: 8px 2px 8px 4px;
+        }
+
+        .sys-offline-th-name,
+        .sys-offline-td-name {
+            padding-left: 4px;
+        }
+
+        .sys-offline-th-status,
+        .sys-offline-th-grace,
+        .sys-offline-td-status,
+        .sys-offline-td-grace {
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+
+        .sys-offline-status-badge {
+            min-width: 42px;
+            padding: 4px 6px;
+            font-size: 11px;
+        }
+
+        .sys-offline-grace-input {
+            width: 62px;
+            padding: 4px 4px;
             font-size: 11px;
         }
     }
@@ -1644,6 +1769,28 @@
                         </label>
                     </div>
 
+                    <div class="sys-field">
+                        <label class="sys-label" style="display:flex;align-items:center;gap:4px;">
+                            登录通知（TG）
+                            <div class="sys-info-tooltip-wrap" tabindex="0">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                                <div class="sys-tooltip-content">
+                                    登录事件通知策略。需先启用 TG Bot 并配置有效 Token 与白名单用户。
+                                </div>
+                            </div>
+                        </label>
+                        <select id="sys_tg_login_notify_mode" class="sys-select" onchange="triggerSysAutoSave()">
+                            <option value="off">不启用</option>
+                            <option value="success_only">仅成功通知</option>
+                            <option value="failure_only">仅失败通知</option>
+                            <option value="all">成功失败都通知</option>
+                        </select>
+                    </div>
+
                     <!-- Inputs -->
                     <div class="sys-field">
                         <label class="sys-label" style="display:flex;align-items:center;gap:4px;">
@@ -2121,16 +2268,22 @@
                             </div>
                         </div>
 
-                        <div style="border: 1px solid #e5e5ea; border-radius: 10px; overflow: hidden;">
-                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <div class="sys-offline-table-wrap">
+                            <table class="sys-offline-table">
+                                <colgroup>
+                                    <col class="sys-offline-col-select">
+                                    <col class="sys-offline-col-name">
+                                    <col class="sys-offline-col-status">
+                                    <col class="sys-offline-col-grace">
+                                </colgroup>
                                 <thead>
-                                    <tr style="background: #f0f7ff; color: #0f3b73;">
-                                        <th style="padding: 8px 6px; text-align: center; font-weight: 600; width: 36px;">
+                                    <tr>
+                                        <th class="sys-offline-th-select">
                                             <input id="sysOfflineNotifySelectAll" type="checkbox" onchange="toggleOfflineNotifySelectAll(this.checked)">
                                         </th>
-                                        <th style="padding: 8px 10px; text-align: left; font-weight: 600;">服务器</th>
-                                        <th style="padding: 8px 10px; text-align: center; font-weight: 600; width: 100px;">状态</th>
-                                        <th style="padding: 8px 10px; text-align: center; font-weight: 600; width: 140px;">宽限期</th>
+                                        <th class="sys-offline-th-name">服务器</th>
+                                        <th class="sys-offline-th-status">状态</th>
+                                        <th class="sys-offline-th-grace">宽限期</th>
                                     </tr>
                                 </thead>
                                 <tbody id="sysOfflineNotifyTableBody">
@@ -2792,6 +2945,12 @@
         return JSON.stringify(list);
     }
 
+    function parseSysBool(v, defaultValue = false) {
+        if (v === true || v === 'true' || v === '1' || v === 1) return true;
+        if (v === false || v === 'false' || v === '0' || v === 0) return false;
+        return defaultValue;
+    }
+
     // 功能：拉取所有后端设置，并渲染到表单和证书状态 UI 中
     async function loadAllSystemSettings() {
         try {
@@ -2822,8 +2981,8 @@
                 loadSysDefaultInstallProtocols(data.pref_default_install_protocols || '[]');
 
                 // Geo / Mihomo 自动更新开关
-                document.getElementById('sys_geo_auto_update').checked = (data.geo_auto_update === 'true');
-                document.getElementById('sys_mihomo_auto_update').checked = (data.mihomo_auto_update === 'true');
+                document.getElementById('sys_geo_auto_update').checked = parseSysBool(data.geo_auto_update, false);
+                document.getElementById('sys_mihomo_auto_update').checked = parseSysBool(data.mihomo_auto_update, false);
 
 
                 // TG Bot 配置
@@ -2832,6 +2991,8 @@
                 resetTokenConfirmBtn('btn_tg_token_confirm');
                 document.getElementById('sys_tg_bot_enabled').checked = (data.tg_bot_enabled === 'true');
                 document.getElementById('sys_tg_bot_register_commands').checked = (data.tg_bot_register_commands === 'true');
+                const loginNotifyMode = data.tg_login_notify_mode || (parseSysBool(data.tg_login_notify_enabled, false) ? 'all' : 'off');
+                document.getElementById('sys_tg_login_notify_mode').value = ['off', 'success_only', 'failure_only', 'all'].includes(loginNotifyMode) ? loginNotifyMode : 'off';
 
                 // 解析白名单并渲染
                 const wListStr = data.tg_bot_whitelist || '';
@@ -3072,21 +3233,22 @@
 
                 return `
                 <tr style="border-top: 1px solid #f0f2f5;">
-                    <td style="padding: 8px 6px; text-align: center;">
+                    <td class="sys-offline-td-select">
                         <input id="offline_select_${uuid}" type="checkbox" ${checked ? 'checked' : ''} onchange="toggleOfflineNotifyRowSelect('${uuid}', this.checked)">
                     </td>
-                    <td style="padding: 8px 10px;">
-                        <div style="font-weight:600;color:#1d1d1f;font-size:13px;">${name}</div>
+                    <td class="sys-offline-td-name">
+                        <div class="sys-offline-name-text">${name}</div>
                     </td>
-                    <td style="padding: 8px 10px; text-align: center;">
+                    <td class="sys-offline-td-status">
                         <span
                             onclick="toggleOfflineNotifyEnabled('${uuid}', ${enabled ? 'true' : 'false'})"
-                            style="display:inline-block;min-width:48px;padding:4px 8px;border-radius:999px;font-weight:600;cursor:pointer;user-select:none;font-size:12px;${statusStyle}">
+                            class="sys-offline-status-badge"
+                            style="${statusStyle}">
                             ${statusText}
                         </span>
                     </td>
-                    <td style="padding: 8px 10px; text-align: center;">
-                        <input type="number" min="1" max="86400" value="${grace}" id="offline_grace_${uuid}" class="sys-input" oninput="queueOfflineNotifyGraceSave('${uuid}')" style="width:80px;padding:5px 6px;text-align:center;display:inline-block;font-size:12px;">
+                    <td class="sys-offline-td-grace">
+                        <input type="number" min="1" max="86400" value="${grace}" id="offline_grace_${uuid}" class="sys-input sys-offline-grace-input" oninput="queueOfflineNotifyGraceSave('${uuid}')">
                     </td>
                 </tr>`;
             }).join('');
@@ -3325,6 +3487,7 @@
                     return id + (remark ? '=' + remark : '');
                 }).join(','),
                 "tg_bot_register_commands": document.getElementById('sys_tg_bot_register_commands').checked ? 'true' : 'false',
+                "tg_login_notify_mode": document.getElementById('sys_tg_login_notify_mode').value,
                 "geo_auto_update": document.getElementById('sys_geo_auto_update').checked ? 'true' : 'false',
                 "mihomo_auto_update": document.getElementById('sys_mihomo_auto_update').checked ? 'true' : 'false'
             };

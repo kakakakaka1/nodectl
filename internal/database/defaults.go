@@ -78,6 +78,7 @@ func initBasicSettings() {
 		{Key: "tg_bot_token", Value: "", Description: "Telegram Bot Token"},
 		{Key: "tg_bot_whitelist", Value: "", Description: "允许使用 Bot 的 TG User ID (逗号分隔)"},
 		{Key: "tg_bot_register_commands", Value: "false", Description: "是否清理历史菜单并注册 /sub 指令"},
+		{Key: "tg_login_notify_mode", Value: "off", Description: "后台登录 TG 通知模式(off/success_only/failure_only/all)"},
 		{Key: "sys_log_level", Value: "info", Description: "系统日志等级 (debug/info/warn/error)"},
 		// Agent 相关配置
 		{Key: "agent_ws_push_interval_sec", Value: "2", Description: "Agent 实时速率推送间隔 (秒)"},

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -191,6 +192,41 @@ func (s *GeoService) GetCountryIsoCode(ipStr string) string {
 	}
 
 	return record.Country.IsoCode
+}
+
+// GetCountryNameZhCN 查询 IP 对应国家中文名（zh-CN）
+func (s *GeoService) GetCountryNameZhCN(ipStr string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.db == nil || ipStr == "" {
+		return ""
+	}
+
+	ip := net.ParseIP(strings.TrimSpace(ipStr))
+	if ip == nil {
+		return ""
+	}
+
+	record, err := s.db.Country(ip)
+	if err != nil {
+		return ""
+	}
+
+	if name := strings.TrimSpace(record.Country.Names["zh-CN"]); name != "" {
+		return name
+	}
+	if name := strings.TrimSpace(record.RegisteredCountry.Names["zh-CN"]); name != "" {
+		return name
+	}
+	if iso := strings.TrimSpace(record.Country.IsoCode); iso != "" {
+		return iso
+	}
+	if iso := strings.TrimSpace(record.RegisteredCountry.IsoCode); iso != "" {
+		return iso
+	}
+
+	return ""
 }
 
 // downloadFile 通用下载

@@ -290,6 +290,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodPost {
+		username := strings.TrimSpace(r.FormValue("username"))
 		allowed, _, retryAfter := middleware.CheckLoginAttemptAllowed(clientIP)
 		if !allowed {
 			logger.Log.Warn("登录拦截: IP短期限流生效",
@@ -297,11 +298,11 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				"path", reqPath,
 				"retry_after_sec", int(retryAfter.Seconds()),
 			)
+			go service.SendAdminLoginNotification(username, clientIP, time.Now(), false, "登录尝试次数过多（限流）")
 			tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "登录尝试次数过多，请稍后再试"})
 			return
 		}
 
-		username := r.FormValue("username")
 		password := r.FormValue("password")
 
 		var userConfig database.SysConfig
@@ -318,10 +319,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 					"path", reqPath,
 					"retry_after_sec", int(blockAfter.Seconds()),
 				)
+				go service.SendAdminLoginNotification(username, clientIP, time.Now(), false, "用户名错误且触发短期封禁")
 				tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "登录尝试次数过多，请稍后再试"})
 				return
 			}
 			logger.Log.Warn("登录拦截: 用户名不存在", "username", username, "ip", clientIP, "path", reqPath, "remaining_attempts", remaining)
+			go service.SendAdminLoginNotification(username, clientIP, time.Now(), false, "用户名或密码错误")
 			tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "用户名或密码错误"})
 			return
 		}
@@ -337,10 +340,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 					"path", reqPath,
 					"retry_after_sec", int(blockAfter.Seconds()),
 				)
+				go service.SendAdminLoginNotification(username, clientIP, time.Now(), false, "密码错误且触发短期封禁")
 				tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "登录尝试次数过多，请稍后再试"})
 				return
 			}
 			logger.Log.Warn("登录拦截: 密码错误", "username", username, "ip", clientIP, "path", reqPath, "remaining_attempts", remaining)
+			go service.SendAdminLoginNotification(username, clientIP, time.Now(), false, "用户名或密码错误")
 			tmpl.ExecuteTemplate(w, "login.html", map[string]string{"Error": "用户名或密码错误"})
 			return
 		}
@@ -378,6 +383,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		})
 
 		logger.Log.Info("管理员登录成功", "username", username, "ip", clientIP, "path", reqPath)
+		go service.SendAdminLoginNotification(username, clientIP, time.Now(), true, "")
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 	}
 }
@@ -1396,7 +1402,8 @@ func apiGetSettings(w http.ResponseWriter, r *http.Request) {
 		"proxy_port_socks5", "proxy_socks5_user", "proxy_socks5_pass", "proxy_socks5_random_auth", "pref_use_emoji_flag", "pref_force_protocol_prefix", "sub_custom_name", "pref_ip_strategy", "pref_default_install_protocols",
 		"sys_force_http", "sys_log_level", "cf_email", "cf_api_key", "cf_domain", "cf_auto_renew", "airport_filter_invalid", "pref_speed_test_mode", "pref_speed_test_file_size", "pref_traffic_stats_retention_days",
 		"auth_cookie_ttl_mode", "login_ip_retry_window_sec", "login_ip_max_retries", "login_ip_block_ttl_sec",
-		"tg_bot_enabled", "tg_bot_token", "tg_bot_whitelist", "tg_bot_register_commands", "clash_proxies_update_interval", "clash_rules_update_interval", "clash_public_rules_update_interval",
+		"tg_bot_enabled", "tg_bot_token", "tg_bot_whitelist", "tg_bot_register_commands", "tg_login_notify_mode", "clash_proxies_update_interval", "clash_rules_update_interval", "clash_public_rules_update_interval",
+		"geo_auto_update", "mihomo_auto_update",
 		// 新增协议与内核优化配置
 		"proxy_port_trojan", "proxy_hy2_sni", "proxy_tuic_sni", "proxy_enable_bbr",
 		// VMess 族
@@ -1455,8 +1462,9 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		"sys_force_http": true, "sys_log_level": true, "cf_email": true, "cf_api_key": true, "cf_domain": true, "cf_auto_renew": true,
 		"airport_filter_invalid": true, "pref_speed_test_mode": true, "pref_speed_test_file_size": true, "pref_traffic_stats_retention_days": true,
 		"auth_cookie_ttl_mode": true, "login_ip_retry_window_sec": true, "login_ip_max_retries": true, "login_ip_block_ttl_sec": true,
-		"tg_bot_enabled": true, "tg_bot_token": true, "tg_bot_whitelist": true, "tg_bot_register_commands": true,
+		"tg_bot_enabled": true, "tg_bot_token": true, "tg_bot_whitelist": true, "tg_bot_register_commands": true, "tg_login_notify_mode": true,
 		"clash_proxies_update_interval": true, "clash_rules_update_interval": true, "clash_public_rules_update_interval": true,
+		"geo_auto_update": true, "mihomo_auto_update": true,
 		// 新增协议与内核优化配置
 		"proxy_port_trojan": true,
 		"proxy_hy2_sni":     true, "proxy_tuic_sni": true, "proxy_enable_bbr": true,
@@ -1529,6 +1537,17 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 			if k == "auth_cookie_ttl_mode" {
 				v = normalizeAuthCookieTTLMode(v)
+			}
+
+			if k == "tg_login_notify_mode" {
+				v = strings.TrimSpace(v)
+				switch v {
+				case "off", "success_only", "failure_only", "all":
+					// valid
+				default:
+					sendJSON(w, "error", "登录通知模式无效")
+					return
+				}
 			}
 
 			if k == "login_ip_retry_window_sec" {
