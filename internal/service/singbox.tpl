@@ -329,8 +329,24 @@ get_config() {
     if $ENABLE_SS; then
         # 直接使用顶部定义的变量
         PORT_SS="$FIXED_PORT_SS"
-        # 密码依然保留随机生成(也可以按需改成固定)
-        PSK_SS=$(rand_pass)
+        # SS2022 密钥长度要求：
+        #   2022-blake3-aes-128-gcm      → 16 字节 (base64 后为 24 字符)
+        #   2022-blake3-aes-256-gcm      → 32 字节
+        #   2022-blake3-chacha20-poly1305 → 32 字节
+        case "$SS_METHOD" in
+            2022-blake3-aes-128-gcm)
+                PSK_SS=$(openssl rand -base64 16 2>/dev/null | tr -d '\n\r') || \
+                    PSK_SS=$(head -c 16 /dev/urandom | base64 2>/dev/null | tr -d '\n\r')
+                ;;
+            2022-blake3-aes-256-gcm|2022-blake3-chacha20-poly1305)
+                PSK_SS=$(openssl rand -base64 32 2>/dev/null | tr -d '\n\r') || \
+                    PSK_SS=$(head -c 32 /dev/urandom | base64 2>/dev/null | tr -d '\n\r')
+                ;;
+            *)
+                # 兜底：兼容未知方法使用任意随机字符串
+                PSK_SS=$(rand_pass)
+                ;;
+        esac
         
     fi
 

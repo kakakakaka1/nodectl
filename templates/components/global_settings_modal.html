@@ -271,10 +271,7 @@
     }
 
     .gs-tooltip-content {
-        /* 取消居中偏移！锚定图标基准点，向右下方展开，彻底避免被左栏遮挡 */
-        position: absolute;
-        top: calc(100% + 8px);
-        left: -12px;
+        position: fixed;
         background: rgba(29, 29, 31, 0.9);
         color: #fff;
         padding: 10px 14px;
@@ -284,37 +281,27 @@
         letter-spacing: 0.5px;
         opacity: 0;
         visibility: hidden;
-        transition: all 0.2s;
+        transition: opacity 0.2s, visibility 0.2s;
         pointer-events: none;
-        z-index: 9999;
+        z-index: 99999;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         line-height: 1.6;
         text-align: left;
-
-        /* 智能响应式宽度：内容自适应，但绝不超过 280px 或【屏幕总宽-60px】 */
         width: max-content;
         max-width: min(280px, calc(100vw - 60px));
         white-space: normal;
-        /* 允许换行防溢出 */
         word-wrap: break-word;
     }
 
-    /* 向上指的小三角，固定在对应感叹号的中心位置 */
+    /* 向上指的小三角 */
     .gs-tooltip-content::after {
         content: '';
         position: absolute;
         bottom: 100%;
-        left: 19px;
-        margin-left: -4px;
+        left: 16px;
         border-width: 5px;
         border-style: solid;
         border-color: transparent transparent rgba(29, 29, 31, 0.9) transparent;
-    }
-
-    .gs-info-tooltip-wrap:hover .gs-tooltip-content,
-    .gs-info-tooltip-wrap:focus .gs-tooltip-content {
-        opacity: 1;
-        visibility: visible;
     }
 
     /* 右侧/内联详情表单 */
@@ -767,14 +754,16 @@
                                             <circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line>
                                         </svg>
                                         <div class="gs-tooltip-content">
-                                            <span style="color:#60a5fa">AES-128-GCM:</span> 性能强，适合低端设备<br>
-                                            <span style="color:#60a5fa">2022-blake3:</span> 极强抗封锁与兼容性
+                                            <span style="color:#34c759">2022-blake3-aes-128-gcm:</span> 推荐，抗封锁强，低端设备友好<br>
+                                            <span style="color:#34c759">2022-blake3-aes-256-gcm:</span> 更高安全强度<br>
+                                            <span style="color:#34c759">2022-blake3-chacha20-poly1305:</span> 适合无 AES 加速的 CPU
                                         </div>
                                     </div>
                                 </label>
                                 <select id="gs_proxy_ss_method" class="gs-select" onchange="triggerGsAutoSave()">
-                                    <option value="aes-128-gcm">AES-128-GCM</option>
                                     <option value="2022-blake3-aes-128-gcm">2022-blake3-aes-128-gcm</option>
+                                    <option value="2022-blake3-aes-256-gcm">2022-blake3-aes-256-gcm</option>
+                                    <option value="2022-blake3-chacha20-poly1305">2022-blake3-chacha20-poly1305</option>
                                 </select>
                             </div>
                         </div>
@@ -1152,5 +1141,65 @@
             passInput.placeholder = '';
         }
     }
+
+    // ── Tooltip fixed 定位：防止被 overflow:hidden 裁切 ──
+    function initGsTooltips() {
+        document.querySelectorAll('.gs-info-tooltip-wrap').forEach(wrap => {
+            if (wrap._tooltipInited) return;
+            wrap._tooltipInited = true;
+            const tip = wrap.querySelector('.gs-tooltip-content');
+            if (!tip) return;
+
+            wrap.addEventListener('mouseenter', () => {
+                const rect = wrap.getBoundingClientRect();
+                // 先让元素可见以便测量尺寸
+                tip.style.visibility = 'hidden';
+                tip.style.opacity = '0';
+                tip.style.display = 'block';
+
+                const tipW = tip.offsetWidth;
+                const tipH = tip.offsetHeight;
+                const margin = 8;
+
+                let left = rect.left;
+                let top  = rect.bottom + margin;
+
+                // 防止右边超出屏幕
+                if (left + tipW > window.innerWidth - 10) {
+                    left = window.innerWidth - tipW - 10;
+                }
+                // 防止下边超出屏幕，则翻转到图标上方
+                if (top + tipH > window.innerHeight - 10) {
+                    top = rect.top - tipH - margin;
+                }
+
+                tip.style.left = left + 'px';
+                tip.style.top  = top  + 'px';
+                tip.style.visibility = 'visible';
+                tip.style.opacity = '1';
+            });
+
+            wrap.addEventListener('mouseleave', () => {
+                tip.style.opacity = '0';
+                tip.style.visibility = 'hidden';
+            });
+
+            wrap.addEventListener('focus', () => wrap.dispatchEvent(new MouseEvent('mouseenter')));
+            wrap.addEventListener('blur',  () => wrap.dispatchEvent(new MouseEvent('mouseleave')));
+        });
+    }
+
+    // 页面加载时初始化一次，打开弹窗时再补初始化（处理动态渲染的 proto-form）
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initGsTooltips);
+    } else {
+        initGsTooltips();
+    }
+    // 每次打开全局设置弹窗时重新扫描（兼容切换 proto 面板后出现的新 tooltip）
+    document.addEventListener('click', e => {
+        if (e.target.closest && e.target.closest('[onclick*="openGlobalSettings"]')) {
+            setTimeout(initGsTooltips, 100);
+        }
+    });
 </script>
 {{end}}

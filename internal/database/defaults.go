@@ -139,7 +139,7 @@ func initProxySettings() {
 		{Key: "proxy_port_hy2", Value: "20002", Description: "HY2 默认监听端口"},
 		{Key: "proxy_port_tuic", Value: "20003", Description: "TUIC 默认监听端口"},
 		{Key: "proxy_port_reality", Value: "20004", Description: "Reality 默认监听端口"},
-		{Key: "proxy_ss_method", Value: "aes-128-gcm", Description: "SS 默认加密方式"},
+		{Key: "proxy_ss_method", Value: "2022-blake3-aes-128-gcm", Description: "SS 默认加密方式"},
 		{Key: "proxy_port_socks5", Value: "20005", Description: "Socks5 默认监听端口"},
 		{Key: "proxy_socks5_user", Value: "admin", Description: "Socks5 默认用户名"},
 		{Key: "proxy_socks5_pass", Value: "123456", Description: "Socks5 默认密码"},
