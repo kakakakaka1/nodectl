@@ -124,6 +124,8 @@ type NodePool struct {
 	AgentVersion          string            `gorm:"column:agent_version;type:varchar(32);default:''" json:"agent_version"`  // Agent 版本号
 	TunnelEnabled         bool              `gorm:"column:tunnel_enabled;default:false" json:"tunnel_enabled"`              // 是否启用 tunnel 加速
 	TunnelID              string            `gorm:"column:tunnel_id;type:varchar(64);default:''" json:"tunnel_id"`          // 节点绑定的 Tunnel ID
+	TunnelToken           string            `gorm:"column:tunnel_token;type:text;default:''" json:"tunnel_token"`           // 节点专属 Tunnel Token（每节点独立）
+	TunnelName            string            `gorm:"column:tunnel_name;type:varchar(128);default:''" json:"tunnel_name"`     // 节点 Tunnel 名称
 	TunnelDomain          string            `gorm:"column:tunnel_domain;type:varchar(255);default:''" json:"tunnel_domain"` // tunnel 加速域名
 	CreatedAt             time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt             time.Time         `gorm:"column:updated_at" json:"updated_at"`

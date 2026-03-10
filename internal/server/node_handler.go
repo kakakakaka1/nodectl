@@ -499,7 +499,7 @@ func apiGetTunnelNodeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var nodes []database.NodePool
-	if err := database.DB.Select("uuid", "name", "install_id", "links", "disabled_links", "tunnel_enabled", "tunnel_id", "tunnel_domain", "region", "sort_index", "updated_at").
+	if err := database.DB.Select("uuid", "name", "install_id", "links", "disabled_links", "tunnel_enabled", "tunnel_id", "tunnel_name", "tunnel_domain", "region", "sort_index", "updated_at").
 		Order("sort_index ASC, updated_at DESC").
 		Find(&nodes).Error; err != nil {
 		sendJSON(w, "error", "读取 tunnel 节点配置失败")
@@ -507,24 +507,11 @@ func apiGetTunnelNodeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	items := make([]map[string]interface{}, 0, len(nodes))
-	globalTunnelName := strings.TrimSpace(service.GetCFConfigPublic("cf_tunnel_name"))
-	globalTunnelID := strings.TrimSpace(service.GetCFConfigPublic("cf_tunnel_id"))
-	tunnelNameByID := loadTunnelNameMap(nodes)
 	for _, n := range nodes {
 		supported := getSupportedTunnelProtocolsForNode(n)
 		tunnelDomain := strings.TrimSpace(n.TunnelDomain)
 		tunnelID := strings.TrimSpace(n.TunnelID)
-		tunnelName := ""
-		if tunnelID != "" {
-			if resolvedName := strings.TrimSpace(tunnelNameByID[tunnelID]); resolvedName != "" {
-				tunnelName = resolvedName
-			} else if globalTunnelID != "" && tunnelID == globalTunnelID && globalTunnelName != "" {
-				tunnelName = globalTunnelName
-			}
-			if tunnelName == "" {
-				tunnelName = "(" + tunnelID[:minInt(8, len(tunnelID))] + "...)"
-			}
-		}
+		tunnelName := strings.TrimSpace(n.TunnelName)
 
 		hosts := getNodeTunnelHosts(n)
 		item := map[string]interface{}{
@@ -544,34 +531,6 @@ func apiGetTunnelNodeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sendJSON(w, "success", map[string]interface{}{"nodes": items})
-}
-
-func loadTunnelNameMap(nodes []database.NodePool) map[string]string {
-	nameByID := make(map[string]string)
-	uniqueIDs := make(map[string]struct{})
-	for _, node := range nodes {
-		tunnelID := strings.TrimSpace(node.TunnelID)
-		if tunnelID == "" {
-			continue
-		}
-		uniqueIDs[tunnelID] = struct{}{}
-	}
-	if len(uniqueIDs) == 0 {
-		return nameByID
-	}
-
-	items, err := service.ListCFTunnelsByPrefix("")
-	if err != nil {
-		logger.Log.Warn("读取 Tunnel 名称映射失败", "error", err)
-		return nameByID
-	}
-	for _, item := range items {
-		if _, ok := uniqueIDs[strings.TrimSpace(item.ID)]; !ok {
-			continue
-		}
-		nameByID[strings.TrimSpace(item.ID)] = strings.TrimSpace(item.Name)
-	}
-	return nameByID
 }
 
 // apiUpdateTunnelNodeSetting 更新单个节点 tunnel 设置
@@ -598,7 +557,7 @@ func apiUpdateTunnelNodeSetting(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var node database.NodePool
-	if err := database.DB.Select("uuid", "name", "install_id", "links", "disabled_links", "tunnel_enabled", "tunnel_id", "tunnel_domain").Where("uuid = ?", req.UUID).First(&node).Error; err != nil {
+	if err := database.DB.Select("uuid", "name", "install_id", "links", "disabled_links", "tunnel_enabled", "tunnel_id", "tunnel_token", "tunnel_name", "tunnel_domain").Where("uuid = ?", req.UUID).First(&node).Error; err != nil {
 		sendJSON(w, "error", "节点不存在")
 		return
 	}
@@ -615,10 +574,6 @@ func apiUpdateTunnelNodeSetting(w http.ResponseWriter, r *http.Request) {
 				sendJSON(w, "error", "该节点暂无可通过 Tunnel 加速的协议。")
 				return
 			}
-			if strings.TrimSpace(service.GetCFConfigPublic("cf_tunnel_token")) == "" {
-				sendJSON(w, "error", "未配置 Tunnel Token，请先在 Cloudflare Tunnel 页面完成创建")
-				return
-			}
 			domain := strings.TrimSpace(req.TunnelDomain)
 			if domain == "" {
 				domain = strings.TrimSpace(node.TunnelDomain)
@@ -633,12 +588,21 @@ func apiUpdateTunnelNodeSetting(w http.ResponseWriter, r *http.Request) {
 			}
 			updates["tunnel_domain"] = domain
 			if _, ok := updates["tunnel_id"]; !ok {
-				tunnelID := strings.TrimSpace(node.TunnelID)
-				if tunnelID == "" {
-					tunnelID = strings.TrimSpace(service.GetCFConfigPublic("cf_tunnel_id"))
-				}
-				if tunnelID != "" {
-					updates["tunnel_id"] = tunnelID
+				// 每节点独立 Tunnel 设计：检查节点是否已有专属 Tunnel
+				existingID := strings.TrimSpace(node.TunnelID)
+				existingToken := strings.TrimSpace(node.TunnelToken)
+				if existingID != "" && existingToken != "" {
+					// 节点已有专属 Tunnel，直接复用
+				} else {
+					// 节点没有专属 Tunnel —— 自动创建
+					newTunnelID, newToken, newName, createErr := service.CreateNodeDedicatedTunnel(node.Name)
+					if createErr != nil {
+						sendJSON(w, "error", "创建节点专属 Tunnel 失败: "+createErr.Error())
+						return
+					}
+					updates["tunnel_id"] = newTunnelID
+					updates["tunnel_token"] = newToken
+					updates["tunnel_name"] = newName
 				}
 			}
 		} else if strings.TrimSpace(req.TunnelDomain) != "" {
@@ -890,9 +854,9 @@ func buildNodeTunnelCommandPayload(node database.NodePool) (map[string]interface
 		return nil, fmt.Errorf("当前节点未配置 tunnel 域名")
 	}
 
-	tunnelToken := strings.TrimSpace(service.GetCFConfigPublic("cf_tunnel_token"))
+	tunnelToken := strings.TrimSpace(node.TunnelToken)
 	if tunnelToken == "" {
-		return nil, fmt.Errorf("未配置 tunnel token，请先在 Cloudflare Tunnel 页面完成创建")
+		return nil, fmt.Errorf("该节点未配置 Tunnel Token，请重新启用 Tunnel 以创建专属隧道")
 	}
 
 	portMap := loadProxyPortMap()
@@ -915,10 +879,18 @@ func buildNodeTunnelCommandPayload(node database.NodePool) (map[string]interface
 			return nil, fmt.Errorf("绑定 tunnel DNS 失败(%s): %w", host, err)
 		}
 
+		// TLS 协议（_wst/_hut）的 sing-box 端口启用了 TLS（自签证书），
+		// cloudflared 必须使用 https:// 连接，并配合 noTLSVerify 跳过证书验证。
+		// 非 TLS 协议（vmess_ws/vmess_http）的 sing-box 端口是纯 HTTP。
+		scheme := "http"
+		if isTLSBackendProtocol(proto) {
+			scheme = "https"
+		}
+
 		routes = append(routes, map[string]string{
 			"protocol": proto,
 			"hostname": host,
-			"service":  "http://127.0.0.1:" + strconv.Itoa(port),
+			"service":  scheme + "://127.0.0.1:" + strconv.Itoa(port),
 		})
 	}
 
@@ -926,10 +898,9 @@ func buildNodeTunnelCommandPayload(node database.NodePool) (map[string]interface
 		return nil, fmt.Errorf("该节点暂无可通过 Tunnel 加速的协议。")
 	}
 
-	// 获取 Tunnel ID（Agent 端需要用它生成 credentials 文件和 config.yml）
 	tunnelID := strings.TrimSpace(node.TunnelID)
 	if tunnelID == "" {
-		tunnelID = strings.TrimSpace(service.GetCFConfigPublic("cf_tunnel_id"))
+		return nil, fmt.Errorf("该节点未配置 Tunnel ID，请重新启用 Tunnel 以创建专属隧道")
 	}
 
 	payload := map[string]interface{}{
@@ -1000,16 +971,21 @@ func buildTunnelHostForProtocol(baseDomain, protocol string) string {
 	return prefix + "." + base
 }
 
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func isTunnelCompatibleProtocol(protocol string) bool {
 	switch strings.TrimSpace(protocol) {
 	case "vmess_ws", "vmess_http", "vmess_wst", "vmess_hut", "vless_wst", "vless_hut", "trojan_wst", "trojan_hut":
+		return true
+	default:
+		return false
+	}
+}
+
+// isTLSBackendProtocol 判断该协议在 sing-box 后端是否启用了 TLS（自签证书）。
+// _wst（WebSocket+TLS）和 _hut（HTTP Upgrade+TLS）后端均使用 TLS，
+// cloudflared 的 ingress 需要用 https:// 并设置 noTLSVerify 连接。
+func isTLSBackendProtocol(protocol string) bool {
+	switch strings.TrimSpace(protocol) {
+	case "vmess_wst", "vmess_hut", "vless_wst", "vless_hut", "trojan_wst", "trojan_hut":
 		return true
 	default:
 		return false
@@ -1146,10 +1122,13 @@ func cleanupNodeTunnelResources(node database.NodePool) (nodeTunnelCleanupResult
 		return result, nil
 	}
 
-	if err := service.DeleteCFTunnelByID(tunnelID); err != nil {
-		return result, err
+	// 使用节点专属 Tunnel 删除函数（不影响面板全局配置）
+	if err := service.DeleteNodeDedicatedTunnel(tunnelID); err != nil {
+		logger.Log.Warn("删除节点专属 Tunnel 失败", "tunnel_id", tunnelID, "error", err)
+		// 不阻塞节点删除流程
+	} else {
+		result.DeletedTunnel = true
 	}
-	result.DeletedTunnel = true
 	return result, nil
 }
 

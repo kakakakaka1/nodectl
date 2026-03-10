@@ -666,6 +666,120 @@ func generateTunnelSecret() string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
+// ===================== 节点专属 Tunnel 管理 =====================
+
+// sanitizeNodeTunnelName 将节点名称转换为安全的 Tunnel 名称
+func sanitizeNodeTunnelName(name string) string {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return "nodectl-node"
+	}
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('-')
+		}
+	}
+	result := strings.Trim(b.String(), "-")
+	for strings.Contains(result, "--") {
+		result = strings.ReplaceAll(result, "--", "-")
+	}
+	if result == "" {
+		return "nodectl-node"
+	}
+	return "nodectl-" + result
+}
+
+// fetchTunnelTokenString 从 CF API 获取指定 Tunnel 的运行 Token（不保存到全局配置）
+func fetchTunnelTokenString(accountID, tunnelID string) (string, error) {
+	tokenURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel/%s/token",
+		accountID, tunnelID)
+	tokenResult, err := cfAPIRequest("GET", tokenURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("请求 Tunnel Token 失败: %w", err)
+	}
+	tokenStr, ok := tokenResult["result"].(string)
+	if !ok || tokenStr == "" {
+		return "", fmt.Errorf("API 返回的 Token 为空或格式异常")
+	}
+	return tokenStr, nil
+}
+
+// CreateNodeDedicatedTunnel 为节点创建专属 Tunnel（不影响面板全局配置）
+// 返回 tunnelID、运行 token、tunnel 名称
+func CreateNodeDedicatedTunnel(nodeName string) (tunnelID, token, tunnelName string, err error) {
+	accountID := getCFConfig("cf_account_id")
+	if accountID == "" {
+		return "", "", "", fmt.Errorf("CF Account ID 未配置，请先在 Cloudflare 设置页面完成配置")
+	}
+
+	tunnelName = sanitizeNodeTunnelName(nodeName)
+
+	// 创建新 Tunnel
+	createURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel", accountID)
+	createBody := map[string]interface{}{
+		"name":          tunnelName,
+		"config_src":    "cloudflare",
+		"tunnel_secret": generateTunnelSecret(),
+	}
+
+	createResult, err := cfAPIRequest("POST", createURL, createBody)
+	if err != nil {
+		return "", "", "", fmt.Errorf("创建节点 Tunnel 失败: %w", err)
+	}
+
+	if r, ok := createResult["result"].(map[string]interface{}); ok {
+		if id, ok := r["id"].(string); ok {
+			tunnelID = id
+		}
+	}
+	if tunnelID == "" {
+		return "", "", "", fmt.Errorf("创建 Tunnel 返回结果缺少 ID")
+	}
+
+	// 获取该 Tunnel 的运行 Token
+	token, err = fetchTunnelTokenString(accountID, tunnelID)
+	if err != nil {
+		// 创建成功但获取 Token 失败，清理已创建的 Tunnel
+		cleanURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel/%s/connections", accountID, tunnelID)
+		_, _ = cfAPIRequest("DELETE", cleanURL, nil)
+		delURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel/%s", accountID, tunnelID)
+		_, _ = cfAPIRequest("DELETE", delURL, nil)
+		return "", "", "", fmt.Errorf("获取节点 Tunnel Token 失败: %w", err)
+	}
+
+	logger.Log.Info("节点专属 Tunnel 创建成功", "name", tunnelName, "id", tunnelID)
+	return tunnelID, token, tunnelName, nil
+}
+
+// DeleteNodeDedicatedTunnel 删除节点专属 Tunnel（不影响面板全局配置）
+func DeleteNodeDedicatedTunnel(tunnelID string) error {
+	tunnelID = strings.TrimSpace(tunnelID)
+	if tunnelID == "" {
+		return nil
+	}
+
+	accountID := getCFConfig("cf_account_id")
+	if accountID == "" {
+		return fmt.Errorf("CF Account ID 未配置")
+	}
+
+	// 先清理连接
+	cleanURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel/%s/connections", accountID, tunnelID)
+	_, _ = cfAPIRequest("DELETE", cleanURL, nil)
+
+	// 删除 Tunnel
+	deleteURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel/%s", accountID, tunnelID)
+	if _, err := cfAPIRequest("DELETE", deleteURL, nil); err != nil {
+		return fmt.Errorf("删除节点 Tunnel 失败: %w", err)
+	}
+
+	logger.Log.Info("节点专属 Tunnel 已删除", "id", tunnelID)
+	return nil
+}
+
 // ListCFTunnelsByPrefix 列出指定前缀的 Cloudflare Tunnel（不含已删除）
 func ListCFTunnelsByPrefix(prefix string) ([]CFTunnelListItem, error) {
 	accountID := getCFConfig("cf_account_id")

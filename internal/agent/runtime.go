@@ -413,6 +413,11 @@ func renderTunnelConfigYAML(tunnelID, credPath string, routes []tunnelRoutePaylo
 		b.WriteString("    service: ")
 		b.WriteString(r.Service)
 		b.WriteString("\n")
+		// 对 https:// 后端（sing-box TLS 协议使用自签证书），需要跳过证书验证
+		if strings.HasPrefix(strings.ToLower(r.Service), "https://") {
+			b.WriteString("    originRequest:\n")
+			b.WriteString("      noTLSVerify: true\n")
+		}
 	}
 	b.WriteString("  - service: http_status:404\n")
 	return b.String()
