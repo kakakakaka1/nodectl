@@ -139,7 +139,7 @@
         z-index: 20;
         opacity: 0;
         transition: opacity 0.15s ease;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
         line-height: 1.65;
         font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
     }
@@ -173,7 +173,7 @@
     }
 
     .ts-svg .ts-line-dot:hover {
-        filter: drop-shadow(0 0 4px rgba(177,107,255,0.5));
+        filter: drop-shadow(0 0 4px rgba(177, 107, 255, 0.5));
     }
 
     /* 柱状图悬停高亮 */
@@ -273,9 +273,17 @@
         color: #888;
     }
 
-    .ts-rank-kpi .v.up { color: #34c759; }
-    .ts-rank-kpi .v.down { color: #1e88ff; }
-    .ts-rank-kpi .v.all { color: #b16bff; }
+    .ts-rank-kpi .v.up {
+        color: #34c759;
+    }
+
+    .ts-rank-kpi .v.down {
+        color: #1e88ff;
+    }
+
+    .ts-rank-kpi .v.all {
+        color: #b16bff;
+    }
 
     .ts-rank-list {
         overflow: auto;
@@ -313,23 +321,20 @@
 
     /* 离线节点斜纹警示底纹 */
     .ts-rank-item.offline {
-        background: repeating-linear-gradient(
-            -45deg,
-            #fff 0px,
-            #fff 6px,
-            #fff0f0 6px,
-            #fff0f0 12px
-        );
+        background: repeating-linear-gradient(-45deg,
+                #fff 0px,
+                #fff 6px,
+                #fff0f0 6px,
+                #fff0f0 12px);
         border-color: #f0d0d0;
     }
+
     .ts-rank-item.offline.active {
-        background: repeating-linear-gradient(
-            -45deg,
-            #f5faff 0px,
-            #f5faff 6px,
-            #fff0f0 6px,
-            #fff0f0 12px
-        );
+        background: repeating-linear-gradient(-45deg,
+                #f5faff 0px,
+                #f5faff 6px,
+                #fff0f0 6px,
+                #fff0f0 12px);
         border-color: #e0a0a0;
     }
 
@@ -480,7 +485,8 @@
                         </div>
                     </div>
                     <div class="ts-head-right">
-                        <div class="ts-selected-node" id="ts-selected-node"><span class="dot"></span><span>--</span></div>
+                        <div class="ts-selected-node" id="ts-selected-node"><span class="dot"></span><span>--</span>
+                        </div>
                     </div>
                 </div>
                 <div class="ts-chart-wrap" id="ts-bar-wrap">
@@ -502,10 +508,12 @@
                             <button type="button" data-mode="total">总量</button>
                         </div>
                     </div>
-                    <div class="ts-head-right" style="font-size:12px; color:#8d8d98; font-weight:700;">⚗ <span id="ts-trend-ratio">0.00</span></div>
+                    <div class="ts-head-right" style="font-size:12px; color:#8d8d98; font-weight:700;">⚗ <span
+                            id="ts-trend-ratio">0.00</span></div>
                 </div>
                 <div class="ts-chart-wrap" id="ts-line-wrap">
-                    <svg class="ts-svg" id="ts-line-svg" viewBox="0 0 960 250" preserveAspectRatio="xMidYMid meet"></svg>
+                    <svg class="ts-svg" id="ts-line-svg" viewBox="0 0 960 250"
+                        preserveAspectRatio="xMidYMid meet"></svg>
                     <div class="ts-tooltip" id="ts-line-tooltip"></div>
                 </div>
                 <div class="ts-legend">
@@ -527,9 +535,18 @@
 
             <div class="ts-rank-summary">
                 <div class="ts-rank-kpi">
-                    <div><div class="k">上传</div><div class="v up" id="ts-rank-total-up">0 B</div></div>
-                    <div><div class="k">下载</div><div class="v down" id="ts-rank-total-down">0 B</div></div>
-                    <div><div class="k">总计</div><div class="v all" id="ts-rank-total-all">0 B</div></div>
+                    <div>
+                        <div class="k">上传</div>
+                        <div class="v up" id="ts-rank-total-up">0 B</div>
+                    </div>
+                    <div>
+                        <div class="k">下载</div>
+                        <div class="v down" id="ts-rank-total-down">0 B</div>
+                    </div>
+                    <div>
+                        <div class="k">总计</div>
+                        <div class="v all" id="ts-rank-total-all">0 B</div>
+                    </div>
                 </div>
             </div>
 
@@ -725,16 +742,16 @@
         // 连接实时流量 WebSocket
         function connectLiveWS() {
             if (state.liveWs) {
-                try { state.liveWs.close(); } catch(e) {}
+                try { state.liveWs.close(); } catch (e) { }
             }
             const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = proto + '//' + location.host + '/api/traffic/live';
             const ws = new WebSocket(wsUrl);
             state.liveWs = ws;
 
-            ws.onopen = function() {};
+            ws.onopen = function () { };
 
-            ws.onmessage = function(evt) {
+            ws.onmessage = function (evt) {
                 try {
                     const msg = JSON.parse(evt.data);
                     if (msg.node_uuid) {
@@ -752,17 +769,17 @@
                         // 仅更新该节点的速率文字和离线状态，不整体重渲染
                         updateRankItemLive(msg.node_uuid);
                     }
-                } catch(e) {}
+                } catch (e) { }
             };
 
-            ws.onclose = function() {
+            ws.onclose = function () {
                 // 断线 5 秒后自动重连
-                setTimeout(function() {
+                setTimeout(function () {
                     if (document.getElementById('traffic-stats-card')) connectLiveWS();
                 }, 5000);
             };
 
-            ws.onerror = function() { ws.close(); };
+            ws.onerror = function () { ws.close(); };
         }
 
         // 局部更新排名项的实时速率和离线状态
@@ -1163,6 +1180,18 @@
         async function loadSeriesAndRender() {
             state.barPoints = await fetchSeries('increment', state.barInterval, false);
             state.linePoints = await fetchSeries(state.trendMode, 1, true);
+
+            if (state.trendMode === 'total' && state.linePoints && state.linePoints.length > 0) {
+                const baseUp = Number(state.linePoints[0].up_bytes || 0);
+                const baseDown = Number(state.linePoints[0].down_bytes || 0);
+                const baseTotal = Number(state.linePoints[0].total_bytes || 0);
+                state.linePoints = state.linePoints.map(p => ({
+                    ...p,
+                    up_bytes: Math.max(0, Number(p.up_bytes || 0) - baseUp),
+                    down_bytes: Math.max(0, Number(p.down_bytes || 0) - baseDown),
+                    total_bytes: Math.max(0, Number(p.total_bytes || 0) - baseTotal)
+                }));
+            }
 
             renderBar();
             renderLine();

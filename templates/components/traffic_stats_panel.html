@@ -8,355 +8,376 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+
         .ts-layout {
             display: grid;
             grid-template-columns: minmax(0, 1fr) 290px;
             gap: 12px;
-        font-weight: 700;
-        color: #1d1d1f;
-        .ts-left {
-            display: grid;
-            grid-template-rows: auto auto;
-            gap: 12px;
-        gap: 8px;
-        flex-wrap: wrap;
-        .ts-panel {
-            border: 1px solid #ececf2;
-            border-radius: 12px;
-            background: #fff;
-            padding: 10px 12px;
-        }
-
-        .ts-panel-header {
-    }
-            justify-content: space-between;
-        border: 1px solid #dcdce3;
-            gap: 8px;
-            margin-bottom: 8px;
-        border-radius: 8px;
-        background: #fff;
-        .ts-head-left,
-        .ts-head-right {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        border-radius: 8px;
-        background: #007aff;
-        .ts-panel-title {
-            font-size: 22px;
             font-weight: 700;
             color: #1d1d1f;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
 
-        .ts-switch {
-            display: inline-flex;
-            background: #f4f4f8;
-        padding: 6px 12px;
-            border: 1px solid #ececf2;
-            padding: 2px;
-    }
+            .ts-left {
+                display: grid;
+                grid-template-rows: auto auto;
+                gap: 12px;
+                gap: 8px;
+                flex-wrap: wrap;
 
-        .ts-switch button {
-            border: none;
-            background: transparent;
-            color: #666;
-            padding: 5px 10px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-        color: #86868b;
-        margin-bottom: 8px;
-        .ts-switch button.active {
-            background: #007aff;
-            color: #fff;
-            box-shadow: 0 1px 6px rgba(0, 122, 255, 0.35);
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        .ts-selected-node {
-            font-size: 30px;
-            font-weight: 800;
-            color: #1d1d1f;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        border-radius: 10px;
-        padding: 10px;
-        .ts-selected-node .dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #ff4d4f;
-            box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.2);
-        font-weight: 600;
-        color: #1d1d1f;
-        .ts-svg {
-            width: 100%;
-            height: 250px;
-            display: block;
-            background: linear-gradient(180deg, #fbfcff 0%, #ffffff 100%);
-            border-radius: 8px;
-            border: 1px solid #f0f1f6;
-        }
+                .ts-panel {
+                    border: 1px solid #ececf2;
+                    border-radius: 12px;
+                    background: #fff;
+                    padding: 10px 12px;
+                }
 
-        .ts-legend {
-            margin-top: 8px;
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-    }
-            color: #666;
-        height: 220px;
-        display: block;
-        .ts-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-            vertical-align: middle;
-        }
+                .ts-panel-header {}
 
-        .ts-right {
-            border: 1px solid #ececf2;
-            border-radius: 12px;
-            background: #fff;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            min-height: 560px;
-        }
+                justify-content: space-between;
+                border: 1px solid #dcdce3;
+                gap: 8px;
+                margin-bottom: 8px;
+                border-radius: 8px;
+                background: #fff;
 
-        .ts-rank-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
+                .ts-head-left,
+                .ts-head-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    border-radius: 8px;
+                    background: #007aff;
 
-        .ts-rank-title {
-            font-size: 28px;
-            font-weight: 800;
-            color: #1d1d1f;
-        }
+                    .ts-panel-title {
+                        font-size: 22px;
+                        font-weight: 700;
+                        color: #1d1d1f;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                    }
 
-        .ts-rank-date {
-            border: 1px solid #ececf2;
-            border-radius: 8px;
-            padding: 4px 8px;
-            font-size: 11px;
-            color: #888;
-            background: #fafafe;
-        }
+                    .ts-switch {
+                        display: inline-flex;
+                        background: #f4f4f8;
+                        padding: 6px 12px;
+                        border: 1px solid #ececf2;
+                        padding: 2px;
+                    }
 
-        .ts-rank-summary {
-            border: 1px solid #f0f1f6;
-            border-radius: 10px;
-            padding: 8px;
-            margin-bottom: 8px;
-            background: #fcfcff;
-        }
+                    .ts-switch button {
+                        border: none;
+                        background: transparent;
+                        color: #666;
+                        padding: 5px 10px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        color: #86868b;
+                        margin-bottom: 8px;
 
-        .ts-rank-kpi {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 6px;
-            text-align: center;
-        }
+                        .ts-switch button.active {
+                            background: #007aff;
+                            color: #fff;
+                            box-shadow: 0 1px 6px rgba(0, 122, 255, 0.35);
+                            grid-template-columns: 1fr 1fr;
+                            gap: 12px;
 
-        .ts-rank-kpi .k {
-            font-size: 11px;
-            color: #9a9aa5;
-        }
+                            .ts-selected-node {
+                                font-size: 30px;
+                                font-weight: 800;
+                                color: #1d1d1f;
+                                display: inline-flex;
+                                align-items: center;
+                                gap: 8px;
+                                border-radius: 10px;
+                                padding: 10px;
 
-        .ts-rank-kpi .v {
-            font-size: 12px;
-            font-weight: 700;
-        }
+                                .ts-selected-node .dot {
+                                    width: 8px;
+                                    height: 8px;
+                                    border-radius: 50%;
+                                    background: #ff4d4f;
+                                    box-shadow: 0 0 0 3px rgba(255, 77, 79, 0.2);
+                                    font-weight: 600;
+                                    color: #1d1d1f;
 
-        .ts-rank-list {
-            overflow: auto;
-            flex: 1;
-            padding-right: 2px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
+                                    .ts-svg {
+                                        width: 100%;
+                                        height: 250px;
+                                        display: block;
+                                        background: linear-gradient(180deg, #fbfcff 0%, #ffffff 100%);
+                                        border-radius: 8px;
+                                        border: 1px solid #f0f1f6;
+                                    }
 
-        .ts-rank-item {
-            border: 1px solid #eef0f5;
-            border-radius: 10px;
-            padding: 8px;
-            cursor: pointer;
-            transition: all .2s;
-            background: #fff;
-        }
+                                    .ts-legend {
+                                        margin-top: 8px;
+                                        display: flex;
+                                        justify-content: center;
+                                        gap: 12px;
+                                    }
 
-        .ts-rank-item:hover {
-            border-color: #b6d6ff;
-            box-shadow: 0 2px 8px rgba(0, 122, 255, 0.08);
-        }
+                                    color: #666;
+                                    height: 220px;
+                                    display: block;
 
-        .ts-rank-item.active {
-            border-color: #7cb4ff;
-            background: #f5faff;
-        }
+                                    .ts-dot {
+                                        width: 10px;
+                                        height: 10px;
+                                        border-radius: 50%;
+                                        display: inline-block;
+                                        margin-right: 5px;
+                                        vertical-align: middle;
+                                    }
 
-        .ts-rank-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-        }
+                                    .ts-right {
+                                        border: 1px solid #ececf2;
+                                        border-radius: 12px;
+                                        background: #fff;
+                                        padding: 10px;
+                                        display: flex;
+                                        flex-direction: column;
+                                        min-height: 560px;
+                                    }
 
-        .ts-rank-name {
-            font-size: 14px;
-            font-weight: 700;
-            color: #1d1d1f;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
+                                    .ts-rank-header {
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        gap: 8px;
+                                        margin-bottom: 8px;
+                                    }
 
-        .ts-rank-total {
-            font-size: 12px;
-            font-weight: 700;
-            color: #666;
-        }
+                                    .ts-rank-title {
+                                        font-size: 28px;
+                                        font-weight: 800;
+                                        color: #1d1d1f;
+                                    }
 
-        .ts-rank-bar {
-            height: 6px;
-            border-radius: 5px;
-            background: #eef1f7;
-            margin-top: 7px;
-            overflow: hidden;
-        }
+                                    .ts-rank-date {
+                                        border: 1px solid #ececf2;
+                                        border-radius: 8px;
+                                        padding: 4px 8px;
+                                        font-size: 11px;
+                                        color: #888;
+                                        background: #fafafe;
+                                    }
 
-        .ts-rank-bar-fill {
-            height: 100%;
-            display: flex;
-        }
+                                    .ts-rank-summary {
+                                        border: 1px solid #f0f1f6;
+                                        border-radius: 10px;
+                                        padding: 8px;
+                                        margin-bottom: 8px;
+                                        background: #fcfcff;
+                                    }
 
-        .ts-rank-bar-up {
-            background: #34c759;
-            height: 100%;
-        }
+                                    .ts-rank-kpi {
+                                        display: grid;
+                                        grid-template-columns: 1fr 1fr 1fr;
+                                        gap: 6px;
+                                        text-align: center;
+                                    }
 
-        .ts-rank-bar-down {
-            background: #1e88ff;
-            height: 100%;
-        }
+                                    .ts-rank-kpi .k {
+                                        font-size: 11px;
+                                        color: #9a9aa5;
+                                    }
 
-        .ts-rank-meta {
-            margin-top: 6px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 8px;
-            font-size: 11px;
-            color: #80808b;
-        }
+                                    .ts-rank-kpi .v {
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                    }
 
-        .ts-rank-mini {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-        }
+                                    .ts-rank-list {
+                                        overflow: auto;
+                                        flex: 1;
+                                        padding-right: 2px;
+                                        display: flex;
+                                        flex-direction: column;
+                                        gap: 6px;
+                                    }
 
-        .ts-status {
-            margin-top: 6px;
-            min-height: 16px;
-            color: #888;
-            font-size: 12px;
-        }
+                                    .ts-rank-item {
+                                        border: 1px solid #eef0f5;
+                                        border-radius: 10px;
+                                        padding: 8px;
+                                        cursor: pointer;
+                                        transition: all .2s;
+                                        background: #fff;
+                                    }
 
-        .ts-hidden {
-            display: none;
-        }
+                                    .ts-rank-item:hover {
+                                        border-color: #b6d6ff;
+                                        box-shadow: 0 2px 8px rgba(0, 122, 255, 0.08);
+                                    }
 
-        @media (max-width: 1200px) {
-            .ts-layout {
-                grid-template-columns: 1fr;
-            }
+                                    .ts-rank-item.active {
+                                        border-color: #7cb4ff;
+                                        background: #f5faff;
+                                    }
 
-            .ts-right {
-                min-height: 400px;
-            }
+                                    .ts-rank-top {
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: space-between;
+                                        gap: 8px;
+                                    }
 
-            .ts-panel-title,
-            .ts-rank-title,
-            .ts-selected-node {
-                font-size: 18px;
-            }
-        border-radius: 8px;
-    }
+                                    .ts-rank-name {
+                                        font-size: 14px;
+                                        font-weight: 700;
+                                        color: #1d1d1f;
+                                        display: inline-flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                    }
+
+                                    .ts-rank-total {
+                                        font-size: 12px;
+                                        font-weight: 700;
+                                        color: #666;
+                                    }
+
+                                    .ts-rank-bar {
+                                        height: 6px;
+                                        border-radius: 5px;
+                                        background: #eef1f7;
+                                        margin-top: 7px;
+                                        overflow: hidden;
+                                    }
+
+                                    .ts-rank-bar-fill {
+                                        height: 100%;
+                                        display: flex;
+                                    }
+
+                                    .ts-rank-bar-up {
+                                        background: #34c759;
+                                        height: 100%;
+                                    }
+
+                                    .ts-rank-bar-down {
+                                        background: #1e88ff;
+                                        height: 100%;
+                                    }
+
+                                    .ts-rank-meta {
+                                        margin-top: 6px;
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        gap: 8px;
+                                        font-size: 11px;
+                                        color: #80808b;
+                                    }
+
+                                    .ts-rank-mini {
+                                        display: inline-flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                    }
+
+                                    .ts-status {
+                                        margin-top: 6px;
+                                        min-height: 16px;
+                                        color: #888;
+                                        font-size: 12px;
+                                    }
+
+                                    .ts-hidden {
+                                        display: none;
+                                    }
+
+                                    @media (max-width: 1200px) {
+                                        .ts-layout {
+                                            grid-template-columns: 1fr;
+                                        }
+
+                                        .ts-right {
+                                            min-height: 400px;
+                                        }
+
+                                        .ts-panel-title,
+                                        .ts-rank-title,
+                                        .ts-selected-node {
+                                            font-size: 18px;
+                                        }
+
+                                        border-radius: 8px;
+                                    }
 </style>
 
-        <div class="ts-layout">
-            <div class="ts-left">
-                <div class="ts-panel">
-                    <div class="ts-panel-header">
-                        <div class="ts-head-left">
-                            <div class="ts-panel-title">📊 流量分布</div>
-                            <div class="ts-switch" id="ts-dist-switch">
-                                <button type="button" data-interval="2">2小时</button>
-                                <button type="button" data-interval="1" class="active">1小时</button>
-                            </div>
-                        </div>
-                        <div class="ts-head-right">
-                            <div class="ts-selected-node" id="ts-selected-node">
-                                <span class="dot"></span>
-                                <span>--</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <svg class="ts-svg" id="ts-bar-svg" viewBox="0 0 960 250" preserveAspectRatio="none"></svg>
-                    <div class="ts-legend">
-                        <span><i class="ts-dot" style="background:#34c759"></i>上传</span>
-                        <span><i class="ts-dot" style="background:#1e88ff"></i>下载</span>
+<div class="ts-layout">
+    <div class="ts-left">
+        <div class="ts-panel">
+            <div class="ts-panel-header">
+                <div class="ts-head-left">
+                    <div class="ts-panel-title">📊 流量分布</div>
+                    <div class="ts-switch" id="ts-dist-switch">
+                        <button type="button" data-interval="2">2小时</button>
+                        <button type="button" data-interval="1" class="active">1小时</button>
                     </div>
                 </div>
-
-                <div class="ts-panel">
-                    <div class="ts-panel-header">
-                        <div class="ts-head-left">
-                            <div class="ts-panel-title">📈 流量趋势</div>
-                            <div class="ts-switch" id="ts-trend-switch">
-                                <button type="button" data-mode="increment" class="active">增量</button>
-                                <button type="button" data-mode="total">总量</button>
-                            </div>
-                        </div>
-                        <div class="ts-head-right" style="font-size:12px; color:#8d8d98; font-weight:700;">
-                            ⚗ <span id="ts-trend-ratio">0.00</span>
-                        </div>
-                    </div>
-
-                    <svg class="ts-svg" id="ts-line-svg" viewBox="0 0 960 250" preserveAspectRatio="none"></svg>
-                    <div class="ts-legend">
-                        <span><i class="ts-dot" style="background:#34c759"></i>上传</span>
-                        <span><i class="ts-dot" style="background:#1e88ff"></i>下载</span>
-                        <span><i class="ts-dot" style="background:#b16bff"></i>总计</span>
+                <div class="ts-head-right">
+                    <div class="ts-selected-node" id="ts-selected-node">
+                        <span class="dot"></span>
+                        <span>--</span>
                     </div>
                 </div>
-            <button class="ts-refresh-btn" onclick="trafficStatsRefresh(true)">刷新</button>
+            </div>
 
-            <div class="ts-right">
-                <div class="ts-rank-header">
-                    <div class="ts-rank-title">📉 流量消耗</div>
-                    <div class="ts-rank-date" id="ts-rank-date">--</div>
-                <span><i class="ts-dot" style="background:#f5a623"></i>下行</span>
+            <svg class="ts-svg" id="ts-bar-svg" viewBox="0 0 960 250" preserveAspectRatio="none"></svg>
+            <div class="ts-legend">
+                <span><i class="ts-dot" style="background:#34c759"></i>上传</span>
+                <span><i class="ts-dot" style="background:#1e88ff"></i>下载</span>
+            </div>
         </div>
-                <div class="ts-rank-summary">
-                    <div class="ts-rank-kpi">
-                        <div><div class="k">上传</div><div class="v" id="ts-rank-total-up">0 B</div></div>
-                        <div><div class="k">下载</div><div class="v" id="ts-rank-total-down">0 B</div></div>
-                        <div><div class="k">总计</div><div class="v" id="ts-rank-total-all">0 B</div></div>
+
+        <div class="ts-panel">
+            <div class="ts-panel-header">
+                <div class="ts-head-left">
+                    <div class="ts-panel-title">📈 流量趋势</div>
+                    <div class="ts-switch" id="ts-trend-switch">
+                        <button type="button" data-mode="increment" class="active">增量</button>
+                        <button type="button" data-mode="total">总量</button>
                     </div>
+                </div>
+                <div class="ts-head-right" style="font-size:12px; color:#8d8d98; font-weight:700;">
+                    ⚗ <span id="ts-trend-ratio">0.00</span>
+                </div>
+            </div>
+
+            <svg class="ts-svg" id="ts-line-svg" viewBox="0 0 960 250" preserveAspectRatio="none"></svg>
+            <div class="ts-legend">
+                <span><i class="ts-dot" style="background:#34c759"></i>上传</span>
+                <span><i class="ts-dot" style="background:#1e88ff"></i>下载</span>
+                <span><i class="ts-dot" style="background:#b16bff"></i>总计</span>
+            </div>
+        </div>
+        <button class="ts-refresh-btn" onclick="trafficStatsRefresh(true)">刷新</button>
+
+        <div class="ts-right">
+            <div class="ts-rank-header">
+                <div class="ts-rank-title">📉 流量消耗</div>
+                <div class="ts-rank-date" id="ts-rank-date">--</div>
+                <span><i class="ts-dot" style="background:#f5a623"></i>下行</span>
+            </div>
+            <div class="ts-rank-summary">
+                <div class="ts-rank-kpi">
+                    <div>
+                        <div class="k">上传</div>
+                        <div class="v" id="ts-rank-total-up">0 B</div>
+                    </div>
+                    <div>
+                        <div class="k">下载</div>
+                        <div class="v" id="ts-rank-total-down">0 B</div>
+                    </div>
+                    <div>
+                        <div class="k">总计</div>
+                        <div class="v" id="ts-rank-total-all">0 B</div>
+                    </div>
+                </div>
                 <span><i class="ts-dot" style="background:#ff3b30"></i>下行曲线</span>
 
                 <div class="ts-rank-list" id="ts-rank-list"></div>
@@ -371,28 +392,28 @@
 <script>
     (function () {
         const state = {
-                nodeMap: {},
-                selectedNodeUUID: '',
-                barInterval: 1,
-                trendMode: 'increment',
-                barPoints: [],
-                linePoints: [],
-                rank: null,
-                nodes: [],
-                points: []
+            nodeMap: {},
+            selectedNodeUUID: '',
+            barInterval: 1,
+            trendMode: 'increment',
+            barPoints: [],
+            linePoints: [],
+            rank: null,
+            nodes: [],
+            points: []
         };
 
         const intervalSelect = () => document.getElementById('ts-interval-select');
         const statusEl = () => document.getElementById('ts-status');
         const barSvg = () => document.getElementById('ts-bar-svg');
-            const selectedNodeEl = () => document.getElementById('ts-selected-node');
-            const trendRatioEl = () => document.getElementById('ts-trend-ratio');
+        const selectedNodeEl = () => document.getElementById('ts-selected-node');
+        const trendRatioEl = () => document.getElementById('ts-trend-ratio');
 
-            function flagEmoji(regionCode) {
-                const code = String(regionCode || '').trim().toUpperCase();
-                if (!/^[A-Z]{2}$/.test(code)) return '🌐';
-                return String.fromCodePoint(...code.split('').map(c => 127397 + c.charCodeAt(0)));
-            }
+        function flagEmoji(regionCode) {
+            const code = String(regionCode || '').trim().toUpperCase();
+            if (!/^[A-Z]{2}$/.test(code)) return '🌐';
+            return String.fromCodePoint(...code.split('').map(c => 127397 + c.charCodeAt(0)));
+        }
         const lineSvg = () => document.getElementById('ts-line-svg');
 
         function esc(s) {
@@ -572,6 +593,19 @@
 
             state.barPoints = await fetchSeries(uuid, 'increment', state.barInterval, 24);
             state.linePoints = await fetchSeries(uuid, state.trendMode, 1, 24);
+
+            if (state.trendMode === 'total' && state.linePoints && state.linePoints.length > 0) {
+                const baseUp = Number(state.linePoints[0].up_bytes || 0);
+                const baseDown = Number(state.linePoints[0].down_bytes || 0);
+                const baseTotal = Number(state.linePoints[0].total_bytes || 0);
+                state.linePoints = state.linePoints.map(p => ({
+                    ...p,
+                    up_bytes: Math.max(0, Number(p.up_bytes || 0) - baseUp),
+                    down_bytes: Math.max(0, Number(p.down_bytes || 0) - baseDown),
+                    total_bytes: Math.max(0, Number(p.total_bytes || 0) - baseTotal)
+                }));
+            }
+
             renderCharts();
 
             const rankItems = (state.rank && Array.isArray(state.rank.items)) ? state.rank.items : [];
