@@ -1,21 +1,20 @@
-// 路径: internal/server/cf_tunnel_handlers.go
-// [FIX-17] Cloudflare Tunnel API Handler（独立文件，不污�?handlers.go�?
+// 路径: internal/server/cf_handlers.go
+// Cloudflare 相关 API Handler
 package server
 
 import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strconv"
+	"strings"
+	"time"
 
+	"nodectl/internal/database"
 	"nodectl/internal/logger"
 	"nodectl/internal/service"
 )
 
-// ------------------- [CF Tunnel 凭据测试] -------------------
-
 // apiCFTunnelTest POST /api/cf/tunnel/test
-// 测试 CF Token + Account ID + Zone 有效�?
 func apiCFTunnelTest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -36,7 +35,6 @@ func apiCFTunnelTest(w http.ResponseWriter, r *http.Request) {
 // ------------------- [CF Token 权限管理] -------------------
 
 // apiCFTokenVerify POST /api/cf/token/verify
-// 详细验证 Token 权限（区�?Read/Edit�?
 func apiCFTokenVerify(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -50,6 +48,7 @@ func apiCFTokenVerify(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, "error", "请求格式错误")
 		return
 	}
+	req.Token = strings.TrimSpace(req.Token)
 
 	result, err := service.VerifyCFTokenPermissions(req.Token)
 	if err != nil {
@@ -70,7 +69,6 @@ func apiCFTokenVerify(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiCFTokenSave POST /api/cf/token/save
-// 保存 Token 并自动发现账户信�?
 func apiCFTokenSave(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -84,13 +82,14 @@ func apiCFTokenSave(w http.ResponseWriter, r *http.Request) {
 		sendJSON(w, "error", "请求格式错误")
 		return
 	}
+	req.Token = strings.TrimSpace(req.Token)
 
 	if req.Token == "" {
 		sendJSON(w, "error", "Token 不能为空")
 		return
 	}
 
-	// 先验�?Token 有效�?
+	// 先校验 Token 有效性
 	result, err := service.VerifyCFTokenPermissions(req.Token)
 	if err != nil {
 		sendJSON(w, "error", "Token 验证失败: "+err.Error())
@@ -112,6 +111,7 @@ func apiCFTokenSave(w http.ResponseWriter, r *http.Request) {
 	if len(result.Zones) > 0 {
 		service.SetCFConfigPublic("cf_domain", result.Zones[0])
 	}
+	service.SaveTokenVerifyRecord(result)
 
 	logger.Log.Info("CF Token 已保存", "account_id", result.AccountID, "ip", getClientIP(r))
 	w.Header().Set("Content-Type", "application/json")
@@ -125,7 +125,7 @@ func apiCFTokenSave(w http.ResponseWriter, r *http.Request) {
 // ------------------- [CF Tunnel 配置管理] -------------------
 
 // apiCFTunnelSettings GET/POST /api/cf/tunnel/settings
-// GET: 读取配置（token 脱敏�?
+// GET: 读取配置（token 脱敏）
 // POST: 保存配置
 func apiCFTunnelSettings(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
@@ -155,6 +155,205 @@ func apiCFTunnelSettings(w http.ResponseWriter, r *http.Request) {
 
 	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// apiCFCertSettings GET/POST /api/cf/cert/settings
+func apiCFCertSettings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		keys := []string{
+			"cf_domain", "cf_auto_renew", "cf_cert_enabled",
+		}
+		var configs []database.SysConfig
+		database.DB.Where("key IN ?", keys).Find(&configs)
+
+		data := make(map[string]string)
+		for _, c := range configs {
+			data[c.Key] = c.Value
+		}
+		if _, ok := data["cf_cert_enabled"]; !ok {
+			data["cf_cert_enabled"] = "false"
+		}
+
+		zones := make([]string, 0)
+		if rec := service.GetLastTokenVerifyRecord(); rec != nil && rec.Result != nil && len(rec.Result.Zones) > 0 {
+			zones = rec.Result.Zones
+		}
+		if len(zones) == 0 {
+			if domain := strings.TrimSpace(data["cf_domain"]); domain != "" {
+				zones = append(zones, domain)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status":          "success",
+			"data":            data,
+			"cert_info":       service.GetCurrentCertInfo(),
+			"available_zones": zones,
+		})
+
+	case http.MethodPost:
+		var req map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			sendJSON(w, "error", "请求格式错误")
+			return
+		}
+
+		validKeys := map[string]bool{
+			"cf_domain":       true,
+			"cf_auto_renew":   true,
+			"cf_cert_enabled": true,
+		}
+
+		for k, v := range req {
+			if !validKeys[k] {
+				continue
+			}
+
+			if k == "cf_cert_enabled" {
+				v = strings.ToLower(strings.TrimSpace(v))
+				if v == "true" || v == "1" {
+					if !service.HasValidLocalCertificate() {
+						sendJSON(w, "error", "无有效证书，请先申请证书后再启用")
+						return
+					}
+					v = "true"
+				} else {
+					v = "false"
+				}
+			}
+
+			if err := database.DB.Model(&database.SysConfig{}).Where("key = ?", k).Update("value", v).Error; err != nil {
+				logger.Log.Error("保存 CF 安全配置失败", "key", k, "error", err, "ip", getClientIP(r))
+				sendJSON(w, "error", "保存配置失败: "+k)
+				return
+			}
+		}
+
+		sendJSON(w, "success", "配置保存成功")
+
+	default:
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// apiCFCertApply POST /api/cf/cert/apply
+func apiCFCertApply(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Domain string `json:"domain"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, "error", "参数解析失败")
+		return
+	}
+	req.Domain = strings.TrimSpace(req.Domain)
+
+	email := strings.TrimSpace(service.GetCFConfigPublic("cf_email"))
+	apiKey := strings.TrimSpace(service.GetCFConfigPublic("cf_api_key"))
+	domain := req.Domain
+	if domain == "" {
+		domain = strings.TrimSpace(service.GetCFConfigPublic("cf_domain"))
+	}
+
+	if email == "" || apiKey == "" || domain == "" {
+		sendJSON(w, "error", "请填写完整的 Cloudflare 信息")
+		return
+	}
+
+	// SSE 流式返回申请过程日志
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		sendJSON(w, "error", "服务器不支持 SSE 流式响应")
+		return
+	}
+
+	sendSSE := func(eventType string, payload map[string]interface{}) {
+		b, _ := json.Marshal(payload)
+		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, string(b))
+		flusher.Flush()
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- service.ApplyCloudflareCert(email, apiKey, domain)
+	}()
+
+	ticker := time.NewTicker(300 * time.Millisecond)
+	defer ticker.Stop()
+
+	logIndex := 0
+	flushLogs := func() {
+		logs := service.GetCertLogs()
+		for logIndex < len(logs) {
+			msg := logs[logIndex]
+			logIndex++
+			sendSSE("progress", map[string]interface{}{
+				"percent": certLogProgressPercent(msg, logIndex),
+				"message": msg,
+				"step":    logIndex,
+			})
+		}
+	}
+
+	for {
+		select {
+		case <-ticker.C:
+			flushLogs()
+		case err := <-errCh:
+			flushLogs()
+			if err != nil {
+				logger.Log.Error("证书申请失败", "error", err, "ip", getClientIP(r))
+				sendSSE("error", map[string]interface{}{
+					"message": "申请失败: " + err.Error(),
+				})
+				return
+			}
+
+			sendSSE("done", map[string]interface{}{
+				"percent": 100,
+				"message": "证书申请成功",
+				"domain":  domain,
+			})
+			return
+		}
+	}
+}
+
+func certLogProgressPercent(msg string, step int) int {
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "开始申请证书"):
+		return 5
+	case strings.Contains(lower, "注册 acme") || strings.Contains(lower, "账号注册"):
+		return 15
+	case strings.Contains(lower, "dns-01"):
+		return 35
+	case strings.Contains(lower, "检查 dns") || strings.Contains(lower, "等待 dns"):
+		return 55
+	case strings.Contains(lower, "验证成功") || strings.Contains(lower, "请求签发"):
+		return 75
+	case strings.Contains(lower, "下发证书"):
+		return 88
+	case strings.Contains(lower, "写入系统") || strings.Contains(lower, "热加载"):
+		return 95
+	case strings.Contains(lower, "申请 [") && strings.Contains(lower, "成功"):
+		return 100
+	default:
+		p := 8 + step*3
+		if p > 96 {
+			p = 96
+		}
+		return p
 	}
 }
 
@@ -189,21 +388,21 @@ func apiCFTunnelPrepare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 发送进度事�?
+	// 发送进度事件
 	sendSSE := func(eventType, data string) {
 		fmt.Fprintf(w, "event: %s\ndata: %s\n\n", eventType, data)
 		flusher.Flush()
 	}
 
-	sendSSE("progress", `{"percent": 0, "message": "开始下�?cloudflared..."}`)
+	sendSSE("progress", `{"percent": 0, "message": "开始下载 cloudflared..."}`)
 
 	err := service.DownloadCloudflared(func(downloaded, total int64, percent int) {
 		var msg string
 		if total > 0 {
-			msg = fmt.Sprintf("已下�?%.1f / %.1f MB (%d%%)",
+			msg = fmt.Sprintf("已下载 %.1f / %.1f MB (%d%%)",
 				float64(downloaded)/1024/1024, float64(total)/1024/1024, percent)
 		} else {
-			msg = fmt.Sprintf("已下�?%.1f MB", float64(downloaded)/1024/1024)
+			msg = fmt.Sprintf("已下载 %.1f MB", float64(downloaded)/1024/1024)
 		}
 		data, _ := json.Marshal(map[string]interface{}{
 			"percent":    percent,
@@ -259,7 +458,7 @@ func apiCFTunnelCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiCFTunnelDNS POST /api/cf/tunnel/dns
-// 绑定子域�?CNAME
+// 绑定子域名 CNAME
 func apiCFTunnelDNS(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -272,7 +471,7 @@ func apiCFTunnelDNS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 同步更新远程 Ingress 规则（Token 模式�?cloudflared 依赖此配置路由流量）
+	// 同步更新远程 Ingress 规则（Token 模式下 cloudflared 依赖此配置路由流量）
 	if err := service.ConfigureTunnelRemoteIngress(); err != nil {
 		logger.Log.Warn("更新远程 Ingress 规则失败（非致命）", "error", err, "ip", getClientIP(r))
 	}
@@ -369,32 +568,66 @@ func apiCFTunnelStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// apiCFTunnelLogs GET /api/cf/tunnel/logs
-func apiCFTunnelLogs(w http.ResponseWriter, r *http.Request) {
+// apiCFTunnelList GET /api/cf/tunnel/list
+// 按前缀查询 Tunnel 列表（默认 prefix=nodectl）
+func apiCFTunnelList(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	lines := 100
-	if l := r.URL.Query().Get("lines"); l != "" {
-		if n, err := strconv.Atoi(l); err == nil && n > 0 {
-			lines = n
-		}
+	prefix := strings.TrimSpace(r.URL.Query().Get("prefix"))
+	if prefix == "" {
+		prefix = "nodectl"
 	}
 
-	logs := service.GetCFTunnelLogs(lines)
+	items, err := service.ListCFTunnelsByPrefix(prefix)
+	if err != nil {
+		logger.Log.Warn("查询 Tunnel 列表失败", "error", err, "prefix", prefix, "ip", getClientIP(r))
+		sendJSON(w, "error", err.Error())
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "success",
-		"data":   logs,
+		"data":   items,
 	})
+}
+
+// apiCFTunnelDeleteByID POST /api/cf/tunnel/delete-by-id
+func apiCFTunnelDeleteByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		TunnelID string `json:"tunnel_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		sendJSON(w, "error", "请求格式错误")
+		return
+	}
+	req.TunnelID = strings.TrimSpace(req.TunnelID)
+	if req.TunnelID == "" {
+		sendJSON(w, "error", "tunnel_id 不能为空")
+		return
+	}
+
+	if err := service.DeleteCFTunnelByID(req.TunnelID); err != nil {
+		logger.Log.Warn("删除指定 Tunnel 失败", "error", err, "tunnel_id", req.TunnelID, "ip", getClientIP(r))
+		sendJSON(w, "error", err.Error())
+		return
+	}
+
+	sendJSON(w, "success", "Tunnel 已删除")
 }
 
 // ------------------- [辅助函数] -------------------
 
 // handlePanelURLWriteback [FIX-08] panel_url 智能回写
-// 仅当 panel_url 为空时自动填�?
+// 仅当 panel_url 为空时自动填写
 func handlePanelURLWriteback(r *http.Request) {
 	settings := service.GetCFTunnelSettings()
 	subdomain := settings.TunnelSubdomain
@@ -455,7 +688,7 @@ func apiCFTunnelDetect(w http.ResponseWriter, r *http.Request) {
 // ------------------- [懒人模式: 一键部署] -------------------
 
 // apiCFTunnelOneClick POST /api/cf/tunnel/oneclick
-// SSE 流式返回一键部署进�?
+// SSE 流式返回一键部署进度
 func apiCFTunnelOneClick(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)

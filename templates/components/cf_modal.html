@@ -41,7 +41,7 @@
     }
     .cft-title-area {
         display: flex;
-        flex-direction: column;
+        align-items: center;
     }
     .cft-title {
         font-size: 15px;
@@ -50,6 +50,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        margin: 0;
     }
     .cft-save-indicator {
         font-size: 12px;
@@ -93,9 +94,9 @@
 
     /* 左侧导航面板 */
     .cft-left-col {
-        width: 260px;
+        width: 320px;
         flex-shrink: 0;
-        padding: 20px 20px;
+        padding: 20px 25px;
         border-right: 1px solid transparent;
         transition: border-color 0.3s;
     }
@@ -104,12 +105,10 @@
     }
     .cft-section-label {
         display: block;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 600;
         color: #888;
         margin-bottom: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
     }
 
     /* 导航卡片 */
@@ -117,8 +116,8 @@
         border: 1px solid #e5e5ea;
         border-radius: 10px;
         background: #fff;
-        margin-bottom: 8px;
-        padding: 11px 14px;
+        margin-bottom: 10px;
+        padding: 12px 14px;
         user-select: none;
         cursor: pointer;
         transition: all 0.2s;
@@ -129,14 +128,12 @@
     .cft-nav-card:hover { border-color: #d1d1d6; background: #fafafa; }
     .cft-nav-card.active { border-color: #007aff; background: #f0f7ff; }
     .cft-nav-name {
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 600;
         color: #1d1d1f;
         transition: color 0.2s;
     }
     .cft-nav-card.active .cft-nav-name { color: #007aff; }
-    .cft-nav-desc { font-size: 10px; color: #999; margin-top: 2px; }
-    .cft-nav-card.active .cft-nav-desc { color: #5a9eff; }
     .cft-expand-indicator {
         color: #ccc;
         transition: all 0.2s;
@@ -175,7 +172,7 @@
     /* 右侧详情面板 */
     .cft-right-col {
         flex: 1;
-        padding: 20px 25px;
+        padding: 15px 20px;
         display: none;
         background: #fff;
     }
@@ -230,6 +227,21 @@
     .cft-hint a:hover { text-decoration: underline; }
     .cft-input-group { display: flex; gap: 8px; }
     .cft-input-group .cft-input { flex: 1; }
+    .cft-cert-domain-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    .cft-cert-domain-row .cft-input {
+        flex: 1 1 auto;
+        min-width: 220px;
+    }
+    .cft-cert-domain-row .cft-select {
+        flex: 0 0 auto;
+        min-width: 150px;
+        max-width: 55%;
+        width: 220px;
+    }
 
     /* 设置分组容器 */
     .cft-settings-group {
@@ -342,6 +354,25 @@
     .cft-message.error { display: block; background: #fff0ef; color: #ff3b30; border: 1px solid #ffc9c6; }
     .cft-message.info { display: block; background: #eef6ff; color: #007aff; border: 1px solid #b3d9ff; }
 
+    .cft-cert-status-card {
+        background: #f8f9fa;
+        border-radius: 10px;
+        border: 1px solid #e5e5ea;
+        padding: 10px 12px;
+    }
+    .cft-cert-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 6px 0;
+        font-size: 12px;
+        border-bottom: 1px dashed #e5e5ea;
+    }
+    .cft-cert-row:last-child { border-bottom: none; }
+    .cft-cert-val { font-weight: 600; color: #333; }
+    .cft-cert-val.secure { color: #16a34a; }
+    .cft-cert-val.warning { color: #d32f2f; }
+
     /* 权限表格 */
     .cft-perm-table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .cft-perm-table thead tr { background: #f5f5f7; }
@@ -403,10 +434,13 @@
         margin-bottom: 8px; background: #fafcff;
     }
     @media (max-width: 768px) {
-        .cft-modal-card { max-width: 98%; height: 90vh; }
+        .cft-modal-card { max-width: 95%; height: 90vh; }
         .cft-body { flex-direction: column; }
         .cft-left-col { width: 100%; border-right: none; padding: 12px 16px; border-bottom: 1px solid #f0f0f5; }
         .cft-right-col { display: none; }
+        .cft-cert-domain-row { flex-direction: column; align-items: stretch; }
+        .cft-cert-domain-row .cft-input,
+        .cft-cert-domain-row .cft-select { min-width: 0; max-width: 100%; width: 100%; }
         .cft-actions { flex-direction: column; }
         .cft-actions .cft-btn { width: 100%; }
     }
@@ -419,10 +453,10 @@
         <div class="cft-header">
             <div class="cft-title-area">
                 <div class="cft-title">☁️ Cloudflare 管理</div>
-                <div class="cft-save-indicator" id="cftSaveIndicator">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
-                    已保存
-                </div>
+            </div>
+            <div class="cft-save-indicator" id="cftSaveIndicator">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
+                已保存
             </div>
         </div>
 
@@ -435,7 +469,6 @@
                 <div class="cft-nav-card" data-cft-id="token" onclick="selectCftCategory('token', this)">
                     <div>
                         <div class="cft-nav-name">🔑 Token 管理</div>
-                        <div class="cft-nav-desc">验证/保存 API Token</div>
                     </div>
                     <div class="cft-expand-indicator"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
                 </div>
@@ -443,7 +476,13 @@
                 <div class="cft-nav-card" data-cft-id="tunnel" onclick="selectCftCategory('tunnel', this)">
                     <div>
                         <div class="cft-nav-name">⚙️ Tunnel 隧道</div>
-                        <div class="cft-nav-desc">配置/启停/一键部署</div>
+                    </div>
+                    <div class="cft-expand-indicator"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
+                </div>
+
+                <div class="cft-nav-card" data-cft-id="security" onclick="selectCftCategory('security', this)">
+                    <div>
+                        <div class="cft-nav-name">🔐 DNS 证书</div>
                     </div>
                     <div class="cft-expand-indicator"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></div>
                 </div>
@@ -451,6 +490,7 @@
 
             <!-- 右侧详情 -->
             <div class="cft-right-col cft-no-scrollbar" id="cftRightCol">
+                <label class="cft-section-label" id="cftRightTitle" style="display:none; margin-bottom: 14px;">设置详情</label>
 
                 <!-- ==================== Token 管理 ==================== -->
                 <div class="cft-form-section" id="cft-form-token" style="display:none;">
@@ -458,21 +498,13 @@
                         <label class="cft-label">CF API TOKEN <span style="color:#ff3b30">*</span></label>
                         <div class="cft-input-group">
                             <input type="password" id="cft-token-input" class="cft-input" placeholder="填入你的 Cloudflare API Token" autocomplete="new-password">
-                            <button class="cft-btn cft-btn-secondary" onclick="cftToggleTokenVisibility()" style="flex-shrink:0;">👁</button>
+                            <button class="cft-btn cft-btn-primary" onclick="cftVerifyToken()" id="cft-verify-btn" style="flex-shrink:0;">验证权限</button>
+                            <button class="cft-btn cft-btn-success" onclick="cftSaveToken()" id="cft-save-token-btn" style="flex-shrink:0;">保存Token</button>
                         </div>
                         <div class="cft-hint">
                             需要权限：Account → Tunnel:Edit，Zone → DNS:Edit &nbsp;
                             <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank">去创建 Token →</a>
                         </div>
-                    </div>
-
-                    <div class="cft-actions" style="gap:8px;">
-                        <button class="cft-btn cft-btn-primary" onclick="cftVerifyToken()" id="cft-verify-btn" style="flex:1;">
-                            🔍 验证权限
-                        </button>
-                        <button class="cft-btn cft-btn-success" onclick="cftSaveToken()" id="cft-save-token-btn" style="flex:1;">
-                            💾 保存 Token
-                        </button>
                     </div>
 
                     <!-- 上次校验时间提示 -->
@@ -488,10 +520,6 @@
                             <div class="cft-status-row">
                                 <span class="cft-status-label">状态</span>
                                 <span class="cft-status-value" id="cft-token-status">-</span>
-                            </div>
-                            <div class="cft-status-row">
-                                <span class="cft-status-label">名称</span>
-                                <span class="cft-status-value" id="cft-token-name">-</span>
                             </div>
                             <div class="cft-status-row">
                                 <span class="cft-status-label">账户</span>
@@ -524,20 +552,6 @@
                             </div>
                         </div>
 
-                        <div id="cft-token-summary" style="margin-top:12px; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:500;"></div>
-
-                        <div id="cft-token-fix-guide" style="display:none; margin-top:12px;">
-                            <div class="cft-desc" style="background:#fff8e1; border-color:#ffe082;">
-                                <div style="font-size:12px; font-weight:600; color:#f57c00; margin-bottom:4px;">📝 修复指南</div>
-                                <div style="font-size:11px; color:#795548; line-height:1.8;">
-                                    前往 <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:#007aff;">Cloudflare API Tokens</a> 编辑 Token，确保包含：
-                                    <br>• <code style="background:#f5f5f5; padding:1px 4px; border-radius:3px;">Account → Account → Read</code>
-                                    <br>• <code style="background:#f5f5f5; padding:1px 4px; border-radius:3px;">Zone → Zone → Read</code>
-                                    <br>• <code style="background:#f5f5f5; padding:1px 4px; border-radius:3px;">Zone → DNS → Edit</code>
-                                    <br>• <code style="background:#f5f5f5; padding:1px 4px; border-radius:3px;">Account → Cloudflare Tunnel → Edit</code>
-                                </div>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="cft-message" id="cft-token-msg"></div>
@@ -587,7 +601,7 @@
                     <div class="cft-actions" style="justify-content: flex-end; margin-bottom: 16px; margin-top: 0;">
                         <button class="cft-btn cft-btn-success" id="cft-start-btn" onclick="cftStart()">▶️ 启动</button>
                         <button class="cft-btn cft-btn-warning" id="cft-stop-btn" onclick="cftStop()" style="display:none;">⏹ 停止</button>
-                        <button class="cft-btn cft-btn-danger" onclick="cftDelete()">🗑️ 删除 Tunnel</button>
+                        <button class="cft-btn cft-btn-danger" id="cft-delete-btn" onclick="cftDelete()">🗑️ 删除 Tunnel</button>
                     </div>
                     <div class="cft-message" id="cft-tunnel-msg"></div>
 
@@ -595,42 +609,33 @@
                     <div id="cft-tunnel-exist-warning" style="display:none; margin-bottom:16px;">
                         <div style="padding:12px 14px; border-radius:8px; background:#fff8e1; color:#b45309; border:1px solid #fde68a; font-size:12px; line-height:1.6;">
                             <div style="font-weight:600; margin-bottom:4px;">⚠️ 已检测到有效 Tunnel，无需重复部署</div>
-                            <div>当前 Tunnel 已配置完成。如需重新部署，请先点击"删除 Tunnel"清理现有配置。</div>
+                            <div id="cft-tunnel-exist-warning-text">当前 Tunnel 已配置完成。如需重新部署，请先停止并删除 Tunnel。</div>
                         </div>
                     </div>
 
                     <!-- 一键部署区 -->
-                    <div class="cft-settings-group" id="cft-deploy-section">
-                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px; border-bottom:1px solid #e5eaf3; padding-bottom:8px;">
+                    <div id="cft-deploy-section" style="margin-bottom: 14px;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
                             <span style="font-size:18px;">🧙‍♂️</span>
                             <span style="font-size:13px; font-weight:600; color:#333;">一键部署</span>
-                            <span style="font-size:11px; color:#888;">自动下载 → 创建 → DNS → 启动</span>
                         </div>
                         
-                        <div class="cft-settings-grid" id="cft-quick-deploy-fields" style="display:none; grid-template-columns: 1fr 1fr 1fr;">
+                        <div class="cft-settings-grid" id="cft-quick-deploy-fields" style="display:grid; grid-template-columns: 1fr;">
                             <div class="cft-field">
-                                <label class="cft-label">域名</label>
-                                <select id="cft-quick-domain" class="cft-select">
-                                    <option value="">请先校验权限</option>
-                                </select>
-                            </div>
-                            <div class="cft-field">
-                                <label class="cft-label">子域名前缀</label>
-                                <input type="text" id="cft-quick-subdomain" class="cft-input" placeholder="例: panel" value="panel">
+                                <label class="cft-label">域名与前缀</label>
+                                <div class="cft-cert-domain-row">
+                                    <input type="text" id="cft-quick-subdomain" class="cft-input" placeholder="前缀（如 nodectl）" value="nodectl">
+                                    <select id="cft-quick-domain" class="cft-select">
+                                        <option value="">请先保存 Token</option>
+                                    </select>
+                                </div>
                                 <div class="cft-hint" id="cft-quick-subdomain-preview">暂无域名信息</div>
-                            </div>
-                            <div class="cft-field">
-                                <label class="cft-label">TUNNEL 名称</label>
-                                <input type="text" id="cft-quick-tunnel-name" class="cft-input" placeholder="默认: nodectl" value="nodectl">
                             </div>
                         </div>
 
-                        <div class="cft-field" style="display:flex; align-items:center; gap:8px; margin-top:12px;">
-                            <button class="cft-btn cft-btn-primary" onclick="cftVerifyAndLoadDomains()" id="cft-verify-perms-btn" style="flex:1; padding:10px; font-size:13px;">
-                                🔍 校验权限
-                            </button>
-                            <button class="cft-btn cft-btn-success" onclick="cftOneClickDeploy()" id="cft-oneclick-btn" style="flex:1; padding:10px; font-size:13px; display:none;">
-                                🚀 一键部署
+                        <div class="cft-field" style="display:flex; justify-content:flex-end; margin-top:12px;">
+                            <button class="cft-btn cft-btn-success" onclick="cftOneClickDeploy()" id="cft-oneclick-btn" style="padding:10px 20px; font-size:13px;">
+                                一键部署
                             </button>
                         </div>
 
@@ -654,6 +659,88 @@
                         
                         <div class="cft-message" id="cft-quick-msg"></div>
                     </div>
+
+                    <div style="border:1px solid #e5eaf3; border-radius:10px; overflow:hidden; margin-top:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#fafcff;">
+                            <div style="font-size:12px; font-weight:600; color:#333;">📚 nodectl Tunnel 列表</div>
+                            <button class="cft-btn cft-btn-secondary" type="button" onclick="event.stopPropagation(); cftQueryNodectlTunnels();" style="padding:6px 12px;">查询</button>
+                        </div>
+                        <div id="cft-tunnel-list-body" style="display:none; padding:10px 12px; background:#fff;">
+                            <div id="cft-tunnel-list-empty" style="font-size:12px; color:#888;">点击“查询”后显示名称以 nodectl 开头的 Tunnel。</div>
+                            <div id="cft-tunnel-list-wrap" style="display:none; border:1px solid #e5e5ea; border-radius:8px; overflow:hidden; margin-top:8px;">
+                                <table class="cft-perm-table">
+                                    <thead><tr>
+                                        <th>名称</th>
+                                        <th style="width:220px;">Tunnel ID</th>
+                                        <th style="width:120px;">状态</th>
+                                        <th style="width:170px;">创建时间</th>
+                                        <th class="center" style="width:90px;">操作</th>
+                                    </tr></thead>
+                                    <tbody id="cft-tunnel-list-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cft-form-section" id="cft-form-security" style="display:none;">
+                    <div class="cft-field">
+                        <label class="cft-label">当前证书状态</label>
+                        <div class="cft-cert-status-card">
+                            <div class="cft-cert-row"><span>访问协议</span><span class="cft-cert-val" id="cft-cert-proto">HTTP (不安全)</span></div>
+                            <div class="cft-cert-row"><span>绑定域名</span><span class="cft-cert-val" id="cft-cert-domain">--</span></div>
+                            <div class="cft-cert-row"><span>过期时间</span><span class="cft-cert-val" id="cft-cert-expire">--</span></div>
+                            <div class="cft-cert-row"><span>证书状态</span><span class="cft-cert-val" id="cft-cert-valid">加载中...</span></div>
+                        </div>
+                    </div>
+
+                    <div class="cft-field" style="display:flex; justify-content:space-between; align-items:center; border:1px solid #e5eaf3; background:#fafcff; border-radius:10px; padding:10px 12px; margin-bottom:12px;">
+                        <span style="font-size:12px; color:#333; font-weight:600;">启用证书（HTTPS）</span>
+                        <label class="cft-toggle-switch">
+                            <input type="checkbox" id="cft-cert-enabled" onchange="triggerCftSecurityAutoSave()">
+                            <span class="cft-toggle-slider"></span>
+                            <span class="cft-toggle-knob"></span>
+                        </label>
+                    </div>
+
+                    <div class="cft-field" style="display:flex; justify-content:space-between; align-items:center; border:1px solid #e5eaf3; background:#fafcff; border-radius:10px; padding:10px 12px;">
+                        <span style="font-size:12px; color:#333; font-weight:600;">自动续订（到期前 7 天）</span>
+                        <label class="cft-toggle-switch">
+                            <input type="checkbox" id="cft-cf-auto-renew" onchange="triggerCftSecurityAutoSave()">
+                            <span class="cft-toggle-slider"></span>
+                            <span class="cft-toggle-knob"></span>
+                        </label>
+                    </div>
+
+                    <div class="cft-field" style="margin-top:12px;">
+                        <label class="cft-label">证书绑定域名</label>
+                        <div class="cft-cert-domain-row">
+                            <input type="text" id="cft-cf-prefix" class="cft-input" placeholder="前缀（可选，如 nodectl）" oninput="triggerCftSecurityAutoSave()">
+                            <select id="cft-cf-domain" class="cft-select" onchange="triggerCftSecurityAutoSave()">
+                                <option value="">请先在 Token 管理中验证或保存 Token</option>
+                            </select>
+                        </div>
+                        <div class="cft-hint" id="cft-cert-domain-preview">最终域名：--</div>
+                    </div>
+
+                    <div class="cft-actions" style="justify-content:flex-end;">
+                        <button class="cft-btn cft-btn-primary" id="cft-apply-cert-btn" onclick="cftApplyCert()">申请证书</button>
+                        <button class="cft-btn cft-btn-success" id="cft-restart-btn" onclick="cftTriggerCoreRestart()" disabled>应用证书</button>
+                    </div>
+
+                    <div id="cft-cert-progress" style="display:none; margin-top:12px;">
+                        <div class="cft-progress" style="display:block;">
+                            <div class="cft-progress-bar" style="height:8px;">
+                                <div class="cft-progress-fill" id="cft-cert-fill" style="height:100%;"></div>
+                            </div>
+                        </div>
+                        <div id="cft-cert-steps" style="margin-top:10px; font-size:12px; line-height:2;"></div>
+                    </div>
+
+                    <div id="cft-cert-done" class="cft-deploy-done" style="display:none; padding:12px 0 0 0;">
+                        <div class="title" style="margin-top:0;">证书申请完成</div>
+                    </div>
+                    <div class="cft-message" id="cft-security-msg"></div>
                 </div>
 
             </div>
@@ -669,6 +756,7 @@
 // ============== Cloudflare 管理弹窗 ==============
 
 let cftAutoSaveTimer = null;
+let cftSecuritySaveTimer = null;
 
 function openCFTunnelModal() {
     const overlay = document.getElementById('cfTunnelModal');
@@ -678,6 +766,7 @@ function openCFTunnelModal() {
         selectCftCategory('token', firstCard);
     }
     cftLoadStatus();
+    cftLoadZonesFromTokenRecord();
 }
 
 function closeCFTunnelModal() {
@@ -704,14 +793,20 @@ function selectCftCategory(catId, cardElement) {
     }
 
     cardElement.classList.add('active');
+    const rightTitle = document.getElementById('cftRightTitle');
+    if (rightTitle) {
+        rightTitle.textContent = (cardElement.querySelector('.cft-nav-name')?.innerText || '').trim();
+        rightTitle.style.display = 'block';
+    }
     const formEl = document.getElementById('cft-form-' + catId);
 
     if (catId === 'token') {
-        cftLoadSavedToken();
         cftLoadLastVerifyRecord();
     } else if (catId === 'tunnel') {
         cftLoadSettings();
         cftLoadStatus();
+    } else if (catId === 'security') {
+        cftLoadSecuritySettings();
     }
 
     if (isMobile) {
@@ -734,11 +829,94 @@ function selectCftCategory(catId, cardElement) {
 // ============== 工具函数 ==============
 
 function cftShowMsg(elemId, type, msg) {
+    if (elemId === 'cft-token-msg' || elemId === 'cft-tunnel-msg') {
+        if (type === 'info') {
+            cftShowSaveIndicator('saving', msg || '处理中...');
+        } else if (type === 'success') {
+            cftShowSaveIndicator('success', msg || '操作成功');
+        } else {
+            cftShowSaveIndicator('error', msg || '操作失败');
+        }
+        return;
+    }
+
     const el = document.getElementById(elemId);
     if (!el) return;
     el.className = 'cft-message ' + type;
     el.textContent = msg;
     setTimeout(() => { el.className = 'cft-message'; el.textContent = ''; }, 8000);
+}
+
+function cftNormalizePrefix(prefix) {
+    return String(prefix || '').trim().replace(/^\.+|\.+$/g, '');
+}
+
+function cftBuildFullCertDomain() {
+    const prefixEl = document.getElementById('cft-cf-prefix');
+    const zoneEl = document.getElementById('cft-cf-domain');
+    const prefix = cftNormalizePrefix(prefixEl ? prefixEl.value : '');
+    const zone = (zoneEl ? zoneEl.value : '').trim();
+    if (!zone) return '';
+    return prefix ? `${prefix}.${zone}` : zone;
+}
+
+function cftUpdateCertDomainPreview() {
+    const previewEl = document.getElementById('cft-cert-domain-preview');
+    if (!previewEl) return;
+    const full = cftBuildFullCertDomain();
+    previewEl.textContent = '最终域名：' + (full || '--');
+}
+
+function cftSyncCertDomainFields(fullDomain) {
+    const zoneEl = document.getElementById('cft-cf-domain');
+    const prefixEl = document.getElementById('cft-cf-prefix');
+    if (!zoneEl || !prefixEl) return;
+
+    const selectedZone = (zoneEl.value || '').trim();
+    const full = String(fullDomain || '').trim();
+
+    if (!full || !selectedZone) {
+        prefixEl.value = '';
+        cftUpdateCertDomainPreview();
+        return;
+    }
+
+    if (full === selectedZone) {
+        prefixEl.value = '';
+        cftUpdateCertDomainPreview();
+        return;
+    }
+
+    const suffix = '.' + selectedZone;
+    if (full.endsWith(suffix)) {
+        prefixEl.value = full.slice(0, -suffix.length);
+    } else {
+        prefixEl.value = '';
+    }
+    cftUpdateCertDomainPreview();
+}
+
+function cftShowSaveIndicator(type, text) {
+    const indicator = document.getElementById('cftSaveIndicator');
+    if (!indicator) return;
+
+    if (type === 'saving') {
+        indicator.innerHTML = '<span style="color:#888;">' + (text || '保存中...') + '</span>';
+        indicator.style.opacity = '1';
+        return;
+    }
+
+    if (type === 'error') {
+        indicator.innerHTML = '<span style="color:#ff3b30;">' + (text || '保存失败') + '</span>';
+        indicator.style.opacity = '1';
+        setTimeout(() => { indicator.style.opacity = '0'; }, 1800);
+        return;
+    }
+
+    indicator.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg> ' + (text || '已保存');
+    indicator.style.color = '#34c759';
+    indicator.style.opacity = '1';
+    setTimeout(() => { indicator.style.opacity = '0'; }, 1800);
 }
 
 // ============== 静默自动保存 (like system_settings_modal) ==============
@@ -747,9 +925,7 @@ function triggerCftAutoSave() {
     if (!document.getElementById('cfTunnelModal').classList.contains('active')) return;
 
     clearTimeout(cftAutoSaveTimer);
-    const indicator = document.getElementById('cftSaveIndicator');
-    indicator.innerHTML = '<span style="color:#888;">保存中...</span>';
-    indicator.style.opacity = '1';
+    cftShowSaveIndicator('saving', '保存中...');
 
     cftAutoSaveTimer = setTimeout(async () => {
         const payload = {
@@ -763,14 +939,12 @@ function triggerCftAutoSave() {
                 body: JSON.stringify(payload),
             });
             if (resp.ok) {
-                indicator.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg> 已保存';
-                indicator.style.color = '#34c759';
-                setTimeout(() => indicator.style.opacity = '0', 2000);
+                cftShowSaveIndicator('success', '已保存');
             } else {
-                indicator.innerHTML = '<span style="color:#ff3b30;">保存失败</span>';
+                cftShowSaveIndicator('error', '保存失败');
             }
         } catch (e) {
-            indicator.innerHTML = '<span style="color:#ff3b30;">保存失败</span>';
+            cftShowSaveIndicator('error', '保存失败');
         }
     }, 600);
 }
@@ -785,9 +959,226 @@ async function cftLoadSettings() {
             const d = json.data;
             const enabledCb = document.getElementById('cft-enabled');
             if (enabledCb) enabledCb.checked = (d.cf_tunnel_enabled === 'true');
+
+            const tokenInput = document.getElementById('cft-token-input');
+            if (tokenInput) {
+                tokenInput.value = d.cf_api_key_masked || '';
+            }
         }
     } catch (e) {
         console.error('加载 CF 配置失败', e);
+    }
+}
+
+async function cftLoadSecuritySettings() {
+    try {
+        const resp = await fetch('/api/cf/cert/settings');
+        const json = await resp.json();
+        if (json.status !== 'success') return;
+
+        const d = json.data || {};
+        const certInfo = json.cert_info || {};
+        const zones = Array.isArray(json.available_zones) ? json.available_zones : [];
+
+        document.getElementById('cft-cert-enabled').checked = (d.cf_cert_enabled === 'true');
+        document.getElementById('cft-cf-auto-renew').checked = (d.cf_auto_renew !== 'false');
+        cftSyncDomainSelect(zones, d.cf_domain || '');
+        cftSyncCertDomainFields(d.cf_domain || certInfo.domain || '');
+
+        cftRenderCertState(certInfo);
+    } catch (e) {
+        console.error('加载安全配置失败', e);
+    }
+}
+
+function cftRenderCertState(certInfo) {
+    const protoEl = document.getElementById('cft-cert-proto');
+    const domainEl = document.getElementById('cft-cert-domain');
+    const expireEl = document.getElementById('cft-cert-expire');
+    const validEl = document.getElementById('cft-cert-valid');
+    const restartBtn = document.getElementById('cft-restart-btn');
+
+    const isHttps = window.location.protocol === 'https:';
+    protoEl.textContent = isHttps ? 'HTTPS (安全)' : 'HTTP (不安全)';
+    protoEl.className = 'cft-cert-val ' + (isHttps ? 'secure' : 'warning');
+
+    if (certInfo && certInfo.valid) {
+        domainEl.textContent = certInfo.domain || '--';
+        expireEl.textContent = certInfo.expire || '--';
+        validEl.textContent = '✅ 有效';
+        validEl.className = 'cft-cert-val secure';
+        restartBtn.disabled = false;
+    } else {
+        domainEl.textContent = '--';
+        expireEl.textContent = '--';
+        validEl.textContent = '❌ 无效或未配置';
+        validEl.className = 'cft-cert-val warning';
+        restartBtn.disabled = true;
+    }
+}
+
+function triggerCftSecurityAutoSave() {
+    if (!document.getElementById('cfTunnelModal').classList.contains('active')) return;
+    clearTimeout(cftSecuritySaveTimer);
+
+    cftShowSaveIndicator('saving', '保存中...');
+
+    cftSecuritySaveTimer = setTimeout(async () => {
+        const payload = {
+            cf_cert_enabled: document.getElementById('cft-cert-enabled').checked ? 'true' : 'false',
+            cf_auto_renew: document.getElementById('cft-cf-auto-renew').checked ? 'true' : 'false',
+            cf_domain: cftBuildFullCertDomain(),
+        };
+
+        try {
+            const resp = await fetch('/api/cf/cert/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const json = await resp.json();
+            if (resp.ok && json.status === 'success') {
+                cftShowSaveIndicator('success', '已保存');
+            } else {
+                cftShowSaveIndicator('error', json.message || '保存失败');
+                await cftLoadSecuritySettings();
+            }
+        } catch (e) {
+            cftShowSaveIndicator('error', '保存失败');
+            await cftLoadSecuritySettings();
+        }
+    }, 600);
+}
+
+async function cftApplyCert() {
+    const domain = cftBuildFullCertDomain();
+    if (!domain) {
+        cftShowMsg('cft-security-msg', 'error', '请选择证书绑定域名');
+        return;
+    }
+    if (!confirm(`确认使用域名 ${domain} 申请证书吗？`)) return;
+
+    const btn = document.getElementById('cft-apply-cert-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ 处理中...';
+
+    const progressDiv = document.getElementById('cft-cert-progress');
+    const stepsDiv = document.getElementById('cft-cert-steps');
+    const fillDiv = document.getElementById('cft-cert-fill');
+    const doneDiv = document.getElementById('cft-cert-done');
+    progressDiv.style.display = 'block';
+    doneDiv.style.display = 'none';
+    stepsDiv.innerHTML = '';
+    fillDiv.style.width = '0%';
+
+    const completedSteps = {};
+
+    const normalizeCertLogMsg = (raw) => {
+        let msg = String(raw || '').trim();
+        msg = msg.replace(/^\d{4}\/\d{2}\/\d{2}\s+\d{2}:\d{2}:\d{2}\s*/, '');
+        while (/^\[(INFO|DEBUG|WARN|ERROR)\]\s*/i.test(msg)) {
+            msg = msg.replace(/^\[(INFO|DEBUG|WARN|ERROR)\]\s*/i, '');
+        }
+        return msg.trim();
+    };
+
+    try {
+        const resp = await fetch('/api/cf/cert/apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ domain }),
+        });
+
+        const ct = (resp.headers.get('content-type') || '').toLowerCase();
+        if (!ct.includes('text/event-stream')) {
+            const json = await resp.json();
+            cftShowMsg('cft-security-msg', json.status === 'success' ? 'success' : 'error', json.message || (json.status === 'success' ? '操作成功' : '申请失败'));
+            return;
+        }
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            let eventType = '';
+            for (const line of lines) {
+                if (line.startsWith('event: ')) {
+                    eventType = line.slice(7).trim();
+                } else if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (eventType === 'progress') {
+                            const pct = Math.max(0, Math.min(100, Number(data.percent || 0)));
+                            fillDiv.style.width = pct + '%';
+                            const prettyMsg = normalizeCertLogMsg(data.message || '处理中...');
+
+                            const stepKey = 'step-' + (data.step || (stepsDiv.children.length + 1));
+                            if (!completedSteps[stepKey]) {
+                                completedSteps[stepKey] = document.createElement('div');
+                                stepsDiv.appendChild(completedSteps[stepKey]);
+                            }
+                            completedSteps[stepKey].innerHTML = '<span style="color:#007aff">' + prettyMsg + '</span>';
+                        } else if (eventType === 'done') {
+                            fillDiv.style.width = '100%';
+                            doneDiv.style.display = 'block';
+                            cftShowMsg('cft-security-msg', 'success', data.message || '证书申请成功，请点击应用证书。');
+                            await cftLoadSecuritySettings();
+                        } else if (eventType === 'error') {
+                            cftShowMsg('cft-security-msg', 'error', data.message || '证书申请失败');
+                            const errDiv = document.createElement('div');
+                            errDiv.innerHTML = '<span style="color:#ff3b30">❌ ' + (data.message || '失败') + '</span>';
+                            stepsDiv.appendChild(errDiv);
+                        }
+                    } catch (e) {}
+                }
+            }
+        }
+    } catch (e) {
+        cftShowMsg('cft-security-msg', 'error', '请求失败: ' + e.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '申请证书';
+    }
+}
+
+async function cftTriggerCoreRestart() {
+    if (!confirm('确定要重启系统核心吗？')) return;
+    try {
+        const enableResp = await fetch('/api/cf/cert/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cf_cert_enabled: 'true' }),
+        });
+        const enableJson = await enableResp.json();
+        if (!(enableResp.ok && enableJson.status === 'success')) {
+            cftShowMsg('cft-security-msg', 'error', enableJson.message || '启用证书失败');
+            await cftLoadSecuritySettings();
+            return;
+        }
+        const certEnabledEl = document.getElementById('cft-cert-enabled');
+        if (certEnabledEl) certEnabledEl.checked = true;
+
+        const res = await fetch('/api/restart', { method: 'POST' });
+        const json = await res.json();
+        const sysForceHttpEl = document.getElementById('sys_force_http');
+        const isForceHttp = sysForceHttpEl ? sysForceHttpEl.checked : false;
+        document.body.innerHTML = `<div style="display:flex;height:100vh;align-items:center;justify-content:center;flex-direction:column;background:#f5f5f7;"><div style="font-size:40px;">🔄</div><h2 style="color:#333;">${json.message || '系统核心正在重启...'}</h2></div>`;
+        setTimeout(() => {
+            if (window.location.protocol === 'http:' && !isForceHttp) {
+                window.location.href = window.location.href.replace('http:', 'https:');
+            } else {
+                window.location.reload();
+            }
+        }, 2000);
+    } catch (e) {
+        cftShowMsg('cft-security-msg', 'error', '重启请求失败');
     }
 }
 
@@ -803,16 +1194,22 @@ async function cftLoadStatus() {
             const indicator = document.getElementById('cft-status-indicator');
             const startBtn = document.getElementById('cft-start-btn');
             const stopBtn = document.getElementById('cft-stop-btn');
+            const deleteBtn = document.getElementById('cft-delete-btn');
+            const existWarningText = document.getElementById('cft-tunnel-exist-warning-text');
             
             if (indicator) {
                 if (d.running) {
                     indicator.innerHTML = '<span class="cft-status-dot running"></span> 运行中';
                     if (startBtn) startBtn.style.display = 'none';
                     if (stopBtn) stopBtn.style.display = 'inline-flex';
+                    if (deleteBtn) deleteBtn.style.display = 'none';
+                    if (existWarningText) existWarningText.textContent = '当前 Tunnel 正在运行，请先停止后再删除 Tunnel。';
                 } else {
                     indicator.innerHTML = '<span class="cft-status-dot stopped"></span> 已停止';
                     if (startBtn) startBtn.style.display = 'inline-flex';
                     if (stopBtn) stopBtn.style.display = 'none';
+                    if (deleteBtn) deleteBtn.style.display = 'inline-flex';
+                    if (existWarningText) existWarningText.textContent = '当前 Tunnel 已配置完成。如需重新部署，请先删除 Tunnel 清理现有配置。';
                 }
             }
 
@@ -857,24 +1254,62 @@ async function cftLoadStatus() {
 
 // ============== Token 管理 ==============
 
-function cftToggleTokenVisibility() {
-    const input = document.getElementById('cft-token-input');
-    if (input) input.type = input.type === 'password' ? 'text' : 'password';
-}
+function cftSyncDomainSelect(zones, selected) {
+    const zoneList = Array.isArray(zones) ? zones.filter(Boolean) : [];
 
-async function cftLoadSavedToken() {
-    try {
-        const resp = await fetch('/api/cf/tunnel/settings');
-        const json = await resp.json();
-        if (json.status === 'success' && json.data) {
-            if (json.data.has_cf_key) {
-                document.getElementById('cft-token-input').placeholder = '●●●●●●●● (Token 已配置，输入新值可覆盖)';
-            }
+    const quickSelect = document.getElementById('cft-quick-domain');
+    if (quickSelect) {
+        quickSelect.innerHTML = '';
+        if (zoneList.length > 0) {
+            zoneList.forEach((zone) => {
+                const opt = document.createElement('option');
+                opt.value = zone;
+                opt.textContent = zone;
+                quickSelect.appendChild(opt);
+            });
+        } else {
+            quickSelect.innerHTML = '<option value="">未找到已授权域名</option>';
         }
-    } catch (e) {}
+        cftUpdateSubdomainPreview();
+        cftAutoSizeQuickDomainSelect();
+    }
+
+    const certSelect = document.getElementById('cft-cf-domain');
+    if (certSelect) {
+        certSelect.innerHTML = '';
+        if (zoneList.length > 0) {
+            zoneList.forEach(zone => {
+                const opt = document.createElement('option');
+                opt.value = zone;
+                opt.textContent = zone;
+                certSelect.appendChild(opt);
+            });
+
+            const target = selected && zoneList.includes(selected) ? selected : zoneList[0];
+            certSelect.value = target;
+        } else if (selected) {
+            certSelect.innerHTML = `<option value="${selected}">${selected}</option>`;
+            certSelect.value = selected;
+        } else {
+            certSelect.innerHTML = '<option value="">请先在 Token 管理中验证或保存 Token</option>';
+        }
+
+        cftUpdateCertDomainPreview();
+    }
 }
 
 // ============== 加载历史校验记录 ==============
+
+async function cftLoadZonesFromTokenRecord() {
+    try {
+        const resp = await fetch('/api/cf/token/last-verify');
+        const json = await resp.json();
+        const zones = json?.data?.result?.zones;
+        if (Array.isArray(zones)) {
+            cftSyncDomainSelect(zones, document.getElementById('cft-cf-domain')?.value || '');
+        }
+    } catch (e) {}
+}
 
 async function cftLoadLastVerifyRecord() {
     try {
@@ -898,8 +1333,7 @@ async function cftLoadLastVerifyRecord() {
                         timeEl.textContent = '🕐 上次校验: ' + record.verify_at;
                     }
                     if (summaryEl) {
-                        summaryEl.textContent = record.result.all_required ? '✅ 权限完整' : '⚠️ 权限不足';
-                        summaryEl.style.color = record.result.all_required ? '#34c759' : '#ff9500';
+                        summaryEl.textContent = '';
                     }
                 }
             }
@@ -925,18 +1359,93 @@ function cftUpdateDeploySection(tunnelID, credentialsExist) {
     }
 }
 
-async function cftVerifyToken() {
-    const btn = document.getElementById('cft-verify-btn');
-    btn.disabled = true;
-    btn.textContent = '🔄 验证中...';
-    cftShowMsg('cft-token-msg', 'info', '正在验证已保存的 Token 权限...');
+async function cftQueryNodectlTunnels() {
+    const emptyEl = document.getElementById('cft-tunnel-list-empty');
+    const wrapEl = document.getElementById('cft-tunnel-list-wrap');
+    const tbody = document.getElementById('cft-tunnel-list-tbody');
+    const body = document.getElementById('cft-tunnel-list-body');
+    if (!emptyEl || !wrapEl || !tbody || !body) return;
+
+    body.style.display = 'block';
+    emptyEl.style.display = 'block';
+    emptyEl.textContent = '查询中...';
+    wrapEl.style.display = 'none';
+    tbody.innerHTML = '';
 
     try {
-        // 始终使用数据库中保存的 Token，不从前端输入框读取（防止浏览器自动填充干扰）
+        const res = await fetch('/api/cf/tunnel/list?prefix=nodectl');
+        const json = await res.json();
+        if (json.status !== 'success') {
+            emptyEl.textContent = json.message || '查询失败';
+            return;
+        }
+
+        const list = Array.isArray(json.data) ? json.data : [];
+        if (list.length === 0) {
+            emptyEl.textContent = '未找到 nodectl 前缀 Tunnel';
+            return;
+        }
+
+        tbody.innerHTML = list.map(item => {
+            const id = String(item.id || '');
+            const name = String(item.name || '-');
+            const status = String(item.status || '-');
+            const created = String(item.created_at || '-');
+            return `
+                <tr>
+                    <td>${name}</td>
+                    <td style="font-size:10px; word-break:break-all;">${id}</td>
+                    <td>${status}</td>
+                    <td style="font-size:11px;">${created}</td>
+                    <td class="center"><button class="cft-btn cft-btn-danger" style="padding:4px 8px;" onclick="cftDeleteTunnelByID('${id}', '${name.replace(/'/g, "\\'")}')">删除</button></td>
+                </tr>
+            `;
+        }).join('');
+
+        emptyEl.style.display = 'none';
+        wrapEl.style.display = 'block';
+    } catch (e) {
+        emptyEl.textContent = '请求失败';
+    }
+}
+
+async function cftDeleteTunnelByID(tunnelID, tunnelName) {
+    if (!tunnelID) return;
+    if (!confirm(`确认删除 Tunnel：${tunnelName || tunnelID}？`)) return;
+
+    try {
+        const res = await fetch('/api/cf/tunnel/delete-by-id', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tunnel_id: tunnelID }),
+        });
+        const json = await res.json();
+        if (json.status === 'success') {
+            cftShowSaveIndicator('success', 'Tunnel 已删除');
+            cftQueryNodectlTunnels();
+            cftLoadStatus();
+            cftLoadSettings();
+        } else {
+            cftShowSaveIndicator('error', json.message || '删除失败');
+        }
+    } catch (e) {
+        cftShowSaveIndicator('error', '请求失败');
+    }
+}
+
+async function cftVerifyToken() {
+    const rawToken = document.getElementById('cft-token-input').value.trim();
+    const token = cftIsMaskedTokenValue(rawToken) ? '' : rawToken;
+    const btn = document.getElementById('cft-verify-btn');
+    btn.disabled = true;
+    btn.textContent = '验证中...';
+    cftShowMsg('cft-token-msg', 'info', '正在验证...');
+
+    try {
         const resp = await fetch('/api/cf/token/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: '' }),
+            body: JSON.stringify({ token }),
         });
         const json = await resp.json();
         if (json.status === 'success' && json.data) {
@@ -951,17 +1460,22 @@ async function cftVerifyToken() {
         cftShowMsg('cft-token-msg', 'error', '请求失败: ' + e.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = '🔍 验证权限';
+        btn.textContent = '验证权限';
     }
 }
 
 async function cftSaveToken() {
-    const token = document.getElementById('cft-token-input').value.trim();
-    if (!token) { cftShowMsg('cft-token-msg', 'error', '请先填写 Token'); return; }
+    const rawToken = document.getElementById('cft-token-input').value.trim();
+    const token = cftIsMaskedTokenValue(rawToken) ? '' : rawToken;
+    if (!token) {
+        cftShowMsg('cft-token-msg', 'error', cftIsMaskedTokenValue(rawToken) ? '当前为已保存 Token 占位符，请输入新 Token 后再保存' : '请先填写 Token');
+        return;
+    }
 
     const btn = document.getElementById('cft-save-token-btn');
     btn.disabled = true;
-    btn.textContent = '⏳ 保存中...';
+    btn.textContent = '保存中...';
+    cftShowSaveIndicator('saving', '正在验证...');
 
     try {
         const resp = await fetch('/api/cf/token/save', {
@@ -972,17 +1486,27 @@ async function cftSaveToken() {
         const json = await resp.json();
         if (json.status === 'success') {
             cftShowMsg('cft-token-msg', 'success', '✅ Token 已保存');
+            cftShowSaveIndicator('success', 'Token 已保存');
             if (json.data) cftRenderTokenResult(json.data);
             cftLoadSettings();
+            cftLoadSecuritySettings();
+            document.getElementById('cft-token-input').value = '';
         } else {
             cftShowMsg('cft-token-msg', 'error', json.message || '保存失败');
+            cftShowSaveIndicator('error', 'Token 保存失败');
         }
     } catch (e) {
         cftShowMsg('cft-token-msg', 'error', '请求失败: ' + e.message);
+        cftShowSaveIndicator('error', 'Token 保存失败');
     } finally {
         btn.disabled = false;
-        btn.textContent = '💾 保存 Token';
+        btn.textContent = '保存Token';
     }
+}
+
+function cftIsMaskedTokenValue(value) {
+    const v = String(value || '').trim();
+    return v.length > 0 && /^\*+$/.test(v);
 }
 
 function cftRenderTokenResult(data) {
@@ -997,7 +1521,6 @@ function cftRenderTokenResult(data) {
         statusEl.innerHTML = '<span style="color:#ff3b30">❌ 无效</span>';
     }
 
-    document.getElementById('cft-token-name').textContent = data.token_name || '-';
     document.getElementById('cft-token-account').textContent = data.account_name || '-';
     document.getElementById('cft-token-accountid').textContent = data.account_id || '-';
     document.getElementById('cft-token-zones').textContent = data.zones && data.zones.length > 0 ? data.zones.join(', ') : '无';
@@ -1023,33 +1546,7 @@ function cftRenderTokenResult(data) {
         });
     }
 
-    const summaryEl = document.getElementById('cft-token-summary');
-    if (data.all_required) {
-        summaryEl.style.cssText = 'margin-top:12px; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:500; background:#eafff1; color:#34c759; border:1px solid #b8f0c8;';
-        summaryEl.textContent = data.summary || '✅ 所有必需权限已满足';
-    } else {
-        summaryEl.style.cssText = 'margin-top:12px; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:500; background:#fff0ef; color:#ff3b30; border:1px solid #ffc9c6;';
-        summaryEl.textContent = data.summary || '⚠️ 缺少必需权限';
-    }
-    document.getElementById('cft-token-fix-guide').style.display = data.all_required ? 'none' : 'block';
-
-    // Auto-populate One-Click deploy domains
-    const select = document.getElementById('cft-quick-domain');
-    if (select) {
-        select.innerHTML = '';
-        if (data.zones && data.zones.length > 0) {
-            data.zones.forEach((zone, i) => {
-                const opt = document.createElement('option');
-                opt.value = zone;
-                opt.textContent = zone + (i === 0 ? ' (推荐)' : '');
-                select.appendChild(opt);
-            });
-            cftUpdateSubdomainPreview();
-        } else {
-            select.innerHTML = '<option value="">未找到已授权域名</option>';
-            document.getElementById('cft-quick-subdomain-preview').textContent = '未找到已授权域名';
-        }
-    }
+    cftSyncDomainSelect(data.zones || [], document.getElementById('cft-cf-domain')?.value || '');
 }
 
 // ============== Tunnel 操作 ==============
@@ -1113,62 +1610,28 @@ closeCFTunnelModal = function() {
 
 // ============== 一键部署 ==============
 
-async function cftVerifyAndLoadDomains() {
-    const btn = document.getElementById('cft-verify-perms-btn');
-    btn.disabled = true;
-    btn.textContent = '🔄 校验中...';
-    cftShowMsg('cft-quick-msg', 'info', '正在连接 Cloudflare API 检查权限...');
-
-    try {
-        const resp = await fetch('/api/cf/tunnel/detect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token: '' }),
-        });
-        const json = await resp.json();
-
-        if (json.status === 'success' && json.data) {
-            const d = json.data;
-
-            if (!d.has_tunnel_permission || !d.has_dns_permission) {
-                const warns = d.permission_warnings && d.permission_warnings.length > 0
-                    ? '<br>' + d.permission_warnings.join('<br>') : '';
-                cftShowMsg('cft-quick-msg', 'error', '⚠️ 当前 Token 权限不足，请在 Token 管理中修复。' + warns);
-                btn.disabled = false;
-                btn.textContent = '🔍 校验权限';
-                return;
-            }
-
-            const select = document.getElementById('cft-quick-domain');
-            if (select) select.innerHTML = '';
-            if (d.zones && d.zones.length > 0) {
-                d.zones.forEach((zone, i) => {
-                    const opt = document.createElement('option');
-                    opt.value = zone;
-                    opt.textContent = zone + (i === 0 ? ' (推荐)' : '');
-                    select.appendChild(opt);
-                });
-                cftUpdateSubdomainPreview();
-            } else {
-                if (select) select.innerHTML = '<option value="">未找到已授权域名</option>';
-            }
-
-            // 校验成功，隐藏校验按钮，显示一键部署组件
-            btn.style.display = 'none';
-            document.getElementById('cft-oneclick-btn').style.display = 'flex';
-            document.getElementById('cft-quick-deploy-fields').style.display = 'grid';
-            
-            cftShowMsg('cft-quick-msg', 'success', '✅ 权限校验通过，请配置域名参数');
-        } else {
-            cftShowMsg('cft-quick-msg', 'error', json.message || '检测失败，请先配置并保存 Token');
-            btn.disabled = false;
-            btn.textContent = '🔍 校验权限';
-        }
-    } catch (e) {
-        cftShowMsg('cft-quick-msg', 'error', '请求失败: ' + e.message);
-        btn.disabled = false;
-        btn.textContent = '🔍 校验权限';
+function cftAutoSizeCertDomainSelect() {
+    const sel = document.getElementById('cft-cf-domain');
+    if (!sel) return;
+    if (window.innerWidth <= 768) {
+        sel.style.width = '100%';
+        return;
     }
+    const text = (sel.options[sel.selectedIndex]?.text || sel.value || '根域名').trim();
+    const est = Math.max(150, Math.min(420, text.length * 12 + 56));
+    sel.style.width = est + 'px';
+}
+
+function cftAutoSizeQuickDomainSelect() {
+    const sel = document.getElementById('cft-quick-domain');
+    if (!sel) return;
+    if (window.innerWidth <= 768) {
+        sel.style.width = '100%';
+        return;
+    }
+    const text = (sel.options[sel.selectedIndex]?.text || sel.value || '根域名').trim();
+    const est = Math.max(150, Math.min(420, text.length * 12 + 56));
+    sel.style.width = est + 'px';
 }
 
 function cftUpdateSubdomainPreview() {
@@ -1182,21 +1645,41 @@ function cftUpdateSubdomainPreview() {
         document.getElementById('cft-quick-subdomain-preview').textContent =
             '最终地址: https://' + prefix + '.' + domain;
     }
+    cftAutoSizeQuickDomainSelect();
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     const subInput = document.getElementById('cft-quick-subdomain');
     const domSelect = document.getElementById('cft-quick-domain');
+    const certPrefix = document.getElementById('cft-cf-prefix');
+    const certDomainSelect = document.getElementById('cft-cf-domain');
     if (subInput) subInput.addEventListener('input', cftUpdateSubdomainPreview);
-    if (domSelect) domSelect.addEventListener('change', cftUpdateSubdomainPreview);
+    if (domSelect) domSelect.addEventListener('change', () => {
+        cftUpdateSubdomainPreview();
+        cftAutoSizeQuickDomainSelect();
+    });
+    if (certPrefix) certPrefix.addEventListener('input', cftUpdateCertDomainPreview);
+    if (certDomainSelect) certDomainSelect.addEventListener('change', () => {
+        cftSyncCertDomainFields(cftBuildFullCertDomain());
+        cftAutoSizeCertDomainSelect();
+    });
+    cftUpdateCertDomainPreview();
+    cftAutoSizeCertDomainSelect();
+    cftAutoSizeQuickDomainSelect();
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    const indicator = document.getElementById('cftSaveIndicator');
+    if (indicator) indicator.style.opacity = '0';
 });
 
 async function cftOneClickDeploy() {
     const subdomain = document.getElementById('cft-quick-subdomain').value.trim() || 'panel';
     const domain = document.getElementById('cft-quick-domain').value;
-    const tunnelName = document.getElementById('cft-quick-tunnel-name').value.trim() || 'nodectl';
+    const suffix = Math.floor(1000 + Math.random() * 9000);
+    const tunnelName = `nodectl-${suffix}`;
 
-    if (!domain) { cftShowMsg('cft-quick-msg', 'error', '请先在 Token 管理中验证权限以获取域名'); return; }
+    if (!domain) { cftShowMsg('cft-quick-msg', 'error', '请选择根域名'); return; }
 
     const btn = document.getElementById('cft-oneclick-btn');
     btn.disabled = true;
@@ -1272,7 +1755,7 @@ async function cftOneClickDeploy() {
         cftShowMsg('cft-quick-msg', 'error', '请求失败: ' + e.message);
     } finally {
         btn.disabled = false;
-        btn.textContent = '🚀 一键部署';
+        btn.textContent = '一键部署';
     }
 }
 </script>

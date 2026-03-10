@@ -273,11 +273,8 @@ func Start(tmplFS embed.FS) {
 	mux.HandleFunc("/api/delete-node", withAuthAndSecure(apiDeleteNode))
 	mux.HandleFunc("/api/reorder-nodes", withAuthAndSecure(apiReorderNodes))
 
-	// 证书与重启 (关键接口)
-	mux.HandleFunc("/api/save-cert", withAuthAndSecure(apiSaveCert))    // 手动上传证书
-	mux.HandleFunc("/api/apply-cert", withAuthAndSecure(apiApplyCert))  // 申请证书
-	mux.HandleFunc("/api/cert-logs", withAuthAndSecure(apiGetCertLogs)) // 拉取实时申请日志
-	mux.HandleFunc("/api/restart", withAuthAndSecure(apiRestartCore))   // 热重启核心
+	// 重启 (关键接口)
+	mux.HandleFunc("/api/restart", withAuthAndSecure(apiRestartCore)) // 热重启核心
 
 	// Clash 与规则管理
 	mux.HandleFunc("/api/clash/settings", withAuthAndSecure(apiGetClashSettings))
@@ -346,6 +343,8 @@ func Start(tmplFS embed.FS) {
 	mux.HandleFunc("/api/cf/token/verify", withAuthAndSecure(apiCFTokenVerify))                 // Token 权限验证
 	mux.HandleFunc("/api/cf/token/save", withAuthAndSecure(apiCFTokenSave))                     // Token 保存
 	mux.HandleFunc("/api/cf/token/last-verify", withAuthAndSecure(apiCFGetLastTokenVerify))     // 最近一次校验记录
+	mux.HandleFunc("/api/cf/cert/settings", withAuthAndSecure(apiCFCertSettings))               // 读取/保存安全配置
+	mux.HandleFunc("/api/cf/cert/apply", withAuthAndSecure(apiCFCertApply))                     // 申请证书
 	mux.HandleFunc("/api/cf/tunnel/test", withAuthAndSecure(apiCFTunnelTest))                   // 测试 CF 凭据
 	mux.HandleFunc("/api/cf/tunnel/settings", withAuthAndSecure(apiCFTunnelSettings))           // 读取/保存 Tunnel 配置
 	mux.HandleFunc("/api/cf/tunnel/cloudflared/prepare", withAuthAndSecure(apiCFTunnelPrepare)) // 下载 cloudflared (SSE)
@@ -356,7 +355,8 @@ func Start(tmplFS embed.FS) {
 	mux.HandleFunc("/api/cf/tunnel/run", withAuthAndSecure(apiCFTunnelRun))                     // 启动 Tunnel
 	mux.HandleFunc("/api/cf/tunnel/stop", withAuthAndSecure(apiCFTunnelStop))                   // 停止 Tunnel
 	mux.HandleFunc("/api/cf/tunnel/status", withAuthAndSecure(apiCFTunnelStatus))               // 读取状态
-	mux.HandleFunc("/api/cf/tunnel/logs", withAuthAndSecure(apiCFTunnelLogs))                   // 读取日志
+	mux.HandleFunc("/api/cf/tunnel/list", withAuthAndSecure(apiCFTunnelList))                   // 按前缀查询 Tunnel 列表
+	mux.HandleFunc("/api/cf/tunnel/delete-by-id", withAuthAndSecure(apiCFTunnelDeleteByID))     // 删除指定 Tunnel
 	mux.HandleFunc("/api/cf/tunnel/detect", withAuthAndSecure(apiCFTunnelDetect))               // 自动发现账户信息
 	mux.HandleFunc("/api/cf/tunnel/oneclick", withAuthAndSecure(apiCFTunnelOneClick))           // 一键部署 (SSE)
 

@@ -1712,14 +1712,6 @@
                         </svg></div>
                 </div>
 
-                <div class="sys-nav-card" data-sys-id="cert" onclick="selectSysCategory('cert', this)">
-                    <div class="sys-nav-name">🔐 安全配置</div>
-                    <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
-                            stroke="currentColor" stroke-width="2">
-                            <polyline points="9 18 15 12 9 6"></polyline>
-                        </svg></div>
-                </div>
-
                 <div class="sys-nav-card" data-sys-id="pref" onclick="selectSysCategory('pref', this)">
                     <div class="sys-nav-name">🎨 偏好设置</div>
                     <div class="sys-expand-indicator"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"
@@ -1816,6 +1808,31 @@
                             <option value="7d">7 天</option>
                             <option value="never">不过期（长期）</option>
                         </select>
+                    </div>
+
+                    <div class="sys-pref-row" style="align-items:center; border:1px solid #ffe0e0; background:#fff7f7; border-radius:10px; padding:10px 12px; margin-bottom:14px;">
+                        <div class="sys-pref-info">
+                            <span class="sys-pref-title" style="color:#d32f2f;">强制使用 HTTP（忽略安全）</span>
+                        </div>
+                        <label class="sys-toggle-switch">
+                            <input type="checkbox" id="sys_force_http" onchange="triggerSysAutoSave()">
+                            <span class="sys-toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
+                        <div class="sys-field" style="margin-bottom:0;">
+                            <label class="sys-label">计数窗口（秒）</label>
+                            <input type="number" id="sys_login_ip_retry_window_sec" class="sys-input" min="30" max="86400" oninput="triggerSysAutoSave()">
+                        </div>
+                        <div class="sys-field" style="margin-bottom:0;">
+                            <label class="sys-label">最大重试（次）</label>
+                            <input type="number" id="sys_login_ip_max_retries" class="sys-input" min="1" max="100" oninput="triggerSysAutoSave()">
+                        </div>
+                        <div class="sys-field" style="margin-bottom:0;">
+                            <label class="sys-label">封禁时长（秒）</label>
+                            <input type="number" id="sys_login_ip_block_ttl_sec" class="sys-input" min="30" max="86400" oninput="triggerSysAutoSave()">
+                        </div>
                     </div>
 
                     <!-- Inputs -->
@@ -2003,226 +2020,6 @@
                                 <line x1="5" y1="12" x2="19" y2="12"></line>
                             </svg>
                             添加白名单用户
-                        </button>
-                    </div>
-                </div>
-
-                <div class="sys-form-section" id="sys-form-cert" style="display:none;">
-                    <!-- Togglers -->
-                    <div class="sys-pref-row" id="rowForceHttp">
-                        <div class="sys-pref-info">
-                            <span class="sys-pref-title" style="color:#d73a49;display:flex;align-items:center;gap:4px;">
-                                强制使用 HTTP (忽略安全)
-                                <div class="sys-info-tooltip-wrap" tabindex="0">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <circle cx="12" cy="12" r="10"></circle>
-                                        <line x1="12" y1="8" x2="12" y2="12"></line>
-                                        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                    </svg>
-                                    <div class="sys-tooltip-content">
-                                        忽略 HTTPS 强制跳转，允许纯明文访问
-                                    </div>
-                                </div>
-                            </span>
-                        </div>
-                        <label class="sys-toggle-switch">
-                            <input type="checkbox" id="sys_force_http" onchange="triggerSysAutoSave()">
-                            <span class="sys-toggle-slider"></span>
-                        </label>
-                    </div>
-
-                    <!-- Inputs & Info Views -->
-                    <div class="sys-field">
-                        <label class="sys-label">当前证书状态</label>
-                        <div class="cert-status-card">
-                            <div class="cert-row">
-                                <span>访问协议</span>
-                                <span class="cert-val" id="certProtoDisplay">HTTP (不安全)</span>
-                            </div>
-                            <div class="cert-row" id="rowCertDomain">
-                                <span>绑定域名</span>
-                                <span class="cert-val" id="certDomainDisplay">--</span>
-                            </div>
-                            <div class="cert-row" id="rowCertExpire">
-                                <span>过期时间</span>
-                                <span class="cert-val" id="certExpireDisplay">--</span>
-                            </div>
-                            <div class="cert-row" id="rowCertValid">
-                                <span>证书状态</span>
-                                <span class="cert-val" id="certValidDisplay">加载中...</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="sys-field">
-                        <label class="sys-label" style="display:flex;align-items:center;gap:4px;">
-                            登录防暴力破解（同 IP）
-                            <div class="sys-info-tooltip-wrap" tabindex="0">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                </svg>
-                                <div class="sys-tooltip-content">
-                                    <p style="margin: 0; padding-bottom: 4px; font-weight: 600; color: #fff;">登录限流参数</p>
-                                    <p style="margin: 0; padding-bottom: 4px;">• <b>计数窗口:</b> 在该时间段内累计失败次数</p>
-                                    <p style="margin: 0; padding-bottom: 4px;">• <b>最大重试:</b> 达到次数后立即封禁该 IP</p>
-                                    <p style="margin: 0;">• <b>封禁时长:</b> 封禁后需等待此时长才能继续尝试</p>
-                                </div>
-                            </div>
-                        </label>
-                        <div style="display: flex; gap: 12px; width: 100%;">
-                            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
-                                <span style="font-size: 12px; color: #666; font-weight: 600;">计数窗口（秒）</span>
-                                <input type="number" id="sys_login_ip_retry_window_sec" class="sys-input"
-                                    placeholder="默认: 600" min="30" max="86400" oninput="triggerSysAutoSave()"
-                                    style="width: 100%; border-radius: 6px;">
-                            </div>
-                            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
-                                <span style="font-size: 12px; color: #666; font-weight: 600;">最大重试（次）</span>
-                                <input type="number" id="sys_login_ip_max_retries" class="sys-input" placeholder="默认: 5"
-                                    min="1" max="100" oninput="triggerSysAutoSave()"
-                                    style="width: 100%; border-radius: 6px;">
-                            </div>
-                            <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
-                                <span style="font-size: 12px; color: #666; font-weight: 600;">封禁时长（秒）</span>
-                                <input type="number" id="sys_login_ip_block_ttl_sec" class="sys-input"
-                                    placeholder="默认: 900" min="30" max="86400" oninput="triggerSysAutoSave()"
-                                    style="width: 100%; border-radius: 6px;">
-                            </div>
-                        </div>
-                    </div>
-
-                    <hr style="border:0; border-top:1px dashed #eee; margin: 20px 0;">
-
-                    <details class="sys-details">
-                        <summary class="sys-summary">📂 手动上传证书</summary>
-                        <div class="sys-details-content">
-                            <div class="sys-tabs">
-                                <button type="button" id="tabBtnFile" class="sys-tab-btn active"
-                                    onclick="switchCertTab('file')">📁 文件上传</button>
-                                <button type="button" id="tabBtnText" class="sys-tab-btn"
-                                    onclick="switchCertTab('text')">📝 文本输入</button>
-                            </div>
-
-                            <div id="certTabFile" class="sys-tab-content active">
-                                <form id="certUploadFormFile" style="display:flex; gap:12px; flex-direction:column;">
-                                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                                        <span style="font-size: 12px; font-weight: 600; color: #555;">📄 公钥文件</span>
-                                        <input type="file" id="fileCrt" accept=".crt,.pem,.cer" class="sys-file-upload">
-                                    </div>
-                                    <div style="display: flex; flex-direction: column; gap: 6px;">
-                                        <span style="font-size: 12px; font-weight: 600; color: #555;">🔑 私钥文件</span>
-                                        <input type="file" id="fileKey" accept=".key,.pem" class="sys-file-upload">
-                                    </div>
-                                </form>
-                            </div>
-
-                            <div id="certTabText" class="sys-tab-content">
-                                <div style="display:flex; flex-direction:column; gap:10px;">
-                                    <textarea id="textCrt" class="sys-textarea"
-                                        placeholder="在此粘贴公钥内容 (-----BEGIN CERTIFICATE----- ... )"></textarea>
-                                    <textarea id="textKey" class="sys-textarea"
-                                        placeholder="在此粘贴私钥内容 (-----BEGIN PRIVATE KEY----- ... )"></textarea>
-                                </div>
-                            </div>
-
-                            <button type="button" id="btnSaveCert" class="btn-sys-regen"
-                                style="margin-top:15px; width:100%; padding:10px;" onclick="saveManualCert()">
-                                📤 保存并验证证书
-                            </button>
-                        </div>
-                    </details>
-
-                    <details class="sys-details">
-                        <summary class="sys-summary" style="display:flex;align-items:center;gap:4px;">
-                            ☁️ Cloudflare 申请
-                            <div class="sys-info-tooltip-wrap" tabindex="0">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                </svg>
-                                <div class="sys-tooltip-content">
-                                    使用 Cloudflare DNS API 自动申请和续期证书。请确保域名已托管在 CF。
-                                </div>
-                            </div>
-                        </summary>
-                        <div class="sys-details-content">
-                            <!-- Togglers inside details -->
-                            <div class="sys-pref-row"
-                                style="padding: 10px 15px; margin-bottom: 15px; border-radius: 8px;">
-                                <div class="sys-pref-info">
-                                    <span class="sys-pref-title" style="font-size: 13px;display:flex;align-items:center;gap:4px;">
-                                        🔄 开启自动续订
-                                        <div class="sys-info-tooltip-wrap" tabindex="0">
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <circle cx="12" cy="12" r="10"></circle>
-                                                <line x1="12" y1="8" x2="12" y2="12"></line>
-                                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                            </svg>
-                                            <div class="sys-tooltip-content">
-                                                有效期不足 7 天时自动续期
-                                            </div>
-                                        </div>
-                                    </span>
-                                </div>
-                                <label class="sys-toggle-switch">
-                                    <input type="checkbox" id="sys_cf_auto_renew" onchange="triggerSysAutoSave()">
-                                    <span class="sys-toggle-slider"></span>
-                                </label>
-                            </div>
-
-                            <!-- Inputs inside details -->
-                            <div class="sys-field">
-                                <label class="sys-label">CF 邮箱 (Email)</label>
-                                <input type="text" id="sys_cf_email" class="sys-input"
-                                    placeholder="例如: user@example.com" oninput="triggerSysAutoSave()">
-                            </div>
-                            <div class="sys-field">
-                                <label class="sys-label">CF API 令牌 (API Token)</label>
-                                <div class="sys-token-group">
-                                    <input type="password" id="sys_cf_api_key" class="sys-input"
-                                        placeholder="输入具备 DNS 编辑权限的 API Token"
-                                        oninput="onTokenInputChange('sys_cf_api_key', 'btn_cf_key_confirm')">
-                                    <button type="button" id="btn_cf_key_confirm" class="btn-sys-token-confirm"
-                                        onclick="confirmTokenSave('sys_cf_api_key', 'btn_cf_key_confirm')">确认</button>
-                                </div>
-                            </div>
-                            <div class="sys-field">
-                                <label class="sys-label">证书绑定域名</label>
-                                <input type="text" id="sys_cf_domain" class="sys-input"
-                                    placeholder="例如: node.example.com" oninput="triggerSysAutoSave()">
-                            </div>
-
-                            <button type="button" id="btnApplyCf" class="btn-sys-regen"
-                                style="width:100%; padding:10px;" onclick="applyCfCert()">
-                                🚀 提交申请任务
-                            </button>
-                            <div id="cfLogBox" class="sys-log-box"></div>
-                        </div>
-                    </details>
-
-                    <hr style="border:0; border-top:1px dashed #eee; margin: 20px 0;">
-
-                    <div class="sys-field">
-                        <label class="sys-label" style="display:flex;align-items:center;gap:4px;">
-                            系统状态控制
-                            <div class="sys-info-tooltip-wrap" tabindex="0">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                </svg>
-                                <div class="sys-tooltip-content" id="restartCoreDesc">
-                                    系统正在检测证书状态。只有在证书配置正确且有效时，才允许重启应用以切换协议。
-                                </div>
-                            </div>
-                        </label>
-                        <button type="button" id="btnRestartCore" class="btn-sys-regen"
-                            style="width:100%; padding:12px; background:#f5f5f5; border-color:#ddd; color:#999; font-size:14px; cursor:not-allowed;"
-                            disabled onclick="triggerCoreRestart()">
-                            🚫 证书无效或未就绪，禁止切换
                         </button>
                     </div>
                 </div>
@@ -2955,10 +2752,6 @@
             setTimeout(() => cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
         }
 
-        // 核心修复：将 id 改为 catId
-        if (catId === 'cert') {
-            loadCertInfo(); // 加载证书信息
-        }
     }
 
     function adjustSysLayout() {
@@ -3103,7 +2896,6 @@
             const result = await res.json();
             if (result.status === 'success') {
                 const data = result.data;
-                const certInfo = result.cert_info;
 
                 // 1. 基础配置
                 document.getElementById('sys_panel_url').value = data.panel_url || '';
@@ -3115,6 +2907,7 @@
                 document.getElementById('sys_pref_speed_test_file_size').value = data.pref_speed_test_file_size || '50';
                 document.getElementById('sys_pref_traffic_stats_retention_days').value = data.pref_traffic_stats_retention_days || '30';
                 document.getElementById('sys_auth_cookie_ttl_mode').value = data.auth_cookie_ttl_mode || '1d';
+                document.getElementById('sys_force_http').checked = parseSysBool(data.sys_force_http, false);
                 document.getElementById('sys_login_ip_retry_window_sec').value = data.login_ip_retry_window_sec || '600';
                 document.getElementById('sys_login_ip_max_retries').value = data.login_ip_max_retries || '5';
                 document.getElementById('sys_login_ip_block_ttl_sec').value = data.login_ip_block_ttl_sec || '900';
@@ -3169,78 +2962,6 @@
                 });
                 renderTgWhitelist();
 
-                // 2. 证书与高级配置
-                document.getElementById('sys_force_http').checked = (data.sys_force_http === 'true');
-                // ✨ 新增：判断当前协议，若是 HTTP 则隐藏部分证书状态栏
-                const isHttp = window.location.protocol === 'http:';
-                document.getElementById('rowCertDomain').style.display = isHttp ? 'none' : 'flex';
-                document.getElementById('rowCertExpire').style.display = isHttp ? 'none' : 'flex';
-                document.getElementById('rowCertValid').style.display = isHttp ? 'none' : 'flex';
-
-                // ✨ 新增：HTTPS 模式下直接隐藏“强制 HTTP”风险开关
-                const forceHttpRow = document.getElementById('rowForceHttp');
-                if (forceHttpRow) forceHttpRow.style.display = isHttp ? 'flex' : 'none';
-
-                document.getElementById('sys_cf_email').value = data.cf_email || '';
-                document.getElementById('sys_cf_api_key').value = data.cf_api_key || '';
-                document.getElementById('sys_cf_api_key').dataset.original = data.cf_api_key || '';
-                resetTokenConfirmBtn('btn_cf_key_confirm');
-                document.getElementById('sys_cf_domain').value = data.cf_domain || '';
-                // ✨ 新增：读取自动续期状态 (默认开启)
-                document.getElementById('sys_cf_auto_renew').checked = (data.cf_auto_renew !== 'false');
-
-                // 3. 渲染证书有效性及重启按钮控制
-                const restartBtn = document.getElementById('btnRestartCore');
-                const restartDesc = document.getElementById('restartCoreDesc');
-                const validDisplay = document.getElementById('certValidDisplay');
-
-                if (certInfo && certInfo.valid) {
-                    document.getElementById('certDomainDisplay').innerText = certInfo.domain || '--';
-                    document.getElementById('certExpireDisplay').innerText = certInfo.expire || '--';
-
-                    validDisplay.innerText = '✅ 有效';
-                    validDisplay.className = 'cert-val secure';
-
-                    restartBtn.disabled = false;
-                    restartBtn.style.cursor = 'pointer';
-
-                    // ✨ 核心优化：根据当前协议状态智能切换按钮颜色和文案
-                    if (isHttp) {
-                        // HTTP 模式：依然保持红色警告色，催促用户切换到安全的 HTTPS
-                        restartBtn.innerHTML = '✅ 证书已就绪，立即重启核心切换 HTTPS';
-                        restartBtn.style.background = '#fff0f0';
-                        restartBtn.style.borderColor = '#ffcdd2';
-                        restartBtn.style.color = '#d32f2f';
-                        restartDesc.innerText = '注意：成功配置证书后，必须点击此按钮重启网络核心，HTTPS 才会真正生效。';
-                        restartDesc.style.color = '#d32f2f';
-                        restartDesc.style.background = '#fff5f5';
-                    } else {
-                        // HTTPS 模式：改为让人安心的绿色，并优化提示语
-                        restartBtn.innerHTML = '🔄 立即重启面板核心';
-                        restartBtn.style.background = '#eafff1';
-                        restartBtn.style.borderColor = '#bbf7d0';
-                        restartBtn.style.color = '#16a34a';
-                        restartDesc.innerText = '当前已在 HTTPS 安全模式下运行。如您更换了新证书，点击此处重启即可应用生效。';
-                        restartDesc.style.color = '#15803d';
-                        restartDesc.style.background = '#fafffc';
-                    }
-                } else {
-                    document.getElementById('certDomainDisplay').innerText = '--';
-                    document.getElementById('certExpireDisplay').innerText = '--';
-
-                    validDisplay.innerText = '❌ 无效或未配置';
-                    validDisplay.className = 'cert-val warning';
-
-                    restartBtn.disabled = true;
-                    restartBtn.innerHTML = '🚫 证书无效或未就绪，禁止切换';
-                    restartBtn.style.background = '#f5f5f5';
-                    restartBtn.style.borderColor = '#ddd';
-                    restartBtn.style.color = '#999';
-                    restartBtn.style.cursor = 'not-allowed';
-                    restartDesc.innerText = '检测到证书缺失或已过期。必须上传有效证书后才能重启切换。';
-                    restartDesc.style.color = '#666';
-                    restartDesc.style.background = '#f9f9fc';
-                }
             }
         } catch (e) { console.error("加载配置失败", e); }
     }
@@ -3316,7 +3037,6 @@
         // 确定对应的 key
         let key = '';
         if (inputId === 'sys_tg_bot_token') key = 'tg_bot_token';
-        else if (inputId === 'sys_cf_api_key') key = 'cf_api_key';
         else return;
 
         btn.classList.remove('active');
@@ -3634,6 +3354,7 @@
                 "pref_speed_test_file_size": document.getElementById('sys_pref_speed_test_file_size').value,
                 "pref_traffic_stats_retention_days": document.getElementById('sys_pref_traffic_stats_retention_days').value,
                 "auth_cookie_ttl_mode": document.getElementById('sys_auth_cookie_ttl_mode').value,
+                "sys_force_http": document.getElementById('sys_force_http').checked ? 'true' : 'false',
                 "login_ip_retry_window_sec": document.getElementById('sys_login_ip_retry_window_sec').value,
                 "login_ip_max_retries": document.getElementById('sys_login_ip_max_retries').value,
                 "login_ip_block_ttl_sec": document.getElementById('sys_login_ip_block_ttl_sec').value,
@@ -3641,10 +3362,6 @@
                 "clash_rules_update_interval": document.getElementById('sys_clash_rules_update_interval').value,
                 "clash_public_rules_update_interval": document.getElementById('sys_clash_public_rules_update_interval').value,
                 "sys_log_level": document.getElementById('sys_log_level').value,
-                "sys_force_http": document.getElementById('sys_force_http').checked ? 'true' : 'false',
-                "cf_email": document.getElementById('sys_cf_email').value,
-                "cf_domain": document.getElementById('sys_cf_domain').value,
-                "cf_auto_renew": document.getElementById('sys_cf_auto_renew').checked ? 'true' : 'false', // ✨ 新增
                 "tg_bot_enabled": document.getElementById('sys_tg_bot_enabled').checked ? 'true' : 'false',
                 "tg_bot_whitelist": tgBotWhitelistItems.filter(item => item.id.trim() !== '').map(item => {
                     const id = item.id.trim().replace(/[^0-9-]/g, '');
@@ -3933,186 +3650,6 @@
         if (sysMonitorTimer) {
             clearInterval(sysMonitorTimer);
             sysMonitorTimer = null;
-        }
-    }
-
-    // [新增] 证书信息加载逻辑 (仅前端状态)
-    function loadCertInfo() {
-        const proto = window.location.protocol === 'https:' ? 'HTTPS (安全)' : 'HTTP (不安全)';
-        const elProto = document.getElementById('certProtoDisplay');
-        elProto.innerText = proto;
-        elProto.className = window.location.protocol === 'https:' ? 'cert-val secure' : 'cert-val warning';
-    }
-
-    // 当前激活的上传方式 ('file' 或 'text')
-    let currentCertTab = 'file';
-
-    function switchCertTab(tab) {
-        currentCertTab = tab;
-        document.getElementById('tabBtnFile').className = tab === 'file' ? 'sys-tab-btn active' : 'sys-tab-btn';
-        document.getElementById('tabBtnText').className = tab === 'text' ? 'sys-tab-btn active' : 'sys-tab-btn';
-        document.getElementById('certTabFile').className = tab === 'file' ? 'sys-tab-content active' : 'sys-tab-content';
-        document.getElementById('certTabText').className = tab === 'text' ? 'sys-tab-content active' : 'sys-tab-content';
-    }
-
-    // 统一处理手动配置证书的保存（兼容文件和文本）
-    async function saveManualCert() {
-        const formData = new FormData();
-
-        if (currentCertTab === 'file') {
-            const fileCrt = document.getElementById('fileCrt').files[0];
-            const fileKey = document.getElementById('fileKey').files[0];
-            if (!fileCrt || !fileKey) {
-                alert("请同时选择 CRT/PEM 文件和 KEY 文件！");
-                return;
-            }
-            formData.append('cert_file', fileCrt);
-            formData.append('key_file', fileKey);
-        } else {
-            const textCrt = document.getElementById('textCrt').value.trim();
-            const textKey = document.getElementById('textKey').value.trim();
-            if (!textCrt || !textKey) {
-                alert("公钥和私钥文本内容均不能为空！");
-                return;
-            }
-            // 将文本转换为伪装的 File 对象，兼容后端 API
-            formData.append('cert_file', new Blob([textCrt], { type: 'text/plain' }), "server.crt");
-            formData.append('key_file', new Blob([textKey], { type: 'text/plain' }), "server.key");
-        }
-
-        const btn = document.getElementById('btnSaveCert');
-        btn.innerText = '验证中...';
-        btn.disabled = true;
-
-        try {
-            const res = await fetch('/api/save-cert', { method: 'POST', body: formData });
-            const json = await res.json();
-
-            if (json.status === 'success') {
-                // 等待后端配置拉取并重新渲染 UI 完毕后，再弹窗提示
-                await loadAllSystemSettings();
-                alert("证书已通过验证并保存！\n\n重启面板核心后生效。");
-            } else {
-                alert("证书保存失败：\n" + json.message);
-            }
-        } catch (e) {
-            alert("请求失败，请检查网络连接");
-        } finally {
-            btn.innerText = '📤 保存并验证证书';
-            btn.disabled = false;
-        }
-    }
-
-    // 执行核心重启的函数 (修复了 DOM 清空导致的空指针异常)
-    async function triggerCoreRestart() {
-        if (!confirm("确定要重启系统核心吗？\n如果已正确配置证书，面板将自动切换到 HTTPS。")) return;
-
-        try {
-            const res = await fetch('/api/restart', { method: 'POST' });
-            const json = await res.json();
-
-            // ✨ [修复] 在清空页面 DOM 之前，先将强制 HTTP 的状态保存到变量中
-            const isForceHttp = document.getElementById('sys_force_http').checked;
-
-            // 覆盖页面，展示重启中的动画效果
-            document.body.innerHTML = `
-                <div style="display:flex; height:100vh; align-items:center; justify-content:center; flex-direction:column; font-family:sans-serif; background:#f5f5f7;">
-                    <div style="font-size: 40px; margin-bottom: 20px;">🔄</div>
-                    <h2 style="color:#333; margin-bottom:10px;">${json.message || '系统核心正在重启...'}</h2>
-                    <p style="color:#666; font-size:14px;">页面即将自动刷新，并尝试使用配置的安全协议...</p>
-                </div>
-            `;
-
-            // 延迟两秒后执行智能跳转逻辑
-            setTimeout(() => {
-                let currentUrl = window.location.href;
-                // 使用刚刚保存的变量 isForceHttp 进行判断
-                if (window.location.protocol === 'http:' && !isForceHttp) {
-                    window.location.href = currentUrl.replace('http:', 'https:');
-                } else {
-                    window.location.reload();
-                }
-            }, 2000);
-
-        } catch (e) {
-            alert("指令发送失败，nodectl 面板可能已断开，请手动刷新页面。");
-        }
-    }
-
-    // [新增] CF 申请逻辑 (1Panel 风格的真实日志流式拉取)
-    let logPollInterval;
-    async function applyCfCert() {
-        const email = document.getElementById('sys_cf_email').value;
-        const key = document.getElementById('sys_cf_api_key').value;
-        const domain = document.getElementById('sys_cf_domain').value;
-
-        if (!email || !key || !domain) {
-            alert("请完整填写 Cloudflare 信息");
-            return;
-        }
-
-        if (!confirm(`确认使用域名 ${domain} 申请证书吗？\n这可能需要几十秒时间，请耐心等待。`)) return;
-
-        const btn = document.getElementById('btnApplyCf');
-        const logBox = document.getElementById('cfLogBox');
-
-        btn.innerText = '⏳ 正在处理中...';
-        btn.disabled = true;
-
-        logBox.style.display = 'block';
-        logBox.innerHTML = '<div><span style="color:#888;">正在连接核心终端拉取日志...</span></div>';
-
-        // 核心轮询器：每秒去后端取一次最新数组并渲染
-        const fetchLogs = async () => {
-            try {
-                const res = await fetch('/api/cert-logs');
-                const json = await res.json();
-                if (json.status === 'success' && json.data) {
-                    let html = '';
-                    json.data.forEach(line => {
-                        let colorClass = 'log-info';
-                        // 智能赋予颜色
-                        if (line.includes('[ERROR]') || line.includes('失败')) colorClass = 'log-err';
-                        else if (line.includes('成功！！')) colorClass = 'log-info'; // 沿用原本绿色
-
-                        html += `<div><span class="${colorClass}">${line}</span></div>`;
-                    });
-                    logBox.innerHTML = html;
-                    logBox.scrollTop = logBox.scrollHeight; // 保持底部滚动
-                }
-            } catch (e) { }
-        };
-
-        // 启动轮询器 (每 1000 毫秒执行一次)
-        logPollInterval = setInterval(fetchLogs, 1000);
-
-        // 发送阻塞的申请请求
-        try {
-            const res = await fetch('/api/apply-cert', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, api_key: key, domain })
-            });
-            const json = await res.json();
-
-            // 请求结束后清除定时器，并做最后一次拉取以防漏字
-            clearInterval(logPollInterval);
-            await fetchLogs();
-
-            if (json.status === 'success') {
-                logBox.innerHTML += `<div><span style="color:#a6e22e;">[提示] 证书已成功应用！请点击下方的“立即重启面板核心”切换 HTTPS。</span></div>`;
-                await loadAllSystemSettings(); // ✨ 核心修复：申请成功后立刻静默拉取最新状态以解锁重启按钮
-            } else {
-                logBox.innerHTML += `<div><span class="log-err">❌ 任务执行中断: ${json.message}</span></div>`;
-            }
-            logBox.scrollTop = logBox.scrollHeight;
-
-        } catch (e) {
-            clearInterval(logPollInterval);
-            logBox.innerHTML += `<div><span class="log-err">❌ 网络请求失败或后端断开连接</span></div>`;
-        } finally {
-            btn.innerText = '🚀 重新提交申请';
-            btn.disabled = false;
         }
     }
 

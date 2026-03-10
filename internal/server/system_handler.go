@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"runtime"
 	"strconv"
@@ -134,39 +133,6 @@ func apiGetSystemMonitor(w http.ResponseWriter, r *http.Request) {
 		"status": "success",
 		"data":   data,
 	})
-}
-
-// apiSaveCert 处理用户手动上传证书
-func apiSaveCert(w http.ResponseWriter, r *http.Request) {
-	// 限制上传大小为 10MB
-	r.ParseMultipartForm(10 << 20)
-
-	// 读取 .crt / .pem 文件
-	fileCrt, _, err := r.FormFile("cert_file")
-	if err != nil {
-		sendJSON(w, "error", "缺少证书文件 (.crt/.pem)")
-		return
-	}
-	defer fileCrt.Close()
-	crtBytes, _ := io.ReadAll(fileCrt)
-
-	// 读取 .key 文件
-	fileKey, _, err := r.FormFile("key_file")
-	if err != nil {
-		sendJSON(w, "error", "缺少私钥文件 (.key / .pem)")
-		return
-	}
-	defer fileKey.Close()
-	keyBytes, _ := io.ReadAll(fileKey)
-
-	// 调用 service 层的保存逻辑
-	if err := service.SaveUploadedCert(crtBytes, keyBytes); err != nil {
-		logger.Log.Error("保存证书失败", "error", err)
-		sendJSON(w, "error", "证书保存失败: "+err.Error())
-		return
-	}
-
-	sendJSON(w, "success", "证书已更新，请重启程序以生效")
 }
 
 // apiApplyCert 处理 Cloudflare 自动申请证书请求

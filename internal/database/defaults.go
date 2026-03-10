@@ -64,6 +64,7 @@ func initBasicSettings() {
 		{Key: "cf_email", Value: "", Description: "Cloudflare 账号邮箱"},
 		{Key: "cf_api_key", Value: "", Description: "Cloudflare API Token"},
 		{Key: "cf_domain", Value: "", Description: "证书绑定的主域名"},
+		{Key: "cf_cert_enabled", Value: "false", Description: "是否启用本地证书(HTTPS)"},
 		{Key: "cf_auto_renew", Value: "true", Description: "是否开启证书自动续期"},
 		{Key: "airport_filter_invalid", Value: "false", Description: "是否剔除机场订阅中的无效节点"},
 		{Key: "pref_speed_test_file_size", Value: "50", Description: "节点测速文件大小(MB)"},

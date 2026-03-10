@@ -35,8 +35,8 @@ const (
 
 // getAutoOriginURL 自动获取本地服务回源地址
 func getAutoOriginURL() string {
-	certInfo := GetCurrentCertInfo()
-	if certInfo.Valid {
+	certEnabled := strings.ToLower(strings.TrimSpace(getCFConfig("cf_cert_enabled")))
+	if (certEnabled == "true" || certEnabled == "1") && HasValidLocalCertificate() {
 		return "https://127.0.0.1:8080"
 	}
 	return "http://127.0.0.1:8080"
@@ -113,10 +113,11 @@ func isRunningInDocker() bool {
 
 // CFTunnelSettings 前端需要的 Tunnel 配置信息
 type CFTunnelSettings struct {
-	HasCFKey    bool   `json:"has_cf_key"` // Token 是否已配置（不返回 Token 内容）
-	CFEmail     string `json:"cf_email"`
-	CFAccountID string `json:"cf_account_id"`
-	CFDomain    string `json:"cf_domain"`
+	HasCFKey       bool   `json:"has_cf_key"`        // Token 是否已配置（不返回 Token 内容）
+	CFAPIKeyMasked string `json:"cf_api_key_masked"` // Token 脱敏占位符（仅用于前端显示）
+	CFEmail        string `json:"cf_email"`
+	CFAccountID    string `json:"cf_account_id"`
+	CFDomain       string `json:"cf_domain"`
 
 	TunnelName      string `json:"cf_tunnel_name"`
 	TunnelID        string `json:"cf_tunnel_id"`
@@ -124,6 +125,14 @@ type CFTunnelSettings struct {
 	TunnelOriginURL string `json:"cf_tunnel_origin_url"`
 	BindMainProcess string `json:"cf_tunnel_bind_main_process"`
 	TunnelEnabled   string `json:"cf_tunnel_enabled"`
+}
+
+// CFTunnelListItem Cloudflare Tunnel 列表项（用于前端展示）
+type CFTunnelListItem struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at"`
 }
 
 // GetCFTunnelSettings 读取 Tunnel 相关配置（token 脱敏）
@@ -143,9 +152,14 @@ func GetCFTunnelSettings() CFTunnelSettings {
 
 	// 安全策略：完全不向前端返回 Token 内容，只暴露是否已配置
 	hasCFKey := strings.TrimSpace(m["cf_api_key"]) != ""
+	maskedToken := ""
+	if hasCFKey {
+		maskedToken = "*********"
+	}
 
 	return CFTunnelSettings{
 		HasCFKey:        hasCFKey,
+		CFAPIKeyMasked:  maskedToken,
 		CFEmail:         m["cf_email"],
 		CFAccountID:     m["cf_account_id"],
 		CFDomain:        m["cf_domain"],
@@ -170,8 +184,9 @@ func SaveCFTunnelSettings(data map[string]string) error {
 		if !validKeys[key] {
 			continue
 		}
-		// 跳过脱敏占位符
-		if key == "cf_api_key" && (value == "********" || value == "") {
+		// 跳过脱敏占位符（仅星号）与空值
+		trimmed := strings.TrimSpace(value)
+		if key == "cf_api_key" && (trimmed == "" || (strings.Trim(trimmed, "*") == "" && len(trimmed) > 0)) {
 			continue
 		}
 		if err := database.DB.Model(&database.SysConfig{}).Where("key = ?", key).
@@ -649,6 +664,86 @@ func generateTunnelSecret() string {
 		}
 	}
 	return base64.StdEncoding.EncodeToString(b)
+}
+
+// ListCFTunnelsByPrefix 列出指定前缀的 Cloudflare Tunnel（不含已删除）
+func ListCFTunnelsByPrefix(prefix string) ([]CFTunnelListItem, error) {
+	accountID := getCFConfig("cf_account_id")
+	if accountID == "" {
+		return nil, fmt.Errorf("CF Account ID 未配置")
+	}
+
+	listURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel?is_deleted=false&per_page=100", accountID)
+	result, err := cfAPIRequest("GET", listURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("查询 Tunnel 列表失败: %w", err)
+	}
+
+	prefix = strings.ToLower(strings.TrimSpace(prefix))
+	items := make([]CFTunnelListItem, 0)
+
+	raw, ok := result["result"].([]interface{})
+	if !ok {
+		return items, nil
+	}
+
+	for _, one := range raw {
+		m, ok := one.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := m["name"].(string)
+		if prefix != "" && !strings.HasPrefix(strings.ToLower(name), prefix) {
+			continue
+		}
+		id, _ := m["id"].(string)
+		status, _ := m["status"].(string)
+		createdAt, _ := m["created_at"].(string)
+
+		items = append(items, CFTunnelListItem{
+			ID:        id,
+			Name:      name,
+			Status:    status,
+			CreatedAt: createdAt,
+		})
+	}
+
+	return items, nil
+}
+
+// DeleteCFTunnelByID 删除指定 Tunnel（仅删除远端；若为当前 Tunnel 则同步清理本地状态）
+func DeleteCFTunnelByID(tunnelID string) error {
+	tunnelID = strings.TrimSpace(tunnelID)
+	if tunnelID == "" {
+		return fmt.Errorf("Tunnel ID 不能为空")
+	}
+
+	accountID := getCFConfig("cf_account_id")
+	if accountID == "" {
+		return fmt.Errorf("CF Account ID 未配置")
+	}
+
+	cleanURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel/%s/connections", accountID, tunnelID)
+	_, _ = cfAPIRequest("DELETE", cleanURL, nil)
+
+	deleteURL := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/cfd_tunnel/%s", accountID, tunnelID)
+	if _, err := cfAPIRequest("DELETE", deleteURL, nil); err != nil {
+		return fmt.Errorf("删除 Tunnel 失败: %w", err)
+	}
+
+	if getCFConfig("cf_tunnel_id") == tunnelID {
+		StopCFTunnel()
+		os.Remove(cfTunnelCredentialsPath(tunnelID))
+		os.Remove(cfTunnelConfigYml)
+		os.Remove(cfTunnelPIDFile)
+
+		setCFConfig("cf_tunnel_id", "")
+		setCFConfig("cf_tunnel_token", "")
+		setCFConfig("cf_tunnel_enabled", "false")
+	}
+
+	logger.Log.Info("指定 Tunnel 已删除", "id", tunnelID)
+	return nil
 }
 
 // DeleteCFTunnel 删除 Tunnel + 清理 DNS + 删除本地文件
@@ -1205,25 +1300,6 @@ func GetCFTunnelStatus() CFTunnelStatus {
 	}
 
 	return status
-}
-
-// GetCFTunnelLogs 读取最近的 cloudflared 日志
-func GetCFTunnelLogs(lines int) string {
-	logFile := filepath.Join(cfTunnelLogDir, "cloudflared.log")
-	data, err := os.ReadFile(logFile)
-	if err != nil {
-		return "暂无日志"
-	}
-
-	allLines := strings.Split(string(data), "\n")
-	if lines <= 0 {
-		lines = 100
-	}
-	if len(allLines) > lines {
-		allLines = allLines[len(allLines)-lines:]
-	}
-
-	return strings.Join(allLines, "\n")
 }
 
 // AutoStartCFTunnel 自动启动 Tunnel（NodeCTL 启动时调用）
