@@ -293,7 +293,7 @@ func GetTrafficConsumptionRank(limit int, rankDate string) (*TrafficConsumptionR
 	var nodes []database.NodePool
 	if err := database.DB.
 		Select("uuid", "install_id", "name", "region", "traffic_limit", "traffic_limit_type", "traffic_up", "traffic_down", "traffic_update_at", "updated_at").
-		Where("install_id <> ?", "").
+		Where("routing_type = ? AND install_id <> ?", 2, "").
 		Order("updated_at DESC").
 		Find(&nodes).Error; err != nil {
 		return nil, err
@@ -306,11 +306,21 @@ func GetTrafficConsumptionRank(limit int, rankDate string) (*TrafficConsumptionR
 	for _, n := range nodes {
 		uuidToNode[n.UUID] = n
 	}
+	if len(uuidToNode) == 0 {
+		return &TrafficConsumptionRank{
+			GeneratedAt: dayStart.Format("2006-01-02"),
+			TotalUp:     0,
+			TotalDown:   0,
+			TotalBytes:  0,
+			Items:       []TrafficConsumptionItem{},
+		}, nil
+	}
 
 	var samples []database.NodeTrafficStat
 	if err := database.DB.
 		Select("node_uuid", "reported_at", "tx_bytes", "rx_bytes").
 		Where("reported_at >= ? AND reported_at < ?", dayStart, dayEnd).
+		Where("node_uuid IN (?)", database.DB.Model(&database.NodePool{}).Select("uuid").Where("routing_type = ? AND install_id <> ?", 2, "")).
 		Order("node_uuid ASC, reported_at ASC").
 		Find(&samples).Error; err != nil {
 		return nil, err
@@ -327,26 +337,29 @@ func GetTrafficConsumptionRank(limit int, rankDate string) (*TrafficConsumptionR
 	downByNode := make(map[string]int64, len(nodes))
 	lastAtByNode := make(map[string]time.Time, len(nodes))
 
-	seenNode := make(map[string]struct{}, len(samples))
-	for _, s := range samples {
-		if _, ok := seenNode[s.NodeUUID]; ok {
-			continue
-		}
-		seenNode[s.NodeUUID] = struct{}{}
+	type baselineSample struct {
+		NodeUUID string
+		TXBytes  int64
+		RXBytes  int64
+	}
 
-		var b database.NodeTrafficStat
-		res := database.DB.
-			Select("tx_bytes", "rx_bytes").
-			Where("node_uuid = ? AND reported_at < ?", s.NodeUUID, dayStart).
-			Order("reported_at DESC").
-			Limit(1).
-			Find(&b)
-		if res.Error != nil {
-			return nil, res.Error
-		}
-		if res.RowsAffected > 0 {
-			baseline[s.NodeUUID] = trafficPair{up: b.TXBytes, down: b.RXBytes}
-		}
+	sub := database.DB.
+		Model(&database.NodeTrafficStat{}).
+		Select("node_uuid, MAX(reported_at) AS max_reported_at").
+		Where("reported_at < ?", dayStart).
+		Group("node_uuid")
+
+	var baselineRows []baselineSample
+	if err := database.DB.
+		Table("node_traffic_stats AS nts").
+		Select("nts.node_uuid AS node_uuid, nts.tx_bytes AS tx_bytes, nts.rx_bytes AS rx_bytes").
+		Joins("JOIN (?) AS latest ON latest.node_uuid = nts.node_uuid AND latest.max_reported_at = nts.reported_at", sub).
+		Where("nts.node_uuid IN (?)", database.DB.Model(&database.NodePool{}).Select("uuid").Where("routing_type = ? AND install_id <> ?", 2, "")).
+		Find(&baselineRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range baselineRows {
+		baseline[row.NodeUUID] = trafficPair{up: row.TXBytes, down: row.RXBytes}
 	}
 
 	for _, s := range samples {
