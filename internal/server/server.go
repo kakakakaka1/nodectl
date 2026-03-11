@@ -238,6 +238,7 @@ func Start(tmplFS embed.FS) {
 	service.InitCertManager() // 初始化证书目录
 	//避免空指针报错
 	service.InitMihomo()
+	service.StartAutoUpdateScheduler()
 	service.StartOfflineNotifyLoop()
 	if err := middleware.ReloadLoginRateLimitConfigFromDB(); err != nil {
 		logger.Log.Warn("加载登录IP限流配置失败，已使用默认策略", "error", err)

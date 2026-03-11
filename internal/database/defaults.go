@@ -3,12 +3,10 @@ package database
 import (
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 
 	"nodectl/internal/logger"
 
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 // SupportedProtocols 定义系统支持的节点协议列表 (全局变量，供前端和逻辑使用)
@@ -106,8 +104,7 @@ func initBasicSettings() {
 func initAuthSettings() {
 	// 1. 初始化随机加密密钥 (JWT Secret / Session Key)
 	var secretConfig SysConfig
-	err := DB.Where("key = ?", "jwt_secret").First(&secretConfig).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if tx := DB.Select("key", "value").Where("key = ?", "jwt_secret").Limit(1).Find(&secretConfig); tx.Error == nil && tx.RowsAffected == 0 {
 		// 只有当密钥不存在时才生成
 		secureBytes := make([]byte, 32)
 		if _, err := rand.Read(secureBytes); err != nil {
@@ -125,8 +122,7 @@ func initAuthSettings() {
 
 	// 2. 初始化默认管理员账号和密码
 	var adminUser SysConfig
-	err = DB.Where("key = ?", "admin_username").First(&adminUser).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if tx := DB.Select("key", "value").Where("key = ?", "admin_username").Limit(1).Find(&adminUser); tx.Error == nil && tx.RowsAffected == 0 {
 		// 生成 bcrypt 哈希密码 (默认密码设为 admin)
 		defaultPassword := "admin"
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(defaultPassword), bcrypt.DefaultCost)

@@ -111,6 +111,8 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 
 	needRestartTgBot := false
 	needReloadLoginRateLimit := false
+	needKickGeoAutoUpdate := false
+	needKickMihomoAutoUpdate := false
 	changedDetails := make([]string, 0)
 
 	maskValue := func(key, val string) string {
@@ -234,6 +236,14 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 				needReloadLoginRateLimit = true
 			}
 
+			if k == "geo_auto_update" && oldConfig.Value != v && strings.TrimSpace(strings.ToLower(v)) == "true" {
+				needKickGeoAutoUpdate = true
+			}
+
+			if k == "mihomo_auto_update" && oldConfig.Value != v && strings.TrimSpace(strings.ToLower(v)) == "true" {
+				needKickMihomoAutoUpdate = true
+			}
+
 			// 强制公共规则更新间隔最小为 86400
 			if k == "clash_public_rules_update_interval" {
 				intVal, err := strconv.Atoi(v)
@@ -275,6 +285,14 @@ func apiUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		if err := middleware.ReloadLoginRateLimitConfigFromDB(); err != nil {
 			logger.Log.Error("热更新登录IP限流配置失败", "error", err, "ip", clientIP, "path", reqPath)
 		}
+	}
+
+	if needKickGeoAutoUpdate {
+		service.TriggerGeoAutoUpdateCheckNow()
+	}
+
+	if needKickMihomoAutoUpdate {
+		service.TriggerMihomoAutoUpdateCheckNow()
 	}
 
 	if len(changedDetails) == 0 {

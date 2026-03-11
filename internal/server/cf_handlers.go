@@ -59,6 +59,9 @@ func apiCFTokenVerify(w http.ResponseWriter, r *http.Request) {
 
 	// 持久化保存最近一次校验记录
 	service.SaveTokenVerifyRecord(result)
+	if email := service.PickBestCFEmail(result.Email, result.AccountName); email != "" {
+		service.SetCFConfigPublic("cf_email", email)
+	}
 
 	logger.Log.Info("Token 权限验证完成", "valid", result.Valid, "all_required", result.AllRequired, "ip", getClientIP(r))
 	w.Header().Set("Content-Type", "application/json")
@@ -105,8 +108,8 @@ func apiCFTokenSave(w http.ResponseWriter, r *http.Request) {
 	if result.AccountID != "" {
 		service.SetCFConfigPublic("cf_account_id", result.AccountID)
 	}
-	if result.Email != "" {
-		service.SetCFConfigPublic("cf_email", result.Email)
+	if email := service.PickBestCFEmail(result.Email, result.AccountName); email != "" {
+		service.SetCFConfigPublic("cf_email", email)
 	}
 	if len(result.Zones) > 0 {
 		service.SetCFConfigPublic("cf_domain", result.Zones[0])
@@ -267,11 +270,20 @@ func apiCFCertApply(w http.ResponseWriter, r *http.Request) {
 		domain = strings.TrimSpace(service.GetCFConfigPublic("cf_domain"))
 	}
 
+	if email == "" && req.Token != "" {
+		if result, err := service.VerifyCFTokenPermissions(req.Token); err == nil && result != nil {
+			email = service.PickBestCFEmail(result.Email, result.AccountName)
+			if domain == "" && len(result.Zones) > 0 {
+				domain = strings.TrimSpace(result.Zones[0])
+			}
+		}
+	}
+
 	// 兜底：若未显式选择域名，则尝试使用最近一次 Token 校验结果中的首个 Zone
 	if domain == "" {
 		if rec := service.GetLastTokenVerifyRecord(); rec != nil && rec.Result != nil {
 			if email == "" {
-				email = strings.TrimSpace(rec.Result.Email)
+				email = service.PickBestCFEmail(rec.Result.Email, rec.Result.AccountName)
 			}
 			if len(rec.Result.Zones) > 0 {
 				domain = strings.TrimSpace(rec.Result.Zones[0])

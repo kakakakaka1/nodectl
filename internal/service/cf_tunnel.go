@@ -1653,6 +1653,31 @@ type CFTokenVerifyResult struct {
 	Summary     string              `json:"summary"`      // 总结文字
 }
 
+// PickBestCFEmail 选择可用的 Cloudflare 邮箱：优先显式邮箱，其次从账户名中推断。
+func PickBestCFEmail(email, accountName string) string {
+	email = strings.TrimSpace(email)
+	if email != "" {
+		return email
+	}
+
+	name := strings.TrimSpace(accountName)
+	if name == "" {
+		return ""
+	}
+
+	// 常见格式：foo@example.com's Account
+	if strings.HasSuffix(name, "'s Account") {
+		name = strings.TrimSpace(strings.TrimSuffix(name, "'s Account"))
+	}
+
+	name = strings.Trim(name, `"'`)
+	if strings.Contains(name, "@") && strings.Contains(name, ".") {
+		return name
+	}
+
+	return ""
+}
+
 // VerifyCFTokenPermissions 详细验证 CF Token 的所有权限
 // 参数 token: 如果为空则使用已保存的 cf_api_key
 func VerifyCFTokenPermissions(token string) (*CFTokenVerifyResult, error) {
@@ -1771,6 +1796,9 @@ func VerifyCFTokenPermissions(token string) (*CFTokenVerifyResult, error) {
 				}
 				if name, ok := acc["name"].(string); ok {
 					result.AccountName = name
+				}
+				if result.Email == "" {
+					result.Email = PickBestCFEmail("", result.AccountName)
 				}
 			}
 		}
