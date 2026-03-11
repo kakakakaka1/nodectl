@@ -961,6 +961,15 @@ func loadProxyPortMap() map[string]int {
 	return ports
 }
 
+// buildTunnelHostForProtocol 生成 Tunnel 协议专属域名。
+// baseDomain 格式为 "{随机前缀}.{CF根域名}"，例如 "abc123.example.com"。
+// 将协议名拼接到随机前缀后面而非前面，确保结果是 CF 根域名的一级子域名：
+//
+//	abc123-vmess-wst.example.com  ✅ 被 *.example.com 通配证书覆盖
+//
+// 而非旧格式的二级子域名：
+//
+//	vmess-wst.abc123.example.com  ❌ 不被 *.example.com 覆盖，443 端口 TLS 握手失败
 func buildTunnelHostForProtocol(baseDomain, protocol string) string {
 	base := strings.TrimSpace(strings.TrimSuffix(baseDomain, "."))
 	if base == "" {
@@ -970,7 +979,16 @@ func buildTunnelHostForProtocol(baseDomain, protocol string) string {
 	if prefix == "" {
 		return base
 	}
-	return prefix + "." + base
+	// 将 "abc123.example.com" 拆分为 subdomain="abc123" + parentDomain="example.com"
+	dotIndex := strings.Index(base, ".")
+	if dotIndex < 0 {
+		// 无法拆分（不含 dot），回退为旧格式
+		return prefix + "." + base
+	}
+	subdomain := base[:dotIndex]
+	parentDomain := base[dotIndex+1:]
+	// 生成: "abc123-vmess-wst.example.com"
+	return subdomain + "-" + prefix + "." + parentDomain
 }
 
 // isTunnelCompatibleProtocol 判断协议是否兼容 Cloudflare Tunnel。

@@ -273,6 +273,10 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 	return b64Str, nil
 }
 
+// resolveNodeAccelerateHost 返回 Tunnel 加速时使用的域名。
+// 域名格式与 buildTunnelHostForProtocol 保持一致，使用扁平化一级子域名：
+//
+//	abc123-vmess-wst.example.com  ✅ 被 *.example.com 通配证书覆盖
 func resolveNodeAccelerateHost(node database.NodePool, proto string, fallbackIP string) string {
 	if !node.TunnelEnabled {
 		return fallbackIP
@@ -288,7 +292,15 @@ func resolveNodeAccelerateHost(node database.NodePool, proto string, fallbackIP 
 	if prefix == "" {
 		return tunnelDomain
 	}
-	return prefix + "." + tunnelDomain
+	// 将 "abc123.example.com" 拆分为 subdomain="abc123" + parentDomain="example.com"
+	dotIndex := strings.Index(tunnelDomain, ".")
+	if dotIndex < 0 {
+		return prefix + "." + tunnelDomain
+	}
+	subdomain := tunnelDomain[:dotIndex]
+	parentDomain := tunnelDomain[dotIndex+1:]
+	// 生成: "abc123-vmess-wst.example.com"
+	return subdomain + "-" + prefix + "." + parentDomain
 }
 
 // isTunnelCompatibleProtocolForSub 判断该协议是否能走 Tunnel 加速。
