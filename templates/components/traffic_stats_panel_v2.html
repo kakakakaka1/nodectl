@@ -885,8 +885,19 @@
 
             const rankItems = (state.rank && Array.isArray(state.rank.items)) ? state.rank.items : [];
             const selectedItem = rankItems.find(x => x.uuid === state.selectedNodeUUID);
-            const todayTotal = selectedItem ? Number(selectedItem.total_bytes || 0) : 0;
+            const todayTotal = selectedItem
+                ? Number(selectedItem.today_total_bytes || selectedItem.total_bytes || 0)
+                : 0;
             el.innerHTML = `<span class="dot"></span><span class="ts-node-main">${flagEmoji(node.region)} <span class="ts-node-name">${esc(node.name || '--')}</span><span class="ts-node-sub">今日流量: ${fmtBytes(todayTotal)}</span></span>`;
+        }
+
+        function computeUsedByLimitType(up, down, limitType) {
+            const t = String(limitType || 'total').toLowerCase();
+            if (t === 'upload') return Number(up || 0);
+            if (t === 'download') return Number(down || 0);
+            if (t === 'max') return Math.max(Number(up || 0), Number(down || 0));
+            if (t === 'min') return Math.min(Number(up || 0), Number(down || 0));
+            return Number(up || 0) + Number(down || 0);
         }
 
         function updateTrendUsageMetric() {
@@ -899,7 +910,14 @@
             const selectedItem = rankItems.find(x => x.uuid === state.selectedNodeUUID);
 
             let used = 0;
-            if (selectedItem && selectedItem.traffic_used_bytes !== undefined && selectedItem.traffic_used_bytes !== null) {
+            const liveTotal = state.liveTotals[state.selectedNodeUUID];
+            if (liveTotal) {
+                used = computeUsedByLimitType(
+                    Number(liveTotal.traffic_up || 0),
+                    Number(liveTotal.traffic_down || 0),
+                    node.traffic_limit_type || 'total'
+                );
+            } else if (selectedItem && selectedItem.traffic_used_bytes !== undefined && selectedItem.traffic_used_bytes !== null) {
                 used = Number(selectedItem.traffic_used_bytes || 0);
             } else if (selectedItem) {
                 used = Number(selectedItem.total_bytes || 0);
@@ -954,6 +972,9 @@
                     offline: !!it.offline,
                     last_live_at: 0
                 };
+                if (it.today_total_bytes === undefined || it.today_total_bytes === null) {
+                    it.today_total_bytes = Number(it.total_bytes || 0);
+                }
             });
             items.forEach(it => {
                 if (!state.nodeMap[it.uuid]) {
@@ -995,6 +1016,9 @@
 
             items.forEach(item => {
                 const liveTotal = state.liveTotals[item.uuid];
+                if (item.today_total_bytes === undefined || item.today_total_bytes === null) {
+                    item.today_total_bytes = Number(item.total_bytes || 0);
+                }
                 if (liveTotal) {
                     item.traffic_up = Number(liveTotal.traffic_up || 0);
                     item.traffic_down = Number(liveTotal.traffic_down || 0);
