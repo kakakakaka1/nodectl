@@ -586,7 +586,6 @@
             nodeMap: {},
             rank: null,
             selectedNodeUUID: '',
-            seriesLoadedNodeUUID: '',
             rankDate: '',
             barInterval: 1,
             trendMode: 'increment',
@@ -879,22 +878,6 @@
             el.style.color = isErr ? '#d74242' : '#86868b';
         }
 
-        function renderSeriesPlaceholder(msg) {
-            const text = msg || '点击左侧“📶 流量消耗”中的节点后加载图表';
-            state.barPoints = [];
-            state.linePoints = [];
-            const bar = barSvg();
-            const line = lineSvg();
-            if (bar) {
-                bar.innerHTML = `<text x="480" y="125" text-anchor="middle" fill="#999" font-size="13">${esc(text)}</text>`;
-            }
-            if (line) {
-                line.innerHTML = `<text x="480" y="125" text-anchor="middle" fill="#999" font-size="13">${esc(text)}</text>`;
-            }
-            const usage = document.getElementById('ts-trend-usage');
-            if (usage) usage.textContent = '已用流量: --';
-        }
-
         function updateSelectedBadge() {
             const el = document.getElementById('ts-selected-node');
             if (!el) return;
@@ -1014,8 +997,6 @@
                 else if (state.nodes.length) state.selectedNodeUUID = state.nodes[0].uuid;
             }
 
-            state.seriesLoadedNodeUUID = '';
-
             document.getElementById('ts-rank-total-up').textContent = fmtBytes((state.rank && state.rank.total_up) || 0);
             document.getElementById('ts-rank-total-down').textContent = fmtBytes((state.rank && state.rank.total_down) || 0);
             document.getElementById('ts-rank-total-all').textContent = fmtBytes((state.rank && state.rank.total_bytes) || 0);
@@ -1111,15 +1092,12 @@
             list.querySelectorAll('.ts-rank-item').forEach(el => {
                 el.addEventListener('click', async function () {
                     const uuid = String(el.getAttribute('data-uuid') || '');
-                    if (!uuid) return;
-                    const isSameNode = uuid === state.selectedNodeUUID;
+                    if (!uuid || uuid === state.selectedNodeUUID) return;
                     state.selectedNodeUUID = uuid;
                     if (nodeSelect()) nodeSelect().value = uuid;
                     updateSelectedBadge();
                     renderRank();
-                    if (!isSameNode || state.seriesLoadedNodeUUID !== uuid) {
-                        await loadSeriesAndRender();
-                    }
+                    await loadSeriesAndRender();
                 });
             });
 
@@ -1380,7 +1358,6 @@
             renderLine();
             updateSelectedBadge();
             updateTrendUsageMetric();
-            state.seriesLoadedNodeUUID = state.selectedNodeUUID;
 
             setStatus('', false);
         }
@@ -1392,10 +1369,6 @@
                     if (next === state.barInterval) return;
                     state.barInterval = next;
                     document.querySelectorAll('#ts-dist-switch button').forEach(x => x.classList.toggle('active', x === btn));
-                    if (!state.selectedNodeUUID || state.seriesLoadedNodeUUID !== state.selectedNodeUUID) {
-                        renderSeriesPlaceholder('请先点击左侧节点以加载图表');
-                        return;
-                    }
                     await loadSeriesAndRender();
                 });
             });
@@ -1406,10 +1379,6 @@
                     if (mode === state.trendMode) return;
                     state.trendMode = mode;
                     document.querySelectorAll('#ts-trend-switch button').forEach(x => x.classList.toggle('active', x === btn));
-                    if (!state.selectedNodeUUID || state.seriesLoadedNodeUUID !== state.selectedNodeUUID) {
-                        renderSeriesPlaceholder('请先点击左侧节点以加载图表');
-                        return;
-                    }
                     await loadSeriesAndRender();
                 });
             });
@@ -1419,9 +1388,7 @@
                     state.selectedNodeUUID = nodeSelect().value || '';
                     updateSelectedBadge();
                     renderRank();
-                    if (state.selectedNodeUUID && state.seriesLoadedNodeUUID !== state.selectedNodeUUID) {
-                        await loadSeriesAndRender();
-                    }
+                    await loadSeriesAndRender();
                 });
             }
 
@@ -1432,7 +1399,7 @@
                     if (nodeSelect()) nodeSelect().value = state.selectedNodeUUID;
                     updateSelectedBadge();
                     renderRank();
-                    renderSeriesPlaceholder('已切换日期，请点击左侧节点加载图表');
+                    await loadSeriesAndRender();
                 });
             }
 
@@ -1458,7 +1425,7 @@
             if (nodeSelect()) nodeSelect().value = state.selectedNodeUUID;
             updateSelectedBadge();
             renderRank();
-            renderSeriesPlaceholder('点击左侧“📶 流量消耗”中的节点后加载图表');
+            await loadSeriesAndRender();
         };
 
         document.addEventListener('DOMContentLoaded', async function () {
