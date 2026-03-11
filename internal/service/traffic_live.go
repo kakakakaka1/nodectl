@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -17,6 +18,34 @@ import (
 
 	"nhooyr.io/websocket"
 )
+
+// getAgentReadTimeout 根据 Agent 上报间隔动态计算 WS 读超时。
+// 规则：timeout = max(15s, interval*4+5s)，并限制最大 10 分钟。
+func getAgentReadTimeout() time.Duration {
+	const (
+		minTimeout = 15 * time.Second
+		maxTimeout = 10 * time.Minute
+	)
+
+	var cfg database.SysConfig
+	if err := database.DB.Select("value").Where("key = ?", "agent_ws_push_interval_sec").First(&cfg).Error; err != nil {
+		return minTimeout
+	}
+
+	sec, err := strconv.Atoi(strings.TrimSpace(cfg.Value))
+	if err != nil || sec <= 0 {
+		return minTimeout
+	}
+
+	timeout := time.Duration(sec*4+5) * time.Second
+	if timeout < minTimeout {
+		return minTimeout
+	}
+	if timeout > maxTimeout {
+		return maxTimeout
+	}
+	return timeout
+}
 
 // ============================================================
 //  通用辅助函数
@@ -318,8 +347,8 @@ func HandleAgentWS(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	// Agent 每 2 秒上报一次，设 15 秒读超时检测静默离线（如进程崩溃、网络中断等半开连接）
-	const agentReadTimeout = 15 * time.Second
+	// 按系统配置动态设置读超时，避免当上报间隔较大时被误判离线。
+	agentReadTimeout := getAgentReadTimeout()
 
 	// 首个消息用于识别 install_id 并注册连接
 	var agentInstallID string
@@ -333,11 +362,14 @@ func HandleAgentWS(w http.ResponseWriter, r *http.Request) {
 			if agentInstallID != "" {
 				nodeName = hub.resolveNodeNameByInstallID(agentInstallID)
 			}
+			closeStatus := websocket.CloseStatus(err)
 			// 正常关闭或网络断开
-			if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+			if closeStatus == websocket.StatusNormalClosure || closeStatus == websocket.StatusGoingAway {
 				logger.Log.Info("Agent WS 正常断开", "ip", clientIP, "install_id", agentInstallID, "node_name", nodeName)
 			} else if ctx.Err() != nil {
 				logger.Log.Info("Agent WS 连接随请求上下文关闭", "ip", clientIP, "install_id", agentInstallID, "node_name", nodeName)
+			} else if errors.Is(err, context.DeadlineExceeded) || strings.Contains(strings.ToLower(err.Error()), "context deadline exceeded") {
+				logger.Log.Info("Agent WS 读超时，判定离线", "error", err, "ip", clientIP, "install_id", agentInstallID, "node_name", nodeName, "read_timeout", agentReadTimeout.String())
 			} else {
 				logger.Log.Warn("Agent WS 读取异常（可能静默离线）", "error", err, "ip", clientIP, "install_id", agentInstallID, "node_name", nodeName)
 			}

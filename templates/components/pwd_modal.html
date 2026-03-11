@@ -73,7 +73,7 @@
 <div class="pwd-modal-overlay" id="pwdModal">
     <div class="pwd-modal-card">
         <div class="pwd-header">
-            <div class="pwd-title">修改管理员密码</div>
+            <div class="pwd-title">修改管理员账号 / 密码</div>
             <div class="pwd-save-indicator" id="pwdIndicator">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"></path></svg>
                 修改成功
@@ -83,18 +83,28 @@
         <form id="pwdForm" onsubmit="submitPwdChange(event)">
             <div class="pwd-body">
                 <div class="pwd-input-group">
+                    <label>当前账号</label>
+                    <input type="text" id="oldUsername" class="pwd-input" placeholder="输入当前管理员账号" autocomplete="username" required>
+                </div>
+
+                <div class="pwd-input-group">
+                    <label>新账号（可选）</label>
+                    <input type="text" id="newUsername" class="pwd-input" placeholder="不修改可留空，长度 3-64" autocomplete="username">
+                </div>
+
+                <div class="pwd-input-group">
                     <label>当前密码</label>
-                    <input type="password" id="oldPwd" class="pwd-input" placeholder="输入当前使用的密码" required>
+                    <input type="password" id="oldPwd" class="pwd-input" placeholder="输入当前使用的密码" autocomplete="current-password" required>
                 </div>
                 
                 <div class="pwd-input-group">
-                    <label>新密码</label>
-                    <input type="password" id="newPwd" class="pwd-input" placeholder="至少 5 位字符" required minlength="5">
+                    <label>新密码（可选）</label>
+                    <input type="password" id="newPwd" class="pwd-input" placeholder="不修改可留空；如需修改至少 5 位" autocomplete="new-password" minlength="5">
                 </div>
                 
                 <div class="pwd-input-group">
-                    <label>确认新密码</label>
-                    <input type="password" id="confirmPwd" class="pwd-input" placeholder="再次输入新密码" required minlength="5">
+                    <label>确认新密码（可选）</label>
+                    <input type="password" id="confirmPwd" class="pwd-input" placeholder="如修改密码请再次输入" autocomplete="new-password" minlength="5">
                 </div>
 
                 <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
@@ -140,7 +150,7 @@
             setTimeout(() => { dropdown.style.display = ''; }, 100);
         }
         
-        setTimeout(() => document.getElementById('oldPwd').focus(), 100);
+        setTimeout(() => document.getElementById('oldUsername').focus(), 100);
     }
 
     function closePwdModal() {
@@ -180,14 +190,56 @@
         e.preventDefault();
         const btn = document.getElementById('pwdSubmitBtn');
         const indicator = document.getElementById('pwdIndicator');
+        const oldUsername = document.getElementById('oldUsername').value.trim();
+        const newUsername = document.getElementById('newUsername').value.trim();
         const oldPwd = document.getElementById('oldPwd').value;
         const newPwd = document.getElementById('newPwd').value;
         const confirmPwd = document.getElementById('confirmPwd').value;
+        const hasUsernameChange = newUsername.length > 0;
+        const hasPasswordChange = newPwd.length > 0 || confirmPwd.length > 0;
 
         indicator.style.opacity = '0'; // 请求前重置状态
 
-        if (newPwd !== confirmPwd) {
-            indicator.innerHTML = `<span style="color:#ff3b30;">两次新密码不一致</span>`;
+        if (!oldUsername) {
+            indicator.innerHTML = `<span style="color:#ff3b30;">请输入当前账号</span>`;
+            indicator.style.opacity = '1';
+            return;
+        }
+
+        if (!hasUsernameChange && !hasPasswordChange) {
+            indicator.innerHTML = `<span style="color:#ff3b30;">请至少修改账号或密码中的一项</span>`;
+            indicator.style.opacity = '1';
+            return;
+        }
+
+        if (hasUsernameChange) {
+            if (newUsername.length < 3 || newUsername.length > 64) {
+                indicator.innerHTML = `<span style="color:#ff3b30;">新账号长度需在 3-64 位之间</span>`;
+                indicator.style.opacity = '1';
+                return;
+            }
+            if (/\s/.test(newUsername)) {
+                indicator.innerHTML = `<span style="color:#ff3b30;">新账号不能包含空格</span>`;
+                indicator.style.opacity = '1';
+                return;
+            }
+        }
+
+        if (hasPasswordChange) {
+            if (newPwd !== confirmPwd) {
+                indicator.innerHTML = `<span style="color:#ff3b30;">两次新密码不一致</span>`;
+                indicator.style.opacity = '1';
+                return;
+            }
+            if (newPwd.length < 5) {
+                indicator.innerHTML = `<span style="color:#ff3b30;">新密码长度不能小于 5 位</span>`;
+                indicator.style.opacity = '1';
+                return;
+            }
+        }
+
+        if (!oldPwd) {
+            indicator.innerHTML = `<span style="color:#ff3b30;">请输入当前密码</span>`;
             indicator.style.opacity = '1';
             return;
         }
@@ -199,7 +251,13 @@
             const response = await fetch('/api/change-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ old_password: oldPwd, new_password: newPwd, confirm_password: confirmPwd })
+                body: JSON.stringify({
+                    old_username: oldUsername,
+                    new_username: newUsername,
+                    old_password: oldPwd,
+                    new_password: newPwd,
+                    confirm_password: confirmPwd
+                })
             });
             const data = await response.json();
             

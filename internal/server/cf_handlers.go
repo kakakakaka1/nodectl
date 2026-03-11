@@ -248,22 +248,49 @@ func apiCFCertApply(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Domain string `json:"domain"`
+		Token  string `json:"token"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendJSON(w, "error", "参数解析失败")
 		return
 	}
 	req.Domain = strings.TrimSpace(req.Domain)
+	req.Token = strings.TrimSpace(req.Token)
 
 	email := strings.TrimSpace(service.GetCFConfigPublic("cf_email"))
 	apiKey := strings.TrimSpace(service.GetCFConfigPublic("cf_api_key"))
+	if apiKey == "" && req.Token != "" {
+		apiKey = req.Token
+	}
 	domain := req.Domain
 	if domain == "" {
 		domain = strings.TrimSpace(service.GetCFConfigPublic("cf_domain"))
 	}
 
+	// 兜底：若未显式选择域名，则尝试使用最近一次 Token 校验结果中的首个 Zone
+	if domain == "" {
+		if rec := service.GetLastTokenVerifyRecord(); rec != nil && rec.Result != nil {
+			if email == "" {
+				email = strings.TrimSpace(rec.Result.Email)
+			}
+			if len(rec.Result.Zones) > 0 {
+				domain = strings.TrimSpace(rec.Result.Zones[0])
+			}
+		}
+	}
+
 	if email == "" || apiKey == "" || domain == "" {
-		sendJSON(w, "error", "请填写完整的 Cloudflare 信息")
+		missing := make([]string, 0, 3)
+		if email == "" {
+			missing = append(missing, "邮箱")
+		}
+		if apiKey == "" {
+			missing = append(missing, "API Token")
+		}
+		if domain == "" {
+			missing = append(missing, "证书域名")
+		}
+		sendJSON(w, "error", "Cloudflare 信息不完整，缺少: "+strings.Join(missing, "、"))
 		return
 	}
 

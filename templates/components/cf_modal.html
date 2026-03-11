@@ -1775,12 +1775,27 @@
     }
 
     async function cftApplyCert() {
-        const domain = cftBuildFullCertDomain();
+        let domain = cftBuildFullCertDomain();
+        if (!domain) {
+            const zoneEl = document.getElementById('cft-cf-domain');
+            if (zoneEl && zoneEl.options && zoneEl.options.length > 0) {
+                // 兜底：当下拉未显式选中时自动使用首个域名
+                const fallbackZone = (zoneEl.value || zoneEl.options[0].value || '').trim();
+                if (fallbackZone) {
+                    zoneEl.value = fallbackZone;
+                    cftUpdateCertDomainPreview();
+                    domain = cftBuildFullCertDomain();
+                }
+            }
+        }
         if (!domain) {
             cftShowMsg('cft-security-msg', 'error', '请选择证书绑定域名');
             return;
         }
         if (!confirm(`确认使用域名 ${domain} 申请证书吗？`)) return;
+
+        const rawToken = (document.getElementById('cft-token-input')?.value || '').trim();
+        const token = cftIsMaskedTokenValue(rawToken) ? '' : rawToken;
 
         const btn = document.getElementById('cft-apply-cert-btn');
         btn.disabled = true;
@@ -1810,7 +1825,7 @@
             const resp = await fetch('/api/cf/cert/apply', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ domain }),
+                body: JSON.stringify({ domain, token }),
             });
 
             const ct = (resp.headers.get('content-type') || '').toLowerCase();

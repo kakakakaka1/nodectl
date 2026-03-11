@@ -270,6 +270,8 @@ func apiChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
+		OldUsername     string `json:"old_username"`
+		NewUsername     string `json:"new_username"`
 		OldPassword     string `json:"old_password"`
 		NewPassword     string `json:"new_password"`
 		ConfirmPassword string `json:"confirm_password"`
@@ -280,14 +282,63 @@ func apiChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.NewPassword != req.ConfirmPassword {
-		logger.Log.Warn("修改密码失败: 两次密码不一致", "ip", clientIP, "path", reqPath)
-		sendJSON(w, "error", "两次输入的新密码不一致")
+	req.OldUsername = strings.TrimSpace(req.OldUsername)
+	req.NewUsername = strings.TrimSpace(req.NewUsername)
+	req.OldPassword = strings.TrimSpace(req.OldPassword)
+
+	if req.OldPassword == "" {
+		logger.Log.Warn("修改账号/密码失败: 未输入当前密码", "ip", clientIP, "path", reqPath)
+		sendJSON(w, "error", "请输入当前密码")
 		return
 	}
-	if len(req.NewPassword) < 5 {
-		logger.Log.Warn("修改密码失败: 密码过短", "ip", clientIP, "path", reqPath)
-		sendJSON(w, "error", "新密码长度不能小于 5 位")
+
+	if req.NewUsername != "" {
+		if strings.Contains(req.NewUsername, " ") {
+			logger.Log.Warn("修改账号失败: 新账号包含空格", "ip", clientIP, "path", reqPath)
+			sendJSON(w, "error", "新账号不能包含空格")
+			return
+		}
+		if len(req.NewUsername) < 3 || len(req.NewUsername) > 64 {
+			logger.Log.Warn("修改账号失败: 新账号长度非法", "ip", clientIP, "path", reqPath)
+			sendJSON(w, "error", "新账号长度需在 3-64 位之间")
+			return
+		}
+	}
+
+	wantPasswordChange := strings.TrimSpace(req.NewPassword) != "" || strings.TrimSpace(req.ConfirmPassword) != ""
+	if wantPasswordChange {
+		if req.NewPassword != req.ConfirmPassword {
+			logger.Log.Warn("修改密码失败: 两次密码不一致", "ip", clientIP, "path", reqPath)
+			sendJSON(w, "error", "两次输入的新密码不一致")
+			return
+		}
+		if len(req.NewPassword) < 5 {
+			logger.Log.Warn("修改密码失败: 密码过短", "ip", clientIP, "path", reqPath)
+			sendJSON(w, "error", "新密码长度不能小于 5 位")
+			return
+		}
+	}
+
+	var userConfig database.SysConfig
+	if err := database.DB.Where("key = ?", "admin_username").First(&userConfig).Error; err != nil {
+		logger.Log.Error("修改账号/密码失败: 找不到账号配置", "error", err, "ip", clientIP, "path", reqPath)
+		sendJSON(w, "error", "系统错误，找不到管理员账号")
+		return
+	}
+
+	currentUsername := strings.TrimSpace(userConfig.Value)
+	if req.OldUsername == "" {
+		req.OldUsername = currentUsername
+	}
+	if req.OldUsername != currentUsername {
+		logger.Log.Warn("修改账号拦截: 当前账号验证失败", "ip", clientIP, "path", reqPath)
+		sendJSON(w, "error", "当前账号输入错误")
+		return
+	}
+
+	wantUsernameChange := req.NewUsername != "" && req.NewUsername != currentUsername
+	if !wantUsernameChange && !wantPasswordChange {
+		sendJSON(w, "error", "请至少修改账号或密码中的一项")
 		return
 	}
 
@@ -304,14 +355,28 @@ func apiChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
-	if err != nil {
-		logger.Log.Error("新密码 Bcrypt 加密失败", "error", err, "ip", clientIP, "path", reqPath)
-		sendJSON(w, "error", "密码加密失败，请稍后重试")
-		return
+	if wantUsernameChange {
+		if err := database.DB.Model(&database.SysConfig{}).Where("key = ?", "admin_username").Update("value", req.NewUsername).Error; err != nil {
+			logger.Log.Error("更新管理员账号失败", "error", err, "ip", clientIP, "path", reqPath)
+			sendJSON(w, "error", "更新管理员账号失败，请稍后重试")
+			return
+		}
 	}
 
-	database.DB.Model(&database.SysConfig{}).Where("key = ?", "admin_password").Update("value", string(hashedPassword))
+	if wantPasswordChange {
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			logger.Log.Error("新密码 Bcrypt 加密失败", "error", err, "ip", clientIP, "path", reqPath)
+			sendJSON(w, "error", "密码加密失败，请稍后重试")
+			return
+		}
+
+		if err := database.DB.Model(&database.SysConfig{}).Where("key = ?", "admin_password").Update("value", string(hashedPassword)).Error; err != nil {
+			logger.Log.Error("更新管理员密码失败", "error", err, "ip", clientIP, "path", reqPath)
+			sendJSON(w, "error", "更新管理员密码失败，请稍后重试")
+			return
+		}
+	}
 
 	// 修改密码时同时重置 JWT 密钥，强制所有设备下线
 	secureBytes := make([]byte, 32)
@@ -323,7 +388,7 @@ func apiChangePassword(w http.ResponseWriter, r *http.Request) {
 		logger.Log.Error("生成新密钥失败", "error", err, "ip", clientIP, "path", reqPath)
 	}
 
-	logger.Log.Info("管理员密码修改成功", "ip", clientIP, "path", reqPath)
+	logger.Log.Info("管理员账号/密码修改成功", "username_changed", wantUsernameChange, "password_changed", wantPasswordChange, "ip", clientIP, "path", reqPath)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "nodectl_token",
@@ -333,7 +398,7 @@ func apiChangePassword(w http.ResponseWriter, r *http.Request) {
 		MaxAge:   -1,
 	})
 
-	sendJSON(w, "success", "密码修改成功！1.5秒后将重新跳转到登录页")
+	sendJSON(w, "success", "账号/密码修改成功！1.5秒后将重新跳转到登录页")
 }
 
 func apiResetJWT(w http.ResponseWriter, r *http.Request) {

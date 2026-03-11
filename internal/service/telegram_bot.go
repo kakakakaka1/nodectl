@@ -104,7 +104,8 @@ func notifyOfflineIfDue(installID string, now time.Time) {
 		eventTime = now
 	}
 
-	if sendNodeStatusNotification(node.Name, false, eventTime) {
+	sent := sendNodeStatusNotification(node.Name, false, eventTime)
+	if sent {
 		updateNodeOfflineLastNotifyAt(node.UUID, eventTime)
 	}
 
@@ -114,8 +115,13 @@ func notifyOfflineIfDue(installID string, now time.Time) {
 		st = &offlineNotifyRuntime{}
 		offlineNotifyState[installID] = st
 	}
-	st.lastNotified = "offline"
-	st.pendingOfflineAt = time.Time{}
+	if sent {
+		st.lastNotified = "offline"
+		st.pendingOfflineAt = time.Time{}
+	} else {
+		// 发送失败时不标记为已通知，稍后重试，避免后续误发“上线通知”
+		st.pendingOfflineAt = now.Add(30 * time.Second)
+	}
 	offlineNotifyMu.Unlock()
 }
 
@@ -475,6 +481,7 @@ func OnNodeConnectionStatusChanged(installID string, online bool) {
 		offlineNotifyState[installID] = st
 	}
 	prevOnline := st.online
+	prevLastNotified := st.lastNotified
 	wasInitialized := st.initialized
 	st.initialized = true
 	st.online = online
@@ -495,8 +502,8 @@ func OnNodeConnectionStatusChanged(installID string, online bool) {
 		return
 	}
 
-	if online && wasInitialized && !prevOnline {
-		// 从离线恢复上线：立即发送上线通知（不再要求之前必须发过离线通知）
+	if online && wasInitialized && !prevOnline && prevLastNotified == "offline" {
+		// 仅在“此前已成功发送离线通知”后，恢复在线才发送上线通知
 		if sendNodeStatusNotification(node.Name, true, now) {
 			updateNodeOfflineLastNotifyAt(node.UUID, now)
 		}
