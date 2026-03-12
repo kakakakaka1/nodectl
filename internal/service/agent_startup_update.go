@@ -143,11 +143,9 @@ func runAgentStartupSilentUpdateCheck(ctx context.Context) (retErr error) {
 
 	// 所有节点版本均已是最新，直接结束，不下发任何命令
 	if len(needUpdate) == 0 {
-		logger.Log.Info("启动静默 Agent 更新检查完成：所有节点版本均已是最新",
+		logger.Log.Info("Agent 更新检查完成：所有节点版本均已是最新",
 			"latest_version", latestVersion,
 			"total_nodes", total,
-			"up_to_date", skippedUpToDate,
-			"version_invalid", skippedInvalid,
 		)
 		return nil
 	}
@@ -177,16 +175,14 @@ func runAgentStartupSilentUpdateCheck(ctx context.Context) (retErr error) {
 		triggered++
 	}
 
-	// ── 汇总日志：一行显示所有统计 ──
-	logger.Log.Info("启动静默 Agent 更新检查完成",
+	// ── 汇总日志：一行显示成功/失败数 ──
+	logger.Log.Info("已成功下发 Agent 检查更新",
 		"latest_version", latestVersion,
-		"total_nodes", total,
-		"need_update", len(needUpdate),
-		"triggered", triggered,
-		"skipped_up_to_date", skippedUpToDate,
-		"skipped_offline", skippedOffline,
-		"skipped_version_invalid", skippedInvalid,
-		"skipped_fire_error", skippedFireErr,
+		"成功", triggered,
+		"失败", skippedFireErr,
+		"离线跳过", skippedOffline,
+		"已是最新", skippedUpToDate,
+		"版本无效跳过", skippedInvalid,
 	)
 
 	return nil

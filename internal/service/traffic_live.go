@@ -993,7 +993,11 @@ func FireCommandToNode(installID string, action string, payload interface{}) (st
 		return "", fmt.Errorf("命令发送失败: %w", err)
 	}
 
-	logger.Log.Info("命令已异步下发", "install_id", installID, "action", action, "command_id", commandID)
+	nodeName := hub.resolveNodeNameByInstallID(installID)
+	if nodeName == "" {
+		nodeName = installID
+	}
+	logger.Log.Debug("命令已异步下发", "install_id", installID, "node_name", nodeName, "action", action, "command_id", commandID)
 
 	// 5 分钟后自动清理日志
 	go func() {
