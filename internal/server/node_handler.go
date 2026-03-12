@@ -1752,6 +1752,61 @@ func apiNodeControlCheckAgentUpdate(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// apiPushAgentInterval 将最新的推送速率间隔推送给所有在线 Agent
+// 路由: POST /api/push-agent-interval
+// 请求体: { "interval_sec": 2 }
+func apiPushAgentInterval(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		sendJSON(w, "error", "仅支持 POST 请求")
+		return
+	}
+
+	// 从数据库读取最新值
+	var cfg database.SysConfig
+	if err := database.DB.Select("value").Where("key = ?", "agent_ws_push_interval_sec").First(&cfg).Error; err != nil {
+		sendJSON(w, "error", "读取推送间隔配置失败")
+		return
+	}
+
+	intervalSec, err := strconv.Atoi(strings.TrimSpace(cfg.Value))
+	if err != nil || intervalSec < 1 {
+		intervalSec = 2
+	}
+	if intervalSec > 5 {
+		intervalSec = 5
+	}
+
+	// 遍历所有节点，向在线节点推送命令
+	var nodes []database.NodePool
+	database.DB.Select("install_id", "name").Find(&nodes)
+
+	successCount := 0
+	failCount := 0
+	payload := map[string]interface{}{
+		"interval_sec": intervalSec,
+	}
+
+	for _, node := range nodes {
+		if !service.IsNodeOnline(node.InstallID) {
+			continue
+		}
+		if _, err := service.FireCommandToNode(node.InstallID, "update-push-interval", payload); err != nil {
+			failCount++
+			logger.Log.Warn("推送间隔命令下发失败", "node", node.Name, "install_id", node.InstallID, "error", err)
+		} else {
+			successCount++
+		}
+	}
+
+	logger.Log.Info("Agent 推送间隔已批量下发", "interval_sec", intervalSec, "success", successCount, "fail", failCount)
+	sendJSON(w, "success", map[string]interface{}{
+		"message":       fmt.Sprintf("已推送到 %d 个在线节点", successCount),
+		"interval_sec":  intervalSec,
+		"success_count": successCount,
+		"fail_count":    failCount,
+	})
+}
+
 // apiNodeOnlineStatus 查询节点在线状态
 // 路由: GET /api/node/online-status?uuid=...
 func apiNodeOnlineStatus(w http.ResponseWriter, r *http.Request) {

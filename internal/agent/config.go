@@ -57,3 +57,21 @@ func LoadConfig(path string) (*Config, error) {
 
 	return &cfg, nil
 }
+
+// SaveConfig 将配置写回 JSON 文件（持久化运行时变更）
+func SaveConfig(path string, cfg *Config) error {
+	if path == "" {
+		path = DefaultConfigPath
+	}
+
+	data, err := json.MarshalIndent(cfg, "", "  ")
+	if err != nil {
+		return fmt.Errorf("序列化配置失败: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("写入配置文件失败 [%s]: %w", path, err)
+	}
+
+	return nil
+}

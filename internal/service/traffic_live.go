@@ -21,21 +21,29 @@ import (
 
 // getAgentReadTimeout 根据 Agent 上报间隔动态计算 WS 读超时。
 // 规则：timeout = max(15s, interval*4+5s)，并限制最大 10 分钟。
+// loadAgentWSPushIntervalSec 从数据库读取 Agent 推送间隔，限制在 1-5 秒范围内
+func loadAgentWSPushIntervalSec() int {
+	var cfg database.SysConfig
+	if err := database.DB.Select("value").Where("key = ?", "agent_ws_push_interval_sec").First(&cfg).Error; err != nil {
+		return 2
+	}
+	sec, err := strconv.Atoi(strings.TrimSpace(cfg.Value))
+	if err != nil || sec < 1 {
+		return 2
+	}
+	if sec > 5 {
+		return 5
+	}
+	return sec
+}
+
 func getAgentReadTimeout() time.Duration {
 	const (
 		minTimeout = 15 * time.Second
 		maxTimeout = 10 * time.Minute
 	)
 
-	var cfg database.SysConfig
-	if err := database.DB.Select("value").Where("key = ?", "agent_ws_push_interval_sec").First(&cfg).Error; err != nil {
-		return minTimeout
-	}
-
-	sec, err := strconv.Atoi(strings.TrimSpace(cfg.Value))
-	if err != nil || sec <= 0 {
-		return minTimeout
-	}
+	sec := loadAgentWSPushIntervalSec()
 
 	timeout := time.Duration(sec*4+5) * time.Second
 	if timeout < minTimeout {
@@ -652,8 +660,9 @@ func HandleTrafficLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 周期推送快照：由后端统一判定离线，避免前端自行计时
-	ticker := time.NewTicker(2 * time.Second)
+	// 周期推送快照：由后端统一判定离线，间隔与 Agent 推送间隔保持同步
+	pushIntervalSec := loadAgentWSPushIntervalSec()
+	ticker := time.NewTicker(time.Duration(pushIntervalSec) * time.Second)
 	defer ticker.Stop()
 
 	// 持续推送
