@@ -99,7 +99,7 @@ install_deps() {
     fi
 
     info "安装系统依赖..."
-    
+
     case "$OS" in
         alpine)
             apk update || { err "apk update 失败"; exit 1; }
@@ -126,7 +126,7 @@ install_deps() {
             warn "未识别的系统类型,尝试继续..."
             ;;
     esac
-    
+
     info "依赖安装完成"
 }
 
@@ -275,12 +275,12 @@ select_protocols "$@"
 select_ss_method() {
     # 直接使用顶部定义的变量
     SS_METHOD="$FIXED_SS_METHOD"
-    
+
     # 如果启用 SS，打印一下提示
     if $ENABLE_SS; then
         info "SS 加密方式已设置为: $SS_METHOD"
     fi
-    
+
     # 导出变量供后续使用
     export SS_METHOD
 }
@@ -319,7 +319,7 @@ mv /etc/sing-box/.config_cache.tmp /etc/sing-box/.config_cache || true
 # 配置端口和密码
 get_config() {
     info "开始配置端口和密码..."
-    
+
     # --- Shadowsocks ---
     if $ENABLE_SS; then
         # 直接使用顶部定义的变量
@@ -342,14 +342,14 @@ get_config() {
                 PSK_SS=$(rand_pass)
                 ;;
         esac
-        
+
     fi
 
     # --- Hysteria2 ---
     if $ENABLE_HY2; then
         PORT_HY2="$FIXED_PORT_HY2"
         PSK_HY2=$(rand_pass)
-        
+
     fi
 
     # --- TUIC ---
@@ -357,14 +357,14 @@ get_config() {
         PORT_TUIC="$FIXED_PORT_TUIC"
         PSK_TUIC=$(rand_pass)
         UUID_TUIC=$(rand_uuid)
-        
+
     fi
 
     # --- Reality ---
     if $ENABLE_REALITY; then
         PORT_REALITY="$FIXED_PORT_REALITY"
         UUID=$(rand_uuid)
-        
+
     fi
 
     # --- SOCKS5 ---
@@ -469,35 +469,35 @@ generate_reality_keys() {
         info "跳过 Reality 密钥生成（未选择 Reality 协议）"
         return 0
     fi
-    
+
     info "生成 Reality 密钥对..."
-    
+
     if ! command -v sing-box >/dev/null 2>&1; then
         err "sing-box 未安装，无法生成 Reality 密钥"
         exit 1
     fi
-    
+
     REALITY_KEYS=$(sing-box generate reality-keypair 2>&1) || {
         err "生成 Reality 密钥失败"
         exit 1
     }
-    
+
     REALITY_PK=$(echo "$REALITY_KEYS" | grep "PrivateKey" | awk '{print $NF}' | tr -d '\r')
     REALITY_PUB=$(echo "$REALITY_KEYS" | grep "PublicKey" | awk '{print $NF}' | tr -d '\r')
     REALITY_SID=$(sing-box generate rand 8 --hex 2>&1) || {
         err "生成 Reality ShortID 失败"
         exit 1
     }
-    
+
     if [ -z "$REALITY_PK" ] || [ -z "$REALITY_PUB" ] || [ -z "$REALITY_SID" ]; then
         err "Reality 密钥生成结果为空"
         exit 1
     fi
-    
+
     mkdir -p /etc/sing-box
     echo -n "$REALITY_PUB" > /etc/sing-box/.reality_pub
     echo -n "$REALITY_SID" > /etc/sing-box/.reality_sid
-    
+
     info "Reality 密钥已生成"
 }
 
@@ -513,10 +513,10 @@ generate_cert() {
         info "跳过证书生成(未选择需要 TLS 证书的协议)"
         return 0
     fi
-    
+
     info "生成内置应用自签证书(HY2/TUIC/Trojan)..."
     mkdir -p /etc/sing-box/certs
-    
+
     if [ ! -f /etc/sing-box/certs/fullchain.pem ] || [ ! -f /etc/sing-box/certs/privkey.pem ]; then
         openssl req -x509 -newkey rsa:2048 -nodes \
           -keyout /etc/sing-box/certs/privkey.pem \
@@ -546,9 +546,9 @@ create_config() {
     # 构建 inbounds 内容（使用临时文件避免字符串处理问题）
     local TEMP_INBOUNDS="/tmp/singbox_inbounds_$$.json"
     > "$TEMP_INBOUNDS"
-    
+
     local need_comma=false
-    
+
     if $ENABLE_SS; then
         cat >> "$TEMP_INBOUNDS" <<'INBOUND_SS'
     {
@@ -565,7 +565,7 @@ INBOUND_SS
         sed -i "s|PSK_SS_PLACEHOLDER|$PSK_SS|g" "$TEMP_INBOUNDS"
         need_comma=true
     fi
-    
+
     if $ENABLE_HY2; then
         $need_comma && echo "," >> "$TEMP_INBOUNDS"
         cat >> "$TEMP_INBOUNDS" <<'INBOUND_HY2'
@@ -591,7 +591,7 @@ INBOUND_HY2
         sed -i "s|PSK_HY2_PLACEHOLDER|$PSK_HY2|g" "$TEMP_INBOUNDS"
         need_comma=true
     fi
-    
+
     if $ENABLE_TUIC; then
         $need_comma && echo "," >> "$TEMP_INBOUNDS"
         cat >> "$TEMP_INBOUNDS" <<'INBOUND_TUIC'
@@ -620,7 +620,7 @@ INBOUND_TUIC
         sed -i "s|PSK_TUIC_PLACEHOLDER|$PSK_TUIC|g" "$TEMP_INBOUNDS"
         need_comma=true
     fi
-    
+
     if $ENABLE_REALITY; then
         $need_comma && echo "," >> "$TEMP_INBOUNDS"
         cat >> "$TEMP_INBOUNDS" <<'INBOUND_REALITY'
@@ -884,9 +884,9 @@ INBOUND_TROJAN_HUT
   },
   "inbounds": [
 CONFIG_HEAD
-    
+
     cat "$TEMP_INBOUNDS" >> "$CONFIG_PATH"
-    
+
     cat >> "$CONFIG_PATH" <<'CONFIG_TAIL'
   ],
   "outbounds": [
@@ -1017,10 +1017,10 @@ info "配置生成完成，准备设置服务..."
 # 设置服务
 setup_service() {
     info "配置系统服务..."
-    
+
     if [ "$OS" = "alpine" ]; then
         SERVICE_PATH="/etc/init.d/sing-box"
-        
+
         cat > "$SERVICE_PATH" <<'OPENRC'
 #!/sbin/openrc-run
 
@@ -1046,7 +1046,7 @@ start_pre() {
     checkpath --directory --mode 0755 /run
 }
 OPENRC
-        
+
         chmod +x "$SERVICE_PATH"
         rc-update add sing-box default >/dev/null 2>&1 || warn "添加开机自启失败"
         rc-service sing-box restart || {
@@ -1054,7 +1054,7 @@ OPENRC
             tail -20 /var/log/sing-box.err 2>/dev/null || tail -20 /var/log/sing-box.log 2>/dev/null || true
             exit 1
         }
-        
+
         sleep 2
         if rc-service sing-box status >/dev/null 2>&1; then
             info "✅ OpenRC 服务已启动"
@@ -1062,10 +1062,10 @@ OPENRC
             err "服务状态异常"
             exit 1
         fi
-        
+
     else
         SERVICE_PATH="/etc/systemd/system/sing-box.service"
-        
+
         cat > "$SERVICE_PATH" <<'SYSTEMD'
 [Unit]
 Description=Sing-box Proxy Server
@@ -1086,7 +1086,7 @@ LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 SYSTEMD
-        
+
         systemctl daemon-reload
         systemctl enable sing-box >/dev/null 2>&1
         systemctl restart sing-box || {
@@ -1094,7 +1094,7 @@ SYSTEMD
             journalctl -u sing-box -n 30 --no-pager
             exit 1
         }
-        
+
         sleep 2
         if systemctl is-active sing-box >/dev/null 2>&1; then
             info "✅ Systemd 服务已启动"
@@ -1103,7 +1103,7 @@ SYSTEMD
             exit 1
         fi
     fi
-    
+
     info "服务配置完成: $SERVICE_PATH"
 }
 
@@ -1190,7 +1190,7 @@ generate_uris() {
     if [[ "$host" == *":"* ]]; then
         host="[$host]"
     fi
-    
+
     if $ENABLE_SS; then
         local ss_userinfo="${SS_METHOD}:${PSK_SS}"
         ss_encoded=$(printf "%s" "$ss_userinfo" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
@@ -1201,7 +1201,7 @@ generate_uris() {
         echo "ss://${ss_b64}@${host}:${PORT_SS}#ss${suffix}"
         echo ""
     fi
-    
+
     if $ENABLE_HY2; then
         hy2_encoded=$(printf "%s" "$PSK_HY2" | sed 's/:/%3A/g; s/+/%2B/g; s/\//%2F/g; s/=/%3D/g')
         echo "=== Hysteria2 (HY2) ==="
@@ -1215,7 +1215,7 @@ generate_uris() {
         echo "tuic://${UUID_TUIC}:${tuic_encoded}@${host}:${PORT_TUIC}/?congestion_control=bbr&alpn=h3&sni=${FIXED_TUIC_SNI}&insecure=1#tuic${suffix}"
         echo ""
     fi
-    
+
     if $ENABLE_REALITY; then
         echo "=== VLESS Reality ==="
         echo "vless://${UUID}@${host}:${PORT_REALITY}?encryption=none&flow=xtls-rprx-vision&security=reality&sni=${REALITY_SNI}&fp=chrome&pbk=${REALITY_PUB}&sid=${REALITY_SID}#reality${suffix}"
@@ -1360,7 +1360,7 @@ curl_post_submit() {
     local url="$1"
     local json="$2"
     local msg="$3"
-    
+
     # 优先尝试 IPv4 通道上报
     if curl -s -4 -X POST -H "Content-Type: application/json" -d "$json" "$url" >/dev/null 2>&1; then
         return 0
@@ -1392,14 +1392,35 @@ setup_agent() {
 
     info "━━━━━━━━━━━━ nodectl-agent 安装 ━━━━━━━━━━━━"
 
-    # 如果 agent 已在运行，跳过重新安装
+    # agent 触发重装时已经在函数开头 return；这里是用户手动重装路径
+    # 手动重装需要清理旧 agent 状态并强制刷新为当前 install_id
     if pidof nodectl-agent >/dev/null 2>&1; then
-        info "✅ nodectl-agent 已在运行 (PID: $(pidof nodectl-agent))，跳过安装"
-        info "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        return 0
+        info "检测到 nodectl-agent 已在运行 (PID: $(pidof nodectl-agent))，准备清理旧状态并重装"
+    else
+        info "未检测到运行中的 nodectl-agent，执行全量安装/修复"
     fi
 
-    # ── 1. 检测架构并下载 agent ──────────────────────────────
+    local AGENT_BIN="/usr/local/bin/nodectl-agent"
+    local AGENT_CONF_DIR="/etc/nodectl-agent"
+    local AGENT_CONF="$AGENT_CONF_DIR/config.json"
+
+    # ── 1. 先停服务并清理旧文件（仅手动重装路径执行） ──────────────────────────────
+    info "清理旧 nodectl-agent 相关文件..."
+    if [ "$OS" = "alpine" ]; then
+        rc-service nodectl-agent stop 2>/dev/null || true
+    else
+        systemctl stop nodectl-agent 2>/dev/null || true
+    fi
+    killall nodectl-agent 2>/dev/null || true
+
+    rm -f /run/nodectl-agent.pid 2>/dev/null || true
+    rm -f /var/log/nodectl-agent.log 2>/dev/null || true
+    rm -f /etc/systemd/system/nodectl-agent.service 2>/dev/null || true
+    rm -f /etc/init.d/nodectl-agent 2>/dev/null || true
+    rm -rf "$AGENT_CONF_DIR" 2>/dev/null || true
+    rm -f "$AGENT_BIN" 2>/dev/null || true
+
+    # ── 2. 检测架构并下载 agent ──────────────────────────────
     local arch
     arch=$(uname -m)
     local ARCH_NAME=""
@@ -1442,8 +1463,6 @@ setup_agent() {
         agent_url=$(echo "$AGENT_DOWNLOAD_URL" | sed "s/__ARCH__/$ARCH_NAME/g")
     fi
 
-    local AGENT_BIN="/usr/local/bin/nodectl-agent"
-
     info "下载 nodectl-agent ($ARCH_NAME)..."
     info "  URL: $agent_url"
     if curl -fsSL "$agent_url" -o "$AGENT_BIN"; then
@@ -1455,9 +1474,6 @@ setup_agent() {
     fi
 
     # ── 3. 生成配置文件 ──────────────────────────────────────
-    local AGENT_CONF_DIR="/etc/nodectl-agent"
-    local AGENT_CONF="$AGENT_CONF_DIR/config.json"
-
     mkdir -p "$AGENT_CONF_DIR"
 
     cat > "$AGENT_CONF" <<AGENT_CFG
@@ -1547,7 +1563,7 @@ report_nodes() {
 
     NODE_NAME=$(hostname)
     [ -z "$NODE_NAME" ] && NODE_NAME="SingBox-Node"
-    
+
     # 处理 IPv6 格式 (加中括号)，用于生成链接
     local link_host="$PUB_IP"
     if [[ "$link_host" == *":"* ]]; then
@@ -1585,7 +1601,7 @@ report_nodes() {
         local json_data="{\"install_id\": \"$INSTALL_ID\", \"protocol\": \"vless\", \"link\": \"$link\"}"
         curl_post_submit "$REPORT_URL" "$json_data" "Reality"
     fi
-    
+
     # 5. SOCKS5
     if $ENABLE_SOCKS5; then
         local link="socks5://${USER_SOCKS5}:${PASS_SOCKS5}@${link_host}:${PORT_SOCKS5}#socks5-${NODE_NAME}"
@@ -1682,7 +1698,7 @@ report_nodes() {
 
     # 8. 上报双栈 IP 信息
     local ip_json_data="{\"install_id\": \"$INSTALL_ID\", \"ipv4\": \"$SERVER_IPV4\", \"ipv6\": \"$SERVER_IPV6\"}"
-    
+
     info "-> 上报双栈 IP 信息 (V4: ${SERVER_IPV4:-无}, V6: ${SERVER_IPV6:-无})..."
     curl_post_submit "$REPORT_URL" "$ip_json_data" "IP更新"
 
@@ -1821,18 +1837,18 @@ read_config() {
         err "未找到配置文件: $CONFIG_PATH"
         return 1
     fi
-    
+
     # 优先加载 .protocols 文件（确认协议标记）
     PROTOCOL_FILE="/etc/sing-box/.protocols"
     if [ -f "$PROTOCOL_FILE" ]; then
         . "$PROTOCOL_FILE"
     fi
-    
+
     # 加载缓存文件（包含端口密码等详细配置）
     if [ -f "$CACHE_FILE" ]; then
         . "$CACHE_FILE"
     fi
-    
+
     # 确保有默认值
     REALITY_SNI="${REALITY_SNI:-addons.mozilla.org}"
     CUSTOM_IP="${CUSTOM_IP:-}"
@@ -1843,18 +1859,18 @@ read_config() {
         SS_PSK=$(jq -r '.inbounds[] | select(.type=="shadowsocks") | .password // empty' "$CONFIG_PATH" | head -n1)
         SS_METHOD=$(jq -r '.inbounds[] | select(.type=="shadowsocks") | .method // empty' "$CONFIG_PATH" | head -n1)
     fi
-    
+
     if [ "${ENABLE_HY2:-false}" = "true" ]; then
         HY2_PORT=$(jq -r '.inbounds[] | select(.type=="hysteria2") | .listen_port // empty' "$CONFIG_PATH" | head -n1)
         HY2_PSK=$(jq -r '.inbounds[] | select(.type=="hysteria2") | .users[0].password // empty' "$CONFIG_PATH" | head -n1)
     fi
-    
+
     if [ "${ENABLE_TUIC:-false}" = "true" ]; then
         TUIC_PORT=$(jq -r '.inbounds[] | select(.type=="tuic") | .listen_port // empty' "$CONFIG_PATH" | head -n1)
         TUIC_UUID=$(jq -r '.inbounds[] | select(.type=="tuic") | .users[0].uuid // empty' "$CONFIG_PATH" | head -n1)
         TUIC_PSK=$(jq -r '.inbounds[] | select(.type=="tuic") | .users[0].password // empty' "$CONFIG_PATH" | head -n1)
     fi
-    
+
     if [ "${ENABLE_REALITY:-false}" = "true" ]; then
         REALITY_PORT=$(jq -r '.inbounds[] | select(.tag=="vless-in") | .listen_port // empty' "$CONFIG_PATH" | head -n1)
         REALITY_UUID=$(jq -r '.inbounds[] | select(.tag=="vless-in") | .users[0].uuid // empty' "$CONFIG_PATH" | head -n1)
@@ -1938,21 +1954,21 @@ generate_uris() {
     fi
 
     node_suffix=$(cat /root/node_names.txt 2>/dev/null || echo "")
-    
+
     URI_FILE="/etc/sing-box/uris.txt"
     > "$URI_FILE"
-    
+
     if [ "${ENABLE_SS:-false}" = "true" ]; then
         ss_userinfo="${SS_METHOD}:${SS_PSK}"
         ss_encoded=$(url_encode "$ss_userinfo")
         ss_b64=$(printf "%s" "$ss_userinfo" | base64 -w0 2>/dev/null || printf "%s" "$ss_userinfo" | base64 | tr -d '\n')
-        
+
         echo "=== Shadowsocks (SS) ===" >> "$URI_FILE"
         echo "ss://${ss_encoded}@${link_host}:${SS_PORT}#ss${node_suffix}" >> "$URI_FILE"
         echo "ss://${ss_b64}@${link_host}:${SS_PORT}#ss${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
-    
+
     if [ "${ENABLE_HY2:-false}" = "true" ]; then
         hy2_encoded=$(url_encode "$HY2_PSK")
         local _hy2_sni="${HY2_SNI:-www.bing.com}"
@@ -1960,7 +1976,7 @@ generate_uris() {
         echo "hy2://${hy2_encoded}@${link_host}:${HY2_PORT}/?sni=${_hy2_sni}&alpn=h3&insecure=1#hy2${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
-    
+
     if [ "${ENABLE_TUIC:-false}" = "true" ]; then
         tuic_encoded=$(url_encode "$TUIC_PSK")
         local _tuic_sni="${TUIC_SNI:-www.bing.com}"
@@ -1968,7 +1984,7 @@ generate_uris() {
         echo "tuic://${TUIC_UUID}:${tuic_encoded}@${link_host}:${TUIC_PORT}/?congestion_control=bbr&alpn=h3&sni=${_tuic_sni}&insecure=1#tuic${node_suffix}" >> "$URI_FILE"
         echo "" >> "$URI_FILE"
     fi
-    
+
     if [ "${ENABLE_REALITY:-false}" = "true" ]; then
         REALITY_SNI="${REALITY_SNI:-addons.mozilla.org}"
         echo "=== VLESS Reality ===" >> "$URI_FILE"
@@ -2087,9 +2103,9 @@ action_edit_config() {
         err "配置文件不存在: $CONFIG_PATH"
         return 1
     fi
-    
+
     ${EDITOR:-nano} "$CONFIG_PATH" 2>/dev/null || ${EDITOR:-vi} "$CONFIG_PATH"
-    
+
     if command -v sing-box >/dev/null 2>&1; then
         if sing-box check -c "$CONFIG_PATH" >/dev/null 2>&1; then
             info "配置校验通过,已重启服务"
@@ -2104,24 +2120,24 @@ action_edit_config() {
 # 重置SS端口
 action_reset_ss() {
     read_config || return 1
-    
+
     if [ "${ENABLE_SS:-false}" != "true" ]; then
         err "SS 协议未启用"
         return 1
     fi
-    
+
     read -p "输入新的 SS 端口(回车保持 $SS_PORT): " new_port
     new_port="${new_port:-$SS_PORT}"
-    
+
     info "正在停止服务..."
     service_stop || warn "停止服务失败"
-    
+
     cp "$CONFIG_PATH" "${CONFIG_PATH}.bak"
-    
+
     jq --argjson port "$new_port" '
     .inbounds |= map(if .type=="shadowsocks" then .listen_port = $port else . end)
     ' "$CONFIG_PATH" > "${CONFIG_PATH}.tmp" && mv "${CONFIG_PATH}.tmp" "$CONFIG_PATH"
-    
+
     info "已启动服务并更新 SS 端口: $new_port"
     service_start || warn "启动服务失败"
     sleep 1
@@ -2131,24 +2147,24 @@ action_reset_ss() {
 # 重置HY2端口
 action_reset_hy2() {
     read_config || return 1
-    
+
     if [ "${ENABLE_HY2:-false}" != "true" ]; then
         err "HY2 协议未启用"
         return 1
     fi
-    
+
     read -p "输入新的 HY2 端口(回车保持 $HY2_PORT): " new_port
     new_port="${new_port:-$HY2_PORT}"
-    
+
     info "正在停止服务..."
     service_stop || warn "停止服务失败"
-    
+
     cp "$CONFIG_PATH" "${CONFIG_PATH}.bak"
-    
+
     jq --argjson port "$new_port" '
     .inbounds |= map(if .type=="hysteria2" then .listen_port = $port else . end)
     ' "$CONFIG_PATH" > "${CONFIG_PATH}.tmp" && mv "${CONFIG_PATH}.tmp" "$CONFIG_PATH"
-    
+
     info "已启动服务并更新 HY2 端口: $new_port"
     service_start || warn "启动服务失败"
     sleep 1
@@ -2158,24 +2174,24 @@ action_reset_hy2() {
 # 重置TUIC端口
 action_reset_tuic() {
     read_config || return 1
-    
+
     if [ "${ENABLE_TUIC:-false}" != "true" ]; then
         err "TUIC 协议未启用"
         return 1
     fi
-    
+
     read -p "输入新的 TUIC 端口(回车保持 $TUIC_PORT): " new_port
     new_port="${new_port:-$TUIC_PORT}"
-    
+
     info "正在停止服务..."
     service_stop || warn "停止服务失败"
-    
+
     cp "$CONFIG_PATH" "${CONFIG_PATH}.bak"
-    
+
     jq --argjson port "$new_port" '
     .inbounds |= map(if .type=="tuic" then .listen_port = $port else . end)
     ' "$CONFIG_PATH" > "${CONFIG_PATH}.tmp" && mv "${CONFIG_PATH}.tmp" "$CONFIG_PATH"
-    
+
     info "已启动服务并更新 TUIC 端口: $new_port"
     service_start || warn "启动服务失败"
     sleep 1
@@ -2185,24 +2201,24 @@ action_reset_tuic() {
 # 重置Reality端口
 action_reset_reality() {
     read_config || return 1
-    
+
     if [ "${ENABLE_REALITY:-false}" != "true" ]; then
         err "Reality 协议未启用"
         return 1
     fi
-    
+
     read -p "输入新的 Reality 端口(回车保持 $REALITY_PORT): " new_port
     new_port="${new_port:-$REALITY_PORT}"
-    
+
     info "正在停止服务..."
     service_stop || warn "停止服务失败"
-    
+
     cp "$CONFIG_PATH" "${CONFIG_PATH}.bak"
-    
+
     jq --argjson port "$new_port" '
     .inbounds |= map(if .tag=="vless-in" then .listen_port = $port else . end)
     ' "$CONFIG_PATH" > "${CONFIG_PATH}.tmp" && mv "${CONFIG_PATH}.tmp" "$CONFIG_PATH"
-    
+
     info "已启动服务并更新 Reality 端口: $new_port"
     service_start || warn "启动服务失败"
     sleep 1
@@ -2297,7 +2313,7 @@ action_update() {
     else
         bash <(curl -fsSL https://sing-box.app/install.sh)
     fi
-    
+
     info "更新完成,已重启服务..."
     if command -v sing-box >/dev/null 2>&1; then
         NEW_VER=$(sing-box version 2>/dev/null | head -n1)
@@ -2310,7 +2326,7 @@ action_update() {
 action_uninstall() {
     read -p "确认卸载 sing-box?(y/N): " confirm
     [[ ! "$confirm" =~ ^[Yy]$ ]] && info "已取消" && return 0
-    
+
     info "正在卸载..."
     service_stop || true
     if [ "$OS" = "alpine" ]; then
@@ -2415,7 +2431,7 @@ action_traffic_restart() {
 # 动态生成菜单
 show_menu() {
     read_config 2>/dev/null || true
-    
+
     cat <<'MENU'
 
 ==========================
@@ -2430,25 +2446,25 @@ MENU
     declare -g -A MENU_MAP
     MENU_MAP=()
     local option=4
-    
+
     if [ "${ENABLE_SS:-false}" = "true" ]; then
         echo "$option) 重置 SS 端口"
         MENU_MAP[$option]="reset_ss"
         option=$((option + 1))
     fi
-    
+
     if [ "${ENABLE_HY2:-false}" = "true" ]; then
         echo "$option) 重置 HY2 端口"
         MENU_MAP[$option]="reset_hy2"
         option=$((option + 1))
     fi
-    
+
     if [ "${ENABLE_TUIC:-false}" = "true" ]; then
         echo "$option) 重置 TUIC 端口"
         MENU_MAP[$option]="reset_tuic"
         option=$((option + 1))
     fi
-    
+
     if [ "${ENABLE_REALITY:-false}" = "true" ]; then
         echo "$option) 重置 Reality 端口"
         MENU_MAP[$option]="reset_reality"
@@ -2522,19 +2538,19 @@ MENU
     MENU_MAP[$option]="start"
     echo "$option) 启动服务"
     option=$((option + 1))
-    
+
     MENU_MAP[$option]="stop"
     echo "$((option))) 停止服务"
     option=$((option + 1))
-    
+
     MENU_MAP[$option]="restart"
     echo "$((option))) 重启服务"
     option=$((option + 1))
-    
+
     MENU_MAP[$option]="status"
     echo "$((option))) 查看状态"
     option=$((option + 1))
-    
+
     MENU_MAP[$option]="update"
     echo "$((option))) 更新 sing-box"
     option=$((option + 1))
@@ -2549,7 +2565,7 @@ MENU
 
     MENU_MAP[$option]="uninstall"
     echo "$((option))) 卸载 sing-box"
-    
+
     cat <<MENU2
 0) 退出
 ==========================
@@ -2560,12 +2576,12 @@ MENU2
 while true; do
     show_menu
     read -p "请输入选项: " opt
-    
+
     # 处理退出
     if [ "$opt" = "0" ]; then
         exit 0
     fi
-    
+
     # 处理固定选项
     case "$opt" in
         1) action_view_uri ;;
@@ -2603,7 +2619,7 @@ while true; do
             esac
             ;;
     esac
-    
+
     echo ""
 done
 SB_SCRIPT
