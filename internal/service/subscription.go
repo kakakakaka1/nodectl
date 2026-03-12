@@ -89,6 +89,10 @@ func GenerateRawNodesYAML(routingType int, useFlag bool) (string, error) {
 						if shouldUseTunnelForSubscription(*node, proto) {
 							proxyNode.Port = resolveTunnelEdgePortForProto(proto, proxyNode.Port)
 							applyTunnelHostToClashNode(proxyNode, targetHost)
+							// 自定义优选地址：覆盖 Server 为用户指定的 IP/域名，SNI/Host 保持 tunnel 域名
+							if preferred := strings.TrimSpace(node.TunnelPreferredAddress); preferred != "" {
+								proxyNode.Server = preferred
+							}
 						}
 					}
 					proxyList = append(proxyList, proxyNode)
@@ -244,6 +248,10 @@ func GenerateV2RaySubBase64(useFlag bool) (string, error) {
 				if shouldUseTunnelForSubscription(*node, proto) {
 					targetLink = ReplaceLinkPort(targetLink, resolveTunnelEdgePortForProto(proto, 0))
 					targetLink = ReplaceLinkSNIAndHost(targetLink, targetHost)
+					// 自定义优选地址：替换连接地址（Server）为用户指定的 IP/域名，SNI/Host 保持 tunnel 域名
+					if preferred := strings.TrimSpace(node.TunnelPreferredAddress); preferred != "" {
+						targetLink = ReplaceLinkIP(targetLink, preferred)
+					}
 				}
 
 				// VMess 命名必须写回 JSON 的 ps 字段，避免部分 V2Ray 客户端对 #fragment 兼容性差

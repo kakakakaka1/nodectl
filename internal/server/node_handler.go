@@ -415,10 +415,10 @@ func apiGetNodes(w http.ResponseWriter, r *http.Request) {
 	// 4. 返回结构化数据
 	sendJSON(w, "success", map[string]interface{}{
 		"data": map[string]interface{}{
-			"direct_nodes":       directNodes,
-			"land_nodes":         landNodes,
-			"panel_url":          config.Value,
-			"tunnel_subdomain":   tunnelSubdomainConfig.Value,
+			"direct_nodes":     directNodes,
+			"land_nodes":       landNodes,
+			"panel_url":        config.Value,
+			"tunnel_subdomain": tunnelSubdomainConfig.Value,
 		},
 	})
 }
@@ -572,7 +572,7 @@ func apiGetTunnelNodeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var nodes []database.NodePool
-	if err := database.DB.Select("uuid", "name", "install_id", "links", "disabled_links", "tunnel_enabled", "tunnel_id", "tunnel_name", "tunnel_domain", "region", "sort_index", "updated_at").
+	if err := database.DB.Select("uuid", "name", "install_id", "links", "disabled_links", "tunnel_enabled", "tunnel_id", "tunnel_name", "tunnel_domain", "tunnel_preferred_address", "region", "sort_index", "updated_at").
 		Order("sort_index ASC, updated_at DESC").
 		Find(&nodes).Error; err != nil {
 		sendJSON(w, "error", "读取 tunnel 节点配置失败")
@@ -585,6 +585,7 @@ func apiGetTunnelNodeSettings(w http.ResponseWriter, r *http.Request) {
 		tunnelDomain := strings.TrimSpace(n.TunnelDomain)
 		tunnelID := strings.TrimSpace(n.TunnelID)
 		tunnelName := strings.TrimSpace(n.TunnelName)
+		tunnelPreferredAddress := strings.TrimSpace(n.TunnelPreferredAddress)
 
 		hosts := getNodeTunnelHosts(n)
 		item := map[string]interface{}{
@@ -596,6 +597,7 @@ func apiGetTunnelNodeSettings(w http.ResponseWriter, r *http.Request) {
 			"tunnel_id":                  tunnelID,
 			"tunnel_name":                tunnelName,
 			"tunnel_domain":              tunnelDomain,
+			"tunnel_preferred_address":   tunnelPreferredAddress,
 			"tunnel_hosts":               hosts,
 			"online":                     service.IsNodeOnline(n.InstallID),
 			"supported_tunnel_protocols": supported,
@@ -614,10 +616,11 @@ func apiUpdateTunnelNodeSetting(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		UUID          string `json:"uuid"`
-		TunnelEnabled *bool  `json:"tunnel_enabled"`
-		TunnelID      string `json:"tunnel_id"`
-		TunnelDomain  string `json:"tunnel_domain"`
+		UUID                   string  `json:"uuid"`
+		TunnelEnabled          *bool   `json:"tunnel_enabled"`
+		TunnelID               string  `json:"tunnel_id"`
+		TunnelDomain           string  `json:"tunnel_domain"`
+		TunnelPreferredAddress *string `json:"tunnel_preferred_address"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		sendJSON(w, "error", "请求格式错误")
@@ -683,6 +686,11 @@ func apiUpdateTunnelNodeSetting(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if strings.TrimSpace(req.TunnelDomain) != "" {
 		updates["tunnel_domain"] = strings.TrimSpace(req.TunnelDomain)
+	}
+
+	// 自定义优选地址（独立于 tunnel_enabled 开关，随时可更新）
+	if req.TunnelPreferredAddress != nil {
+		updates["tunnel_preferred_address"] = strings.TrimSpace(*req.TunnelPreferredAddress)
 	}
 
 	if len(updates) == 0 {
