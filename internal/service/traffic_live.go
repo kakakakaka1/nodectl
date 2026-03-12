@@ -232,9 +232,14 @@ func loadNodeTrafficBase(installID string) (rxBase, txBase int64) {
 func (h *TrafficHub) runPersistLoop() {
 	for {
 		interval := loadTrafficPersistIntervalSec()
-		timer := time.NewTimer(time.Duration(interval) * time.Second)
-		<-timer.C
-		timer.Stop()
+		now := time.Now()
+		intervalDur := time.Duration(interval) * time.Second
+		next := now.Truncate(intervalDur).Add(intervalDur)
+		sleepDur := next.Sub(now)
+		if sleepDur <= 0 {
+			sleepDur = intervalDur
+		}
+		time.Sleep(sleepDur)
 		h.flushDirtyNodeTraffic()
 	}
 }
