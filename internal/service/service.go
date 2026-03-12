@@ -50,6 +50,10 @@ func AddNode(name string, routingType int) (*database.NodePool, error) {
 		logger.Log.Error("服务层异常: 创建节点入库失败", "error", err, "node_name", name)
 		return nil, err
 	}
+
+	// 立即将新节点添加到通知缓存，确保 Agent WS 连接时可被识别
+	AddNodeToNotifyCache(node)
+
 	return node, nil
 }
 

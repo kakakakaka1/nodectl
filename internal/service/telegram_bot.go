@@ -188,6 +188,23 @@ func DeleteNodeNotifyConfig(installID string) {
 	offlineNotifyMu.Unlock()
 }
 
+// AddNodeToNotifyCache 新增节点后立即将其添加到内存缓存中，确保 Agent WS 连接时可被识别。
+func AddNodeToNotifyCache(node *database.NodePool) {
+	if node == nil || strings.TrimSpace(node.InstallID) == "" {
+		return
+	}
+
+	nodeNotifyCacheMu.Lock()
+	defer nodeNotifyCacheMu.Unlock()
+
+	nodeNotifyCache[node.InstallID] = &NodeNotifyConfig{
+		UUID:                  node.UUID,
+		Name:                  node.Name,
+		OfflineNotifyEnabled:  node.OfflineNotifyEnabled,
+		OfflineNotifyGraceSec: NormalizeNodeOfflineGraceSec(node.OfflineNotifyGraceSec),
+	}
+}
+
 // InitNodeNotifyConfigCache 全量加载数据库节点的通知配置至内存
 func InitNodeNotifyConfigCache() {
 	var nodes []database.NodePool
