@@ -1654,7 +1654,33 @@
                     document.getElementById("security-banner").style.display =
                         "flex";
                 }
+
+                // 自动检查程序版本更新（通过后端 API，带缓存）
+                checkForAppUpdate();
             });
+
+            // 调用后端 API 检查版本更新，如果有新版本则点亮版本徽章
+            async function checkForAppUpdate() {
+                try {
+                    const resp = await fetch("/api/check-update");
+                    if (!resp.ok) return;
+                    const result = await resp.json();
+                    if (result.status === "success" && result.data && result.data.has_update) {
+                        const badge = document.getElementById("topVersionBadge");
+                        const arrow = document.getElementById("updateArrowIcon");
+                        if (badge) {
+                            badge.classList.add("has-update");
+                            badge.title = "发现新版本: v" + result.data.latest_version + "，点击查看更新日志";
+                        }
+                        if (arrow) {
+                            arrow.style.display = "flex";
+                        }
+                    }
+                } catch (e) {
+                    // 静默失败，不影响用户体验
+                    console.debug("版本更新检查失败:", e);
+                }
+            }
 
             function dismissSecurityBanner() {
                 document.getElementById("security-banner").style.display =
