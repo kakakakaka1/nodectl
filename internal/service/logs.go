@@ -28,57 +28,68 @@ var (
 	logMsgReg    = regexp.MustCompile(`\bmsg=("[^"]*"|[^\s]+)`)
 
 	configKeyCNMap = map[string]string{
-		"panel_url":                          "面板地址",
-		"sub_token":                          "订阅令牌",
-		"sub_custom_name":                    "订阅自定义名称",
-		"proxy_port_ss":                      "SS 端口",
-		"proxy_port_hy2":                     "Hysteria2 端口",
-		"proxy_port_tuic":                    "TUIC 端口",
-		"proxy_port_reality":                 "Reality 端口",
-		"proxy_port_trojan":                  "Trojan 端口",
-		"proxy_port_socks5":                  "Socks5 端口",
-		"proxy_socks5_user":                  "Socks5 用户名",
-		"proxy_socks5_pass":                  "Socks5 密码",
-		"proxy_socks5_random_auth":           "Socks5 随机认证",
-		"proxy_ss_method":                    "SS 加密方式",
-		"pref_use_emoji_flag":                "国旗 Emoji 显示",
-		"pref_ip_strategy":                      "默认 IP 策略",
-		"pref_default_install_protocols":        "默认安装协议",
-		"pref_traffic_stats_retention_days":     "流量记录保留天数",
-		"pref_traffic_total_persist_interval_sec": "实时累计流量落库间隔",
+		"panel_url":                               "面板地址",
+		"sub_token":                               "订阅令牌",
+		"sub_custom_name":                         "订阅自定义名称",
+		"proxy_port_ss":                           "SS 端口",
+		"proxy_port_hy2":                          "Hysteria2 端口",
+		"proxy_port_tuic":                         "TUIC 端口",
+		"proxy_port_reality":                      "Reality 端口",
+		"proxy_port_trojan":                       "Trojan 端口",
+		"proxy_port_socks5":                       "Socks5 端口",
+		"proxy_socks5_user":                       "Socks5 用户名",
+		"proxy_socks5_pass":                       "Socks5 密码",
+		"proxy_socks5_random_auth":                "Socks5 随机认证",
+		"proxy_ss_method":                         "SS 加密方式",
+		"pref_use_emoji_flag":                     "国旗 Emoji 显示",
+		"pref_ip_strategy":                        "默认 IP 策略",
+		"pref_default_install_protocols":          "默认安装协议",
+		"pref_traffic_stats_retention_days":       "流量记录保留天数",
 		"pref_traffic_point_persist_interval_sec": "实时流量点数据落库间隔",
-		"pref_speed_test_file_size":             "测速文件大小",
-		"sys_force_http":                        "HTTP 风险放行",
-		"sys_log_level":                      "系统日志等级",
-		"cf_email":                           "Cloudflare 邮箱",
-		"cf_api_key":                         "Cloudflare API Key",
-		"cf_domain":                          "Cloudflare 域名",
-		"cf_auto_renew":                      "证书自动续签",
-		"airport_filter_invalid":             "过滤失效节点",
-		"tg_bot_enabled":                     "Telegram Bot 开关",
-		"tg_bot_token":                       "Telegram Bot Token",
-		"tg_bot_whitelist":                   "Telegram 白名单",
-		"tg_bot_register_commands":           "Telegram 自动注册命令",
-		"clash_proxies_update_interval":      "Clash 代理更新间隔",
-		"clash_rules_update_interval":        "Clash 规则更新间隔",
-		"clash_public_rules_update_interval": "Clash 公共规则更新间隔",
-		"proxy_hy2_sni":                      "Hysteria2 SNI",
-		"proxy_tuic_sni":                     "TUIC SNI",
-		"proxy_enable_bbr":                   "BBR 开关",
-		"proxy_port_vmess_tcp":               "VMess TCP 端口",
-		"proxy_port_vmess_ws":                "VMess WS 端口",
-		"proxy_port_vmess_http":              "VMess HTTP 端口",
-		"proxy_port_vmess_quic":              "VMess QUIC 端口",
-		"proxy_port_vmess_wst":               "VMess WSS 端口",
-		"proxy_port_vmess_hut":               "VMess H2 端口",
-		"proxy_port_vless_wst":               "VLESS WSS 端口",
-		"proxy_port_vless_hut":               "VLESS H2 端口",
-		"proxy_port_trojan_wst":              "Trojan WSS 端口",
-		"proxy_port_trojan_hut":              "Trojan H2 端口",
-		"proxy_tls_transport_path":           "TLS 传输路径",
-		"proxy_vmess_tls_sni":                "VMess TLS SNI",
-		"proxy_vless_tls_sni":                "VLESS TLS SNI",
-		"proxy_trojan_tls_sni":               "Trojan TLS SNI",
+		"pref_speed_test_file_size":               "测速文件大小",
+		"sys_force_http":                          "HTTP 风险放行",
+		"sys_log_level":                           "系统日志等级",
+		"cf_email":                                "Cloudflare 邮箱",
+		"cf_api_key":                              "Cloudflare API Key",
+		"cf_domain":                               "Cloudflare 域名",
+		"cf_auto_renew":                           "证书自动续签",
+		"airport_filter_invalid":                  "过滤失效节点",
+		"tg_bot_enabled":                          "Telegram Bot 开关",
+		"tg_bot_token":                            "Telegram Bot Token",
+		"tg_bot_whitelist":                        "Telegram 白名单",
+		"tg_bot_register_commands":                "Telegram 自动注册命令",
+		"clash_proxies_update_interval":           "Clash 代理更新间隔",
+		"clash_rules_update_interval":             "Clash 规则更新间隔",
+		"clash_public_rules_update_interval":      "Clash 公共规则更新间隔",
+		"proxy_hy2_sni":                           "Hysteria2 SNI",
+		"proxy_tuic_sni":                          "TUIC SNI",
+		"proxy_enable_bbr":                        "BBR 开关",
+		"proxy_port_vmess_tcp":                    "VMess TCP 端口",
+		"proxy_port_vmess_ws":                     "VMess WS 端口",
+		"proxy_port_vmess_http":                   "VMess HTTP 端口",
+		"proxy_port_vmess_quic":                   "VMess QUIC 端口",
+		"proxy_port_vmess_wst":                    "VMess WSS 端口",
+		"proxy_port_vmess_hut":                    "VMess H2 端口",
+		"proxy_port_vless_wst":                    "VLESS WSS 端口",
+		"proxy_port_vless_hut":                    "VLESS H2 端口",
+		"proxy_port_trojan_wst":                   "Trojan WSS 端口",
+		"proxy_port_trojan_hut":                   "Trojan H2 端口",
+		"proxy_tls_transport_path":                "TLS 传输路径",
+		"proxy_vmess_tls_sni":                     "VMess TLS SNI",
+		"proxy_vless_tls_sni":                     "VLESS TLS SNI",
+		"proxy_trojan_tls_sni":                    "Trojan TLS SNI",
+		"agent_ws_push_interval_sec":              "Agent 推送速率",
+		"auth_cookie_ttl_mode":                    "登录会话有效期",
+		"login_ip_retry_window_sec":               "登录失败计数窗口",
+		"login_ip_max_retries":                    "登录最大重试次数",
+		"login_ip_block_ttl_sec":                  "登录封禁时长",
+		"pref_force_protocol_prefix":              "强制协议前缀",
+		"tg_login_notify_mode":                    "登录通知模式",
+		"tg_speedtest_notify_enabled":             "测速通知开关",
+		"tg_threshold_stop_notify_enabled":        "流量阈值通知开关",
+		"geo_auto_update":                         "GeoIP 自动更新",
+		"mihomo_auto_update":                      "Mihomo 自动更新",
+		"agent_startup_silent_update_enabled":     "Agent 静默更新",
 	}
 )
 
@@ -503,6 +514,24 @@ func enrichLogMessageWithContext(messageCN, rawMsg string, attrs map[string]stri
 			return fmt.Sprintf("节点 %s；上报 IP（%s）", nodeName, stackType)
 		}
 		return fmt.Sprintf("节点 %s；接收到 IP 上报", nodeName)
+	}
+
+	// Agent 推送间隔批量下发：显示推送间隔、成功/失败数量
+	if strings.Contains(rawMsg, "Agent 推送间隔已批量下发") {
+		intervalSec := strings.TrimSpace(attrs["interval_sec"])
+		successCount := strings.TrimSpace(attrs["success"])
+		failCount := strings.TrimSpace(attrs["fail"])
+		parts := []string{"Agent 推送间隔已批量下发"}
+		if intervalSec != "" {
+			parts = append(parts, "间隔: "+intervalSec+" 秒")
+		}
+		if successCount != "" {
+			parts = append(parts, "成功: "+successCount+" 个节点")
+		}
+		if failCount != "" && failCount != "0" {
+			parts = append(parts, "失败: "+failCount+" 个节点")
+		}
+		return strings.Join(parts, "；")
 	}
 
 	if strings.Contains(rawMsg, "节点添加成功") || strings.Contains(rawMsg, "节点已删除") {
