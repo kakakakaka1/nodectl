@@ -1488,6 +1488,18 @@
                             node_uuids: uuids,
                         }),
                     });
+
+                    // 节点排序/分组变更后，通知已打开的弹窗刷新数据
+                    if (typeof cftLoadTunnelNodeSettings === "function" &&
+                        document.getElementById("cfTunnelModal")?.classList.contains("active") &&
+                        document.querySelector('.cft-nav-card[data-cft-id="tunnel-nodes"]')?.classList.contains("active")) {
+                        cftLoadTunnelNodeSettings();
+                    }
+                    if (typeof loadOfflineNotifySettings === "function" &&
+                        document.getElementById("systemSettingsModal")?.classList.contains("active") &&
+                        document.querySelector('.sys-nav-card[data-sys-id="offline-notify"]')?.classList.contains("active")) {
+                        loadOfflineNotifySettings();
+                    }
                 } catch (e) {
                     console.error("排序保存失败", e);
                 }

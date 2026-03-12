@@ -2872,6 +2872,14 @@
                             </div>
                         </div>
 
+                        <!-- 搜索框 -->
+                        <div style="margin-bottom:10px;margin-top:6px;">
+                            <input type="text" id="sysOfflineNodeSearch" class="sys-input"
+                                placeholder="🔍 搜索节点名称..."
+                                oninput="filterOfflineNotifyNodes(this.value)"
+                                style="width:100%;padding:8px 12px;font-size:13px;border-radius:8px;box-sizing:border-box;" />
+                        </div>
+
                         <div class="sys-offline-table-wrap">
                             <table class="sys-offline-table">
                                 <colgroup>
@@ -4083,9 +4091,16 @@
     let offlineNotifyRows = [];
     const offlineNotifyThresholdTimers = {};
 
+    // 存储原始节点数据用于搜索过滤
+    let offlineNotifyAllNodes = [];
+
     async function loadOfflineNotifySettings() {
         const tbody = document.getElementById("sysOfflineNotifyTableBody");
         if (!tbody) return;
+
+        // 清空搜索框
+        const searchInput = document.getElementById("sysOfflineNodeSearch");
+        if (searchInput) searchInput.value = "";
 
         tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #999;">加载中...</td></tr>`;
         try {
@@ -4096,6 +4111,7 @@
             }
 
             const nodes = Array.isArray(result.nodes) ? result.nodes : [];
+            offlineNotifyAllNodes = nodes;
             offlineNotifyRows = nodes
                 .map((n) => ({
                     uuid: String(n.uuid || ""),
@@ -4111,64 +4127,108 @@
                     offlineNotifySelectedUUIDs.delete(uuid);
             });
 
-            if (nodes.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #999;">暂无节点</td></tr>`;
-                updateOfflineNotifySelectAllState();
-                return;
-            }
-
-            tbody.innerHTML = nodes
-                .map((n) => {
-                    const name = escapeHtml(n.name || "-");
-                    const uuid = escapeHtml(n.uuid || "");
-                    const enabled = !!n.offline_notify_enabled;
-                    const grace = Number(n.offline_notify_grace_sec ?? 180);
-                    const threshold = Number(n.traffic_threshold_percent || 0);
-                    const regionCode =
-                        n.region || n.country_code || n.country || "";
-                    const flagHtml = sysBuildServerFlagHtml(regionCode);
-                    const checked = offlineNotifySelectedUUIDs.has(
-                        String(n.uuid || ""),
-                    );
-                    const statusText = enabled ? "启用" : "禁用";
-                    const statusStyle = enabled
-                        ? "color:#1f8f4a;background:#e8f7ed;border:1px solid #c9ebd6;"
-                        : "color:#b05700;background:#fff3e6;border:1px solid #ffd7b0;";
-
-                    return `
-                <tr style="border-top: 1px solid #f0f2f5;">
-                    <td class="sys-offline-td-select">
-                        <input id="offline_select_${uuid}" type="checkbox" ${checked ? "checked" : ""} onchange="toggleOfflineNotifyRowSelect('${uuid}', this.checked)">
-                    </td>
-                    <td class="sys-offline-td-name">
-                        <div class="sys-offline-name-wrap">
-                            ${flagHtml}
-                            <div class="sys-offline-name-text">${name}</div>
-                        </div>
-                    </td>
-                    <td class="sys-offline-td-status">
-                        <span
-                            onclick="toggleOfflineNotifyEnabled('${uuid}', ${enabled ? "true" : "false"})"
-                            class="sys-offline-status-badge"
-                            style="${statusStyle}">
-                            ${statusText}
-                        </span>
-                    </td>
-                    <td class="sys-offline-td-grace">
-                        <input type="number" min="0" max="86400" value="${grace}" id="offline_grace_${uuid}" class="sys-input sys-offline-grace-input" oninput="queueOfflineNotifyGraceSave('${uuid}')">
-                    </td>
-                    <td class="sys-offline-td-threshold">
-                        <input type="number" min="0" max="100" value="${threshold}" id="offline_threshold_${uuid}" class="sys-input sys-offline-threshold-input" oninput="queueOfflineNotifyThresholdSave('${uuid}')">
-                    </td>
-                </tr>`;
-                })
-                .join("");
-
-            updateOfflineNotifySelectAllState();
+            renderOfflineNotifyNodes(nodes);
         } catch (e) {
             tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #d74242;">加载失败，请稍后重试</td></tr>`;
             updateOfflineNotifySelectAllState();
         }
+    }
+
+    function renderOfflineNotifyNodes(nodes) {
+        const tbody = document.getElementById("sysOfflineNotifyTableBody");
+        if (!tbody) return;
+
+        if (!nodes || nodes.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" style="padding: 16px; text-align: center; color: #999;">暂无节点</td></tr>`;
+            updateOfflineNotifySelectAllState();
+            return;
+        }
+
+        // 按 routing_type 分组：1=直连, 2=落地, 其他放最后
+        const directNodes = nodes.filter(n => (n.routing_type || 0) === 1);
+        const landNodes = nodes.filter(n => (n.routing_type || 0) === 2);
+        const otherNodes = nodes.filter(n => (n.routing_type || 0) !== 1 && (n.routing_type || 0) !== 2);
+
+        function buildGroupHeader(label, color, count) {
+            return `<tr class="sys-offline-group-header" style="border-top:none;">
+                <td colspan="5" style="padding:6px 10px;background:#fafbfc;font-size:12px;font-weight:600;color:${color};border-bottom:1px solid #eef1f5;">
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;vertical-align:middle;"></span>
+                    ${label} <span style="font-weight:400;color:#999;">(${count})</span>
+                </td>
+            </tr>`;
+        }
+
+        let html = '';
+        if (directNodes.length > 0) {
+            html += buildGroupHeader('直连节点', '#34c759', directNodes.length);
+            html += directNodes.map(buildOfflineNotifyNodeRow).join('');
+        }
+        if (landNodes.length > 0) {
+            html += buildGroupHeader('落地节点', '#f5a623', landNodes.length);
+            html += landNodes.map(buildOfflineNotifyNodeRow).join('');
+        }
+        if (otherNodes.length > 0) {
+            html += buildGroupHeader('其他节点', '#999', otherNodes.length);
+            html += otherNodes.map(buildOfflineNotifyNodeRow).join('');
+        }
+
+        tbody.innerHTML = html;
+        updateOfflineNotifySelectAllState();
+    }
+
+    function buildOfflineNotifyNodeRow(n) {
+        const name = escapeHtml(n.name || "-");
+        const uuid = escapeHtml(n.uuid || "");
+        const enabled = !!n.offline_notify_enabled;
+        const grace = Number(n.offline_notify_grace_sec ?? 180);
+        const threshold = Number(n.traffic_threshold_percent || 0);
+        const regionCode = n.region || n.country_code || n.country || "";
+        const flagHtml = sysBuildServerFlagHtml(regionCode);
+        const checked = offlineNotifySelectedUUIDs.has(String(n.uuid || ""));
+        const statusText = enabled ? "启用" : "禁用";
+        const statusStyle = enabled
+            ? "color:#1f8f4a;background:#e8f7ed;border:1px solid #c9ebd6;"
+            : "color:#b05700;background:#fff3e6;border:1px solid #ffd7b0;";
+
+        return `
+            <tr style="border-top: 1px solid #f0f2f5;" data-node-name="${name.toLowerCase()}">
+                <td class="sys-offline-td-select">
+                    <input id="offline_select_${uuid}" type="checkbox" ${checked ? "checked" : ""} onchange="toggleOfflineNotifyRowSelect('${uuid}', this.checked)">
+                </td>
+                <td class="sys-offline-td-name">
+                    <div class="sys-offline-name-wrap">
+                        ${flagHtml}
+                        <div class="sys-offline-name-text">${name}</div>
+                    </div>
+                </td>
+                <td class="sys-offline-td-status">
+                    <span
+                        onclick="toggleOfflineNotifyEnabled('${uuid}', ${enabled ? "true" : "false"})"
+                        class="sys-offline-status-badge"
+                        style="${statusStyle}">
+                        ${statusText}
+                    </span>
+                </td>
+                <td class="sys-offline-td-grace">
+                    <input type="number" min="0" max="86400" value="${grace}" id="offline_grace_${uuid}" class="sys-input sys-offline-grace-input" oninput="queueOfflineNotifyGraceSave('${uuid}')">
+                </td>
+                <td class="sys-offline-td-threshold">
+                    <input type="number" min="0" max="100" value="${threshold}" id="offline_threshold_${uuid}" class="sys-input sys-offline-threshold-input" oninput="queueOfflineNotifyThresholdSave('${uuid}')">
+                </td>
+            </tr>`;
+    }
+
+    function filterOfflineNotifyNodes(keyword) {
+        const query = String(keyword || "").trim().toLowerCase();
+        if (!query) {
+            renderOfflineNotifyNodes(offlineNotifyAllNodes);
+            return;
+        }
+        const filtered = offlineNotifyAllNodes.filter(n => {
+            const name = String(n.name || "").toLowerCase();
+            return name.includes(query);
+        });
+        renderOfflineNotifyNodes(filtered);
     }
 
     function toggleOfflineNotifyRowSelect(uuid, checked) {

@@ -2030,6 +2030,14 @@
                         id="cftTunnelNodeBanner"
                     ></div>
 
+                    <!-- 搜索框 -->
+                    <div style="margin-top:10px;margin-bottom:8px;">
+                        <input type="text" id="cftTunnelNodeSearch" class="cft-input"
+                            placeholder="🔍 搜索节点名称..."
+                            oninput="cftFilterTunnelNodes(this.value)"
+                            style="width:100%;padding:8px 12px;font-size:13px;border-radius:8px;box-sizing:border-box;" />
+                    </div>
+
                     <div class="cft-node-list-wrap">
                         <div class="cft-node-list" id="cft-tunnel-node-list">
                             <div
@@ -3146,6 +3154,7 @@
     // ============== Argo 节点管理 ==============
 
     let cftTunnelCmdEventSource = null;
+    let cftTunnelNodeAllList = []; // 存储原始节点数据用于搜索过滤
 
     function cftShowTunnelNodeBanner(msg) {
         const el = document.getElementById("cftTunnelNodeBanner");
@@ -3292,14 +3301,83 @@
             }
 
             const list = Array.isArray(json.nodes) ? json.nodes : [];
-            if (list.length === 0) {
-                listContainer.innerHTML =
-                    '<div style="padding:16px;text-align:center;color:#999;border:1px solid #e5e5ea;border-radius:8px;background:#fff;">暂无节点</div>';
-                return;
-            }
+            cftTunnelNodeAllList = list;
 
-            listContainer.innerHTML = list
-                .map((n) => {
+            // 清空搜索框
+            const searchInput = document.getElementById("cftTunnelNodeSearch");
+            if (searchInput) searchInput.value = "";
+
+            cftRenderTunnelNodeList(list, listContainer, logPanel, logPanelVisible, logPanelNodeUUID);
+        } catch (e) {
+            listContainer.innerHTML =
+                '<div style="padding:16px;text-align:center;color:#d74242;border:1px solid #e5e5ea;border-radius:8px;background:#fff;">加载失败，请稍后重试</div>';
+        }
+    }
+
+    function cftRenderTunnelNodeList(list, listContainer, logPanel, logPanelVisible, logPanelNodeUUID) {
+        if (!list || list.length === 0) {
+            listContainer.innerHTML =
+                '<div style="padding:16px;text-align:center;color:#999;border:1px solid #e5e5ea;border-radius:8px;background:#fff;">暂无节点</div>';
+            return;
+        }
+
+        // 按 routing_type 分组：1=直连, 2=落地, 其他放最后
+        const directNodes = list.filter(n => (n.routing_type || 0) === 1);
+        const landNodes = list.filter(n => (n.routing_type || 0) === 2);
+        const otherNodes = list.filter(n => (n.routing_type || 0) !== 1 && (n.routing_type || 0) !== 2);
+
+        function cftBuildGroupLabel(label, color, count) {
+            return `<div style="padding:6px 0 4px 2px;font-size:12px;font-weight:600;color:${color};display:flex;align-items:center;gap:6px;">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};"></span>
+                ${label} <span style="font-weight:400;color:#999;">(${count})</span>
+            </div>`;
+        }
+
+        let html = '';
+        if (directNodes.length > 0) {
+            html += cftBuildGroupLabel('直连节点', '#34c759', directNodes.length);
+        }
+        html += directNodes.map(cftBuildTunnelNodeItem).join('');
+        if (landNodes.length > 0) {
+            html += cftBuildGroupLabel('落地节点', '#f5a623', landNodes.length);
+        }
+        html += landNodes.map(cftBuildTunnelNodeItem).join('');
+        if (otherNodes.length > 0) {
+            html += cftBuildGroupLabel('其他节点', '#999', otherNodes.length);
+        }
+        html += otherNodes.map(cftBuildTunnelNodeItem).join('');
+        listContainer.innerHTML = html;
+
+        // 列表重建后，将日志面板恢复到对应节点下方
+        if (logPanel && logPanelVisible && logPanelNodeUUID) {
+            const targetNode = listContainer.querySelector(
+                `.cft-node-item[data-uuid="${logPanelNodeUUID}"]`,
+            );
+            if (targetNode) {
+                targetNode.parentNode.insertBefore(
+                    logPanel,
+                    targetNode.nextSibling,
+                );
+            }
+        }
+    }
+
+    function cftFilterTunnelNodes(keyword) {
+        const query = String(keyword || "").trim().toLowerCase();
+        const listContainer = document.getElementById("cft-tunnel-node-list");
+        if (!listContainer) return;
+        if (!query) {
+            cftRenderTunnelNodeList(cftTunnelNodeAllList, listContainer, null, false, "");
+            return;
+        }
+        const filtered = cftTunnelNodeAllList.filter(n => {
+            const name = String(n.name || "").toLowerCase();
+            return name.includes(query);
+        });
+        cftRenderTunnelNodeList(filtered, listContainer, null, false, "");
+    }
+
+    function cftBuildTunnelNodeItem(n) {
                     const uuid = cftEscapeHtml(n.uuid || "");
                     const name = cftEscapeHtml(n.name || "-");
                     const online = !!n.online;
@@ -3427,25 +3505,6 @@
                     </div>
                 </div>
             `;
-                })
-                .join("");
-
-            // 列表重建后，将日志面板恢复到对应节点下方
-            if (logPanel && logPanelVisible && logPanelNodeUUID) {
-                const targetNode = listContainer.querySelector(
-                    `.cft-node-item[data-uuid="${logPanelNodeUUID}"]`,
-                );
-                if (targetNode) {
-                    targetNode.parentNode.insertBefore(
-                        logPanel,
-                        targetNode.nextSibling,
-                    );
-                }
-            }
-        } catch (e) {
-            listContainer.innerHTML =
-                '<div style="padding:16px;text-align:center;color:#d74242;border:1px solid #e5e5ea;border-radius:8px;background:#fff;">加载失败，请稍后重试</div>';
-        }
     }
 
     async function cftToggleTunnelNode(uuid, enabled) {

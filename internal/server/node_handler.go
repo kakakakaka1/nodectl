@@ -431,8 +431,8 @@ func apiGetOfflineNotifySettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var nodes []database.NodePool
-	if err := database.DB.Select("uuid", "name", "install_id", "region", "offline_notify_enabled", "offline_notify_grace_sec", "offline_last_notify_at", "traffic_threshold_enabled", "traffic_threshold_percent", "traffic_threshold_reached", "sort_index", "updated_at").
-		Order("sort_index ASC, updated_at DESC").
+	if err := database.DB.Select("uuid", "name", "install_id", "region", "routing_type", "offline_notify_enabled", "offline_notify_grace_sec", "offline_last_notify_at", "traffic_threshold_enabled", "traffic_threshold_percent", "traffic_threshold_reached", "sort_index", "updated_at").
+		Order("routing_type ASC, sort_index ASC, updated_at DESC").
 		Find(&nodes).Error; err != nil {
 		sendJSON(w, "error", "读取离线通知配置失败")
 		return
@@ -446,6 +446,7 @@ func apiGetOfflineNotifySettings(w http.ResponseWriter, r *http.Request) {
 			"install_id":                n.InstallID,
 			"name":                      n.Name,
 			"region":                    n.Region,
+			"routing_type":              n.RoutingType,
 			"offline_notify_enabled":    n.OfflineNotifyEnabled,
 			"offline_notify_grace_sec":  grace,
 			"traffic_threshold_enabled": n.TrafficThresholdEnabled,
@@ -572,8 +573,8 @@ func apiGetTunnelNodeSettings(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var nodes []database.NodePool
-	if err := database.DB.Select("uuid", "name", "install_id", "links", "disabled_links", "tunnel_enabled", "tunnel_id", "tunnel_name", "tunnel_domain", "tunnel_preferred_address", "region", "sort_index", "updated_at").
-		Order("sort_index ASC, updated_at DESC").
+	if err := database.DB.Select("uuid", "name", "install_id", "links", "disabled_links", "tunnel_enabled", "tunnel_id", "tunnel_name", "tunnel_domain", "tunnel_preferred_address", "region", "routing_type", "sort_index", "updated_at").
+		Order("routing_type ASC, sort_index ASC, updated_at DESC").
 		Find(&nodes).Error; err != nil {
 		sendJSON(w, "error", "读取 tunnel 节点配置失败")
 		return
@@ -593,6 +594,7 @@ func apiGetTunnelNodeSettings(w http.ResponseWriter, r *http.Request) {
 			"install_id":                 n.InstallID,
 			"name":                       n.Name,
 			"region":                     n.Region,
+			"routing_type":               n.RoutingType,
 			"tunnel_enabled":             n.TunnelEnabled,
 			"tunnel_id":                  tunnelID,
 			"tunnel_name":                tunnelName,
