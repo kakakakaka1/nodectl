@@ -191,7 +191,7 @@ func RenderInstallScript(node database.NodePool) (string, error) {
 
 	// Agent 下载地址（GitHub Releases，含架构占位符供脚本 sed 替换）
 	// 注意：使用 __ARCH__ 而非 ${ARCH_NAME}，避免 bash 双引号赋值时提前展开为空
-	agentDownloadURL := "https://github.com/hobin66/nodectl/releases/latest/download/nodectl-agent-linux-__ARCH__"
+	agentDownloadURL := "https://github.com/kakakakaka1/nodectl/releases/latest/download/nodectl-agent-linux-__ARCH__"
 
 	// Agent 配置参数（从 sys_config 读取，提供默认值）
 	agentWSPushInterval := configMap["agent_ws_push_interval_sec"]

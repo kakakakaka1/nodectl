@@ -26,7 +26,7 @@ import (
 
 // GitHub 仓库坐标（编译期可通过 ldflags 覆盖）
 var (
-	UpdateRepoOwner = "hobin66"
+	UpdateRepoOwner = "kakakakaka1"
 	UpdateRepoName  = "nodectl"
 )
 

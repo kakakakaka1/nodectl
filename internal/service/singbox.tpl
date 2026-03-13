@@ -1492,7 +1492,7 @@ setup_agent() {
     esac
 
     local agent_url=""
-    local gh_api="https://api.github.com/repos/hobin66/nodectl/releases/latest"
+    local gh_api="https://api.github.com/repos/kakakakaka1/nodectl/releases/latest"
 
     # 新版发布资产命名为: nodectl-agent-linux-<arch>-vX.Y.Z
     # 优先通过 GitHub API 动态解析 latest 资产，避免固定 URL 因版本号失效
