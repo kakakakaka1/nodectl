@@ -79,7 +79,7 @@
                 height: 24px;
             }
 
-            /* 版本更新徽章样式 */
+            /* 版本徽章样式 */
             .top-version-badge {
                 margin-left: 12px;
                 padding: 4px 8px;
@@ -89,28 +89,9 @@
                 font-size: 12px;
                 font-weight: 600;
                 font-family: monospace;
-                cursor: pointer;
                 display: flex;
                 align-items: center;
                 gap: 4px;
-                transition: all 0.2s;
-                border: 1px solid transparent;
-            }
-
-            .top-version-badge:hover {
-                background: #e5e5ea;
-                color: #1d1d1f;
-            }
-
-            /* 当检测到更新时通过 JS 附加此 Class */
-            .top-version-badge.has-update {
-                background: #eafff1;
-                color: #34c759;
-                border-color: #bbf7d0;
-            }
-
-            .top-version-badge.has-update:hover {
-                background: #d1fadb;
             }
 
             /* =========================================================
@@ -897,7 +878,6 @@
                 <div
                     id="topVersionBadge"
                     class="top-version-badge"
-                    onclick="openUpdateModal()"
                     title="当前版本: {{.Version}}"
                 >
                     <span
@@ -905,22 +885,6 @@
                         style="opacity: 1; transition: opacity 0.3s"
                         >{{.Version}}</span
                     >
-                    <svg
-                        class="update-arrow-icon"
-                        id="updateArrowIcon"
-                        style="display: none"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    >
-                        <line x1="12" y1="19" x2="12" y2="5"></line>
-                        <polyline points="5 12 12 5 19 12"></polyline>
-                    </svg>
                 </div>
             </div>
             <div class="nav-right-actions">
