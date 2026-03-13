@@ -313,6 +313,7 @@ func Start(tmplFS embed.FS) {
 
 	// ========== C. 公开/工具 路由 ==========
 	mux.HandleFunc("/api/public/install-script", withSecure(apiPublicScript)) // 安装脚本
+	mux.HandleFunc("/api/public/agent-download", apiPublicAgentDownload)     // Agent 二进制下载
 	mux.HandleFunc("/api/relay/install-script", apiRelayInstallScript)       // 中转机安装脚本
 	mux.HandleFunc("/api/callback/report", withSecure(apiCallbackReport))     // 节点上报
 	mux.HandleFunc("/api/callback/traffic/ws", apiCallbackTrafficWS)          // Agent WS 统一上报通道

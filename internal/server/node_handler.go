@@ -1498,6 +1498,26 @@ func apiPublicScript(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(scriptContent))
 }
 
+// apiPublicAgentDownload 提供 agent 二进制下载，替代 GitHub Releases
+func apiPublicAgentDownload(w http.ResponseWriter, r *http.Request) {
+	arch := r.URL.Query().Get("arch")
+	if arch != "amd64" && arch != "arm64" {
+		http.Error(w, "invalid arch, must be amd64 or arm64", http.StatusBadRequest)
+		return
+	}
+
+	binPath := fmt.Sprintf("/app/nodectl-agent-linux-%s", arch)
+	if _, err := os.Stat(binPath); err != nil {
+		logger.Log.Error("agent 二进制不存在", "path", binPath, "error", err)
+		http.Error(w, "agent binary not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=nodectl-agent-linux-%s", arch))
+	http.ServeFile(w, r, binPath)
+}
+
 func apiCallbackReport(w http.ResponseWriter, r *http.Request) {
 	clientIP := r.RemoteAddr
 	reqPath := r.URL.Path

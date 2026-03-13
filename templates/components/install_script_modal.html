@@ -108,7 +108,25 @@
         color: #0062cc;
     }
 
-    /* ====== 协议分组行内展开 ====== */
+    /* 部署模式选择 */
+    .deploy-mode-wrap {
+        margin-bottom: 12px;
+    }
+
+    .deploy-mode-wrap .deploy-mode-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: #666;
+        margin-bottom: 8px;
+    }
+
+    .deploy-mode-chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    /* 协议分组行内展开 */
     .proto-groups-wrap {
         margin-bottom: 16px;
     }
@@ -495,6 +513,21 @@
                 完成 Tunnel 配置。
             </div>
 
+            <!-- 部署模式选择 -->
+            <div class="deploy-mode-wrap">
+                <div class="deploy-mode-label">部署模式</div>
+                <div class="deploy-mode-chips">
+                    <label class="variant-check-item" style="padding: 6px 10px">
+                        <input type="radio" name="deploy_mode" value="full" checked onchange="onDeployModeChange()" />
+                        <span>完整部署</span>
+                    </label>
+                    <label class="variant-check-item" style="padding: 6px 10px">
+                        <input type="radio" name="deploy_mode" value="agent-only" onchange="onDeployModeChange()" />
+                        <span>仅监控 (Agent)</span>
+                    </label>
+                </div>
+            </div>
+
             <!-- 协议分组折叠面板，由 JS 动态渲染 -->
             <div class="proto-groups-wrap" id="protocolCheckboxes"></div>
 
@@ -770,8 +803,21 @@
         }
 
         renderGroups(activeSet);
+        // 重置部署模式为完整部署
+        const fullRadio = document.querySelector('input[name="deploy_mode"][value="full"]');
+        if (fullRadio) fullRadio.checked = true;
+        const protoWrap = document.getElementById("protocolCheckboxes");
+        if (protoWrap) protoWrap.style.display = "";
         updateScriptCmd();
         scriptModal.classList.add("active");
+    }
+
+    // ─── 部署模式切换 ───
+    function onDeployModeChange() {
+        const mode = document.querySelector('input[name="deploy_mode"]:checked')?.value || "full";
+        const protoWrap = document.getElementById("protocolCheckboxes");
+        protoWrap.style.display = mode === "agent-only" ? "none" : "";
+        updateScriptCmd();
     }
 
     // ─── 生成命令 ───
@@ -809,16 +855,6 @@
         let host = useTunnel ? tunnelBase : panelBase || fallbackHost;
         host = host.replace(/\/+$/, "");
 
-        const checkedBoxes = groupsWrap.querySelectorAll(
-            'input[type="checkbox"]:checked',
-        );
-        const selectedArgs = Array.from(checkedBoxes).map((cb) => cb.value);
-
-        const protosHtml = selectedArgs
-            .map((p) => `<span class="hl-proto">${p}</span>`)
-            .join(" ");
-        const protosRaw = selectedArgs.join(" ");
-
         const scriptUrl = `${host}/api/public/install-script?id=${currentScriptNode.install_id}`;
 
         let extraHtml = "";
@@ -826,6 +862,23 @@
         if (useTunnel) {
             extraHtml = ` <span class="hl-param">--report-url</span> <span class="hl-string">${host}</span>`;
             extraRaw = ` --report-url ${host}`;
+        }
+
+        const deployMode = document.querySelector('input[name="deploy_mode"]:checked')?.value || "full";
+
+        let protosHtml, protosRaw;
+        if (deployMode === "agent-only") {
+            protosHtml = `<span class="hl-proto">agent-only</span>`;
+            protosRaw = "agent-only";
+        } else {
+            const checkedBoxes = groupsWrap.querySelectorAll(
+                'input[type="checkbox"]:checked',
+            );
+            const selectedArgs = Array.from(checkedBoxes).map((cb) => cb.value);
+            protosHtml = selectedArgs
+                .map((p) => `<span class="hl-proto">${p}</span>`)
+                .join(" ");
+            protosRaw = selectedArgs.join(" ");
         }
 
         const cmdHtml = `<span class="hl-cmd">bash</span> <span class="hl-param">-c</span> <span class="hl-string">"$(curl -fsSL ${scriptUrl})"</span> <span class="hl-param">--</span> ${protosHtml}${extraHtml}`;

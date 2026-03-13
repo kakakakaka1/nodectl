@@ -213,6 +213,7 @@ info "节点名称后缀已自动设置为: $suffix"
 # 选择要部署的协议
 select_protocols() {
     # 初始化所有协议开关
+    AGENT_ONLY=false
     ENABLE_SS=false; ENABLE_HY2=false; ENABLE_TUIC=false; ENABLE_REALITY=false; ENABLE_SOCKS5=false
     ENABLE_TROJAN=false
     # VMess 族
@@ -266,6 +267,7 @@ select_protocols() {
                 REPORT_URL_OVERRIDE="${arg#*=}"
                 info "-> 检测到回调地址参数覆盖"
                 ;;
+            agent-only|agent|monitor)  AGENT_ONLY=true; info "-> 仅安装监控 Agent" ;;
             *) warn "忽略未知参数: $arg" ;;
         esac
         shift
@@ -275,8 +277,13 @@ select_protocols() {
         apply_report_url_override "$REPORT_URL_OVERRIDE" || true
     fi
 
-    if ! _any_enabled; then
+    if ! _any_enabled && ! $AGENT_ONLY; then
         err "未选择任何协议,退出安装"; exit 1
+    fi
+
+    if $AGENT_ONLY; then
+        info "仅监控模式：跳过协议选择"
+        return 0
     fi
 
     info "已选择协议:"
@@ -1492,33 +1499,35 @@ setup_agent() {
     esac
 
     local agent_url=""
-    local gh_api="https://api.github.com/repos/kakakakaka1/nodectl/releases/latest"
 
-    # 新版发布资产命名为: nodectl-agent-linux-<arch>-vX.Y.Z
-    # 优先通过 GitHub API 动态解析 latest 资产，避免固定 URL 因版本号失效
-    if release_json=$(curl -fsSL -H "Accept: application/vnd.github+json" -H "User-Agent: nodectl-install-script" "$gh_api"); then
-        if command -v jq >/dev/null 2>&1; then
-            agent_url=$(echo "$release_json" | jq -r --arg arch "$ARCH_NAME" '
-                .assets[]
-                | select(.name | test("^nodectl-agent-linux-" + $arch + "-v"))
-                | select(.name | endswith(".sha256") | not)
-                | .browser_download_url
-            ' | head -n 1)
-        else
-            # 无 jq 的兜底解析
-            agent_url=$(echo "$release_json" \
-                | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+"' \
-                | sed -E 's/^"browser_download_url"[[:space:]]*:[[:space:]]*"(.*)"$/\1/' \
-                | grep "nodectl-agent-linux-${ARCH_NAME}-v" \
-                | grep -vE '\\.sha256$' \
-                | head -n 1)
+    # 优先从面板自身下载 (AGENT_DOWNLOAD_URL 由后端模板注入)
+    agent_url=$(echo "$AGENT_DOWNLOAD_URL" | sed "s/__ARCH__/$ARCH_NAME/g")
+
+    # 若面板 URL 为空，回退到 GitHub Releases
+    if [ -z "$agent_url" ]; then
+        local gh_api="https://api.github.com/repos/kakakakaka1/nodectl/releases/latest"
+        if release_json=$(curl -fsSL -H "Accept: application/vnd.github+json" -H "User-Agent: nodectl-install-script" "$gh_api"); then
+            if command -v jq >/dev/null 2>&1; then
+                agent_url=$(echo "$release_json" | jq -r --arg arch "$ARCH_NAME" '
+                    .assets[]
+                    | select(.name | test("^nodectl-agent-linux-" + $arch + "-v"))
+                    | select(.name | endswith(".sha256") | not)
+                    | .browser_download_url
+                ' | head -n 1)
+            else
+                agent_url=$(echo "$release_json" \
+                    | grep -oE '"browser_download_url"[[:space:]]*:[[:space:]]*"[^"]+"' \
+                    | sed -E 's/^"browser_download_url"[[:space:]]*:[[:space:]]*"(.*)"$/\1/' \
+                    | grep "nodectl-agent-linux-${ARCH_NAME}-v" \
+                    | grep -vE '\\.sha256$' \
+                    | head -n 1)
+            fi
         fi
     fi
 
-    # 向后兼容：若 API 解析失败，尝试旧版占位 URL
     if [ -z "$agent_url" ] || [ "$agent_url" = "null" ]; then
-        warn "GitHub API 解析 agent 资产失败，回退旧下载 URL 逻辑"
-        agent_url=$(echo "$AGENT_DOWNLOAD_URL" | sed "s/__ARCH__/$ARCH_NAME/g")
+        err "无法获取 agent 下载地址（面板 URL 未配置且 GitHub 无可用版本）"
+        return 1
     fi
 
     info "下载 nodectl-agent ($ARCH_NAME)..."
@@ -1763,6 +1772,15 @@ report_nodes() {
 
     info "✅ 上报完成"
 }
+
+# ─── 仅监控模式：只装 Agent，不装 sing-box ───
+if $AGENT_ONLY; then
+    info "仅监控模式：跳过 sing-box 安装"
+    report_nodes || warn "节点上报未完成"
+    setup_agent || err "Agent 安装失败"
+    info "Agent 安装完成！"
+    exit 0
+fi
 
 # -----------------------
 # 最终输出
