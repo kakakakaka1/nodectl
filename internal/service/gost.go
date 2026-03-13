@@ -86,7 +86,7 @@ func gostRequest(method, url, apiSecret string, body interface{}) error {
 func GostAddForward(relayIP string, apiPort int, apiSecret string, listenPort int, targetIP string, targetPort int) error {
 	targetAddr := fmt.Sprintf("%s:%d", targetIP, targetPort)
 	listenAddr := fmt.Sprintf(":%d", listenPort)
-	apiURL := gostAPIURL(relayIP, apiPort, "/api/services")
+	apiURL := gostAPIURL(relayIP, apiPort, "/config/services")
 
 	// TCP 转发
 	tcpSvc := gostService{
@@ -124,13 +124,13 @@ func GostAddForward(relayIP string, apiPort int, apiSecret string, listenPort in
 // GostRemoveForward 在中转机上移除转发
 func GostRemoveForward(relayIP string, apiPort int, apiSecret string, listenPort int) error {
 	// 删除 TCP
-	tcpURL := gostAPIURL(relayIP, apiPort, fmt.Sprintf("/api/services/relay-tcp-%d", listenPort))
+	tcpURL := gostAPIURL(relayIP, apiPort, fmt.Sprintf("/config/services/relay-tcp-%d", listenPort))
 	if err := gostRequest("DELETE", tcpURL, apiSecret, nil); err != nil {
 		logger.Log.Warn("删除 TCP 转发失败", "port", listenPort, "error", err)
 	}
 
 	// 删除 UDP
-	udpURL := gostAPIURL(relayIP, apiPort, fmt.Sprintf("/api/services/relay-udp-%d", listenPort))
+	udpURL := gostAPIURL(relayIP, apiPort, fmt.Sprintf("/config/services/relay-udp-%d", listenPort))
 	if err := gostRequest("DELETE", udpURL, apiSecret, nil); err != nil {
 		logger.Log.Warn("删除 UDP 转发失败", "port", listenPort, "error", err)
 	}
@@ -141,7 +141,7 @@ func GostRemoveForward(relayIP string, apiPort int, apiSecret string, listenPort
 
 // GostPing 检测中转机 gost 是否在线
 func GostPing(relayIP string, apiPort int, apiSecret string) bool {
-	url := gostAPIURL(relayIP, apiPort, "/api/config")
+	url := gostAPIURL(relayIP, apiPort, "/config")
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return false
