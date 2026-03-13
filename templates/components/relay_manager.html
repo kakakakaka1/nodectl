@@ -1,0 +1,568 @@
+{{define "relay_manager.html"}}
+<!-- ========== 中转管理卡片 ========== -->
+<div class="sub-card" id="relay-manager-card" style="margin-top: 20px;">
+    <div class="card-header">
+        <span class="card-title" style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; background: #f0e6ff; color: #6c5ce7; border-radius: 8px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+                </svg>
+            </span>
+            中转管理
+        </span>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn-custom-common btn-color-blue" onclick="openAddRelayServerModal()">+ 添加中转机</button>
+            <button class="btn-custom-common btn-color-blue" onclick="openAddForwardRuleModal()">+ 添加规则</button>
+        </div>
+    </div>
+
+    <!-- 中转机列表 -->
+    <div style="margin-top: 16px;">
+        <div style="font-size: 13px; font-weight: 600; color: #6c5ce7; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <span style="width: 6px; height: 6px; background: #6c5ce7; border-radius: 50%; display: inline-block;"></span>
+            中转机
+        </div>
+        <div id="relay-servers-list" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="text-align: center; color: #999; font-size: 13px; padding: 20px 0;">加载中...</div>
+        </div>
+    </div>
+
+    <!-- 转发规则列表 -->
+    <div style="margin-top: 24px;">
+        <div style="font-size: 13px; font-weight: 600; color: #6c5ce7; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+            <span style="width: 6px; height: 6px; background: #6c5ce7; border-radius: 50%; display: inline-block;"></span>
+            转发规则
+        </div>
+        <div id="forward-rules-list" style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="text-align: center; color: #999; font-size: 13px; padding: 20px 0;">加载中...</div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 添加/编辑中转机 Modal ========== -->
+<div id="relayServerModal" class="delete-modal-overlay" style="display: none;">
+    <div class="delete-modal-content" style="width: 380px;">
+        <h3 class="delete-modal-title" id="relayServerModalTitle">添加中转机</h3>
+        <div style="padding: 0;">
+            <input type="hidden" id="relayServerUUID" value="">
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">名称</label>
+                <input type="text" id="relayServerName" placeholder="如：上海电信中转" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">IP 地址</label>
+                <input type="text" id="relayServerIP" placeholder="如：10.0.0.1" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">模式</label>
+                <select id="relayServerMode" onchange="toggleRelayApiPort()" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box; background: #fff;">
+                    <option value="2">手动模式（无需部署）</option>
+                    <option value="1">Agent 模式（gost 转发）</option>
+                </select>
+            </div>
+            <div id="relayApiPortRow" style="margin-bottom: 12px; display: none;">
+                <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">gost API 端口</label>
+                <input type="number" id="relayServerApiPort" value="36601" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">备注（可选）</label>
+                <input type="text" id="relayServerRemark" placeholder="备注信息" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+            </div>
+        </div>
+        <div class="delete-modal-actions" style="margin-top: 16px;">
+            <button class="btn-cancel" onclick="closeRelayServerModal()">取消</button>
+            <button class="btn-confirm-delete" style="background: #007aff;" onclick="saveRelayServer()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 部署命令 Modal ========== -->
+<div id="relayInstallModal" class="delete-modal-overlay" style="display: none;">
+    <div class="delete-modal-content" style="width: 520px;">
+        <h3 class="delete-modal-title">部署命令</h3>
+        <div style="padding: 0;">
+            <p style="font-size: 12px; color: #888; margin: 0 0 12px;">在中转机上执行以下命令，将自动安装 gost 并配置端口转发服务：</p>
+            <div style="position: relative;">
+                <pre id="relayInstallCmd" style="background: #1e1e2e; color: #cdd6f4; padding: 14px 16px; border-radius: 8px; font-size: 12px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; margin: 0;"></pre>
+                <button onclick="copyRelayInstallCmd()" style="position: absolute; top: 8px; right: 8px; padding: 4px 10px; font-size: 11px; border: 1px solid #555; border-radius: 6px; background: #313244; color: #cdd6f4; cursor: pointer;">复制</button>
+            </div>
+        </div>
+        <div class="delete-modal-actions" style="margin-top: 16px;">
+            <button class="btn-cancel" onclick="closeRelayInstallModal()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 添加/编辑转发规则 Modal ========== -->
+<div id="forwardRuleModal" class="delete-modal-overlay" style="display: none;">
+    <div class="delete-modal-content" style="width: 420px;">
+        <h3 class="delete-modal-title" id="forwardRuleModalTitle">添加转发规则</h3>
+        <div style="padding: 0;">
+            <input type="hidden" id="forwardRuleUUID" value="">
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">中转机</label>
+                <select id="forwardRuleRelayUUID" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box; background: #fff;">
+                    <option value="">请先添加中转机</option>
+                </select>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">目标 IP</label>
+                    <input type="text" id="forwardRuleTargetIP" placeholder="落地节点 IP" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+                </div>
+                <div>
+                    <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">目标端口</label>
+                    <input type="number" id="forwardRuleTargetPort" placeholder="如 20002" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+                </div>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; font-weight: 600; color: #888; display: block; margin-bottom: 4px;">中转监听端口</label>
+                <input type="number" id="forwardRuleListenPort" placeholder="如 30001" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; box-sizing: border-box;">
+            </div>
+        </div>
+        <div class="delete-modal-actions" style="margin-top: 16px;">
+            <button class="btn-cancel" onclick="closeForwardRuleModal()">取消</button>
+            <button class="btn-confirm-delete" style="background: #007aff;" onclick="saveForwardRule()">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 删除确认 Modal ========== -->
+<div id="relayDeleteModal" class="delete-modal-overlay" style="display: none;">
+    <div class="delete-modal-content">
+        <h3 class="delete-modal-title">确认删除</h3>
+        <div class="delete-modal-body" id="relayDeleteMsg">确定要删除吗？此操作不可恢复。</div>
+        <input type="hidden" id="relayDeleteUUID" value="">
+        <input type="hidden" id="relayDeleteType" value="">
+        <div class="delete-modal-actions">
+            <button class="btn-cancel" onclick="closeRelayDeleteModal()">取消</button>
+            <button class="btn-confirm-delete" onclick="confirmRelayDelete()">删除</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ========== 中转管理 JavaScript ==========
+
+window.relayServersData = [];
+window.forwardRulesData = [];
+
+document.addEventListener("DOMContentLoaded", function() {
+    loadRelayServers();
+    loadForwardRules();
+});
+
+// ---- 中转机 CRUD ----
+
+async function loadRelayServers() {
+    try {
+        const resp = await fetch("/api/relay/servers");
+        const result = await resp.json();
+        if (result.status === "success") {
+            window.relayServersData = result.servers || [];
+            renderRelayServers();
+        }
+    } catch(e) {
+        document.getElementById("relay-servers-list").innerHTML = '<div style="text-align: center; color: #d74242; font-size: 13px; padding: 20px 0;">加载失败</div>';
+    }
+}
+
+function renderRelayServers() {
+    const container = document.getElementById("relay-servers-list");
+    const servers = window.relayServersData;
+
+    if (!servers || servers.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #999; font-size: 13px; padding: 20px 0;">暂无中转机，点击上方按钮添加</div>';
+        return;
+    }
+
+    container.innerHTML = servers.map(s => {
+        const statusDot = s.mode === 1
+            ? `<span style="width: 8px; height: 8px; border-radius: 50%; background: ${s.status === 1 ? '#34c759' : '#ccc'}; display: inline-block;"></span>`
+            : '<span style="font-size: 10px; color: #888; background: #f0f0f0; padding: 2px 6px; border-radius: 4px;">手动</span>';
+        const modeLabel = s.mode === 1 ? 'gost' : '手动';
+
+        // Agent 模式额外按钮
+        const agentBtns = s.mode === 1 ? `
+            <button onclick="showRelayInstallCmd('${s.install_id}')" style="padding: 4px 10px; font-size: 12px; border: 1px solid #d0bfff; border-radius: 6px; background: #f8f5ff; cursor: pointer; color: #6c5ce7;">部署</button>
+            <button onclick="checkRelayStatus('${s.uuid}')" style="padding: 4px 10px; font-size: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; color: #555;">检测</button>
+        ` : '';
+
+        return `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fafafa; border: 1px solid #eee; border-radius: 10px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                ${statusDot}
+                <div>
+                    <div style="font-size: 14px; font-weight: 600; color: #333;">${escapeHtml(s.name)}</div>
+                    <div style="font-size: 12px; color: #888; margin-top: 2px;">
+                        <span style="font-family: monospace;">${escapeHtml(s.ip)}</span>
+                        <span style="margin-left: 8px; font-size: 11px; color: #6c5ce7; background: #f0e6ff; padding: 1px 6px; border-radius: 4px;">${modeLabel}</span>
+                        ${s.remark ? `<span style="margin-left: 6px; color: #aaa;">${escapeHtml(s.remark)}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 6px;">
+                ${agentBtns}
+                <button onclick="editRelayServer('${s.uuid}')" style="padding: 4px 10px; font-size: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; color: #555;">编辑</button>
+                <button onclick="deleteRelayServer('${s.uuid}', '${escapeHtml(s.name)}')" style="padding: 4px 10px; font-size: 12px; border: 1px solid #ffcdd2; border-radius: 6px; background: #fff; cursor: pointer; color: #d74242;">删除</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleRelayApiPort() {
+    const mode = document.getElementById("relayServerMode").value;
+    document.getElementById("relayApiPortRow").style.display = mode === "1" ? "block" : "none";
+}
+
+function openAddRelayServerModal() {
+    document.getElementById("relayServerModalTitle").textContent = "添加中转机";
+    document.getElementById("relayServerUUID").value = "";
+    document.getElementById("relayServerName").value = "";
+    document.getElementById("relayServerIP").value = "";
+    document.getElementById("relayServerMode").value = "2";
+    document.getElementById("relayServerApiPort").value = "36601";
+    document.getElementById("relayServerRemark").value = "";
+    toggleRelayApiPort();
+    document.getElementById("relayServerModal").style.display = "flex";
+}
+
+function editRelayServer(uuid) {
+    const s = window.relayServersData.find(x => x.uuid === uuid);
+    if (!s) return;
+    document.getElementById("relayServerModalTitle").textContent = "编辑中转机";
+    document.getElementById("relayServerUUID").value = s.uuid;
+    document.getElementById("relayServerName").value = s.name;
+    document.getElementById("relayServerIP").value = s.ip;
+    document.getElementById("relayServerMode").value = String(s.mode);
+    document.getElementById("relayServerApiPort").value = s.api_port || 36601;
+    document.getElementById("relayServerRemark").value = s.remark || "";
+    toggleRelayApiPort();
+    document.getElementById("relayServerModal").style.display = "flex";
+}
+
+function closeRelayServerModal() {
+    document.getElementById("relayServerModal").style.display = "none";
+}
+
+async function saveRelayServer() {
+    const uuid = document.getElementById("relayServerUUID").value;
+    const mode = parseInt(document.getElementById("relayServerMode").value);
+    const data = {
+        uuid: uuid,
+        name: document.getElementById("relayServerName").value.trim(),
+        ip: document.getElementById("relayServerIP").value.trim(),
+        mode: mode,
+        api_port: mode === 1 ? parseInt(document.getElementById("relayServerApiPort").value) || 36601 : 0,
+        remark: document.getElementById("relayServerRemark").value.trim(),
+    };
+
+    if (!data.name || !data.ip) {
+        alert("名称和 IP 不能为空");
+        return;
+    }
+
+    const url = uuid ? "/api/relay/server/update" : "/api/relay/server/add";
+    try {
+        const resp = await fetch(url, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (result.status === "success") {
+            closeRelayServerModal();
+            loadRelayServers();
+            loadForwardRules();
+            // 新增 Agent 模式中转机 → 弹出部署命令
+            if (!uuid && mode === 1 && result.server && result.server.install_id) {
+                showRelayInstallCmd(result.server.install_id);
+            }
+        } else {
+            alert(result.message || "操作失败");
+        }
+    } catch(e) {
+        alert("网络错误");
+    }
+}
+
+function deleteRelayServer(uuid, name) {
+    document.getElementById("relayDeleteUUID").value = uuid;
+    document.getElementById("relayDeleteType").value = "server";
+    document.getElementById("relayDeleteMsg").textContent = `确定要删除中转机「${name}」吗？关联的转发规则和生成的直连节点都会被删除。`;
+    document.getElementById("relayDeleteModal").style.display = "flex";
+}
+
+// ---- 部署命令 ----
+
+function showRelayInstallCmd(installID) {
+    const panelURL = window.location.origin;
+    const cmd = `curl -sL '${panelURL}/api/relay/install-script?id=${installID}' | bash`;
+    document.getElementById("relayInstallCmd").textContent = cmd;
+    document.getElementById("relayInstallModal").style.display = "flex";
+}
+
+function copyRelayInstallCmd() {
+    const text = document.getElementById("relayInstallCmd").textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        btn.textContent = "已复制";
+        setTimeout(() => btn.textContent = "复制", 1500);
+    });
+}
+
+function closeRelayInstallModal() {
+    document.getElementById("relayInstallModal").style.display = "none";
+}
+
+// ---- 状态检测 ----
+
+async function checkRelayStatus(uuid) {
+    try {
+        const resp = await fetch("/api/relay/server/check-status", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({uuid: uuid}),
+        });
+        const result = await resp.json();
+        if (result.status === "success") {
+            loadRelayServers();
+            alert(result.online ? "gost 在线" : "gost 不可达，请检查部署");
+        }
+    } catch(e) {
+        alert("检测失败");
+    }
+}
+
+// ---- 转发规则 CRUD ----
+
+async function loadForwardRules() {
+    try {
+        const resp = await fetch("/api/relay/rules");
+        const result = await resp.json();
+        if (result.status === "success") {
+            window.forwardRulesData = result.rules || [];
+            renderForwardRules();
+        }
+    } catch(e) {
+        document.getElementById("forward-rules-list").innerHTML = '<div style="text-align: center; color: #d74242; font-size: 13px; padding: 20px 0;">加载失败</div>';
+    }
+}
+
+function renderForwardRules() {
+    const container = document.getElementById("forward-rules-list");
+    const rules = window.forwardRulesData;
+
+    if (!rules || rules.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #999; font-size: 13px; padding: 20px 0;">暂无转发规则，点击上方按钮添加</div>';
+        return;
+    }
+
+    container.innerHTML = rules.map(r => {
+        const matchBadge = r.matched_node_uuid
+            ? `<span style="font-size: 11px; color: #34c759; background: #eafff1; padding: 2px 8px; border-radius: 4px;">已匹配: ${escapeHtml(r.matched_node_name || '未知')} (${escapeHtml(r.matched_protocol)})</span>`
+            : '<span style="font-size: 11px; color: #f5a623; background: #fff8e6; padding: 2px 8px; border-radius: 4px;">未匹配</span>';
+
+        const statusLabel = {1: '运行中', 2: '已停止', 3: '手动'}[r.status] || '未知';
+        const statusColor = {1: '#34c759', 2: '#d74242', 3: '#888'}[r.status] || '#888';
+
+        const relayInfo = r.relay_server_name
+            ? `${escapeHtml(r.relay_server_name)} (${escapeHtml(r.relay_server_ip)})`
+            : '未知中转机';
+
+        // Agent 模式显示启动/停止按钮
+        let controlBtn = '';
+        if (r.relay_server_mode === 1) {
+            if (r.status === 1) {
+                controlBtn = `<button onclick="stopForwardRule('${r.uuid}')" style="padding: 4px 10px; font-size: 12px; border: 1px solid #ffcdd2; border-radius: 6px; background: #fff5f5; cursor: pointer; color: #d74242;">停止</button>`;
+            } else if (r.status === 2) {
+                controlBtn = `<button onclick="startForwardRule('${r.uuid}')" style="padding: 4px 10px; font-size: 12px; border: 1px solid #c8e6c9; border-radius: 6px; background: #f1f8f1; cursor: pointer; color: #34c759;">启动</button>`;
+            }
+        }
+
+        return `
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #fafafa; border: 1px solid #eee; border-radius: 10px;">
+            <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 13px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-family: monospace;">${escapeHtml(relayInfo)}:${r.listen_port}</span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6c5ce7" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                    <span style="font-family: monospace;">${escapeHtml(r.target_ip)}:${r.target_port}</span>
+                </div>
+                <div style="font-size: 12px; color: #888; margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    ${matchBadge}
+                    <span style="font-size: 11px; color: ${statusColor}; background: ${statusColor}11; padding: 2px 8px; border-radius: 4px;">${statusLabel}</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 6px; flex-shrink: 0; margin-left: 12px;">
+                ${controlBtn}
+                <button onclick="editForwardRule('${r.uuid}')" style="padding: 4px 10px; font-size: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; color: #555;">编辑</button>
+                <button onclick="deleteForwardRule('${r.uuid}')" style="padding: 4px 10px; font-size: 12px; border: 1px solid #ffcdd2; border-radius: 6px; background: #fff; cursor: pointer; color: #d74242;">删除</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openAddForwardRuleModal() {
+    document.getElementById("forwardRuleModalTitle").textContent = "添加转发规则";
+    document.getElementById("forwardRuleUUID").value = "";
+    document.getElementById("forwardRuleTargetIP").value = "";
+    document.getElementById("forwardRuleTargetPort").value = "";
+    document.getElementById("forwardRuleListenPort").value = "";
+    // 填充中转机下拉框
+    const select = document.getElementById("forwardRuleRelayUUID");
+    select.innerHTML = window.relayServersData.map(s =>
+        `<option value="${s.uuid}">${escapeHtml(s.name)} (${escapeHtml(s.ip)})</option>`
+    ).join('');
+    if (window.relayServersData.length === 0) {
+        select.innerHTML = '<option value="">请先添加中转机</option>';
+    }
+    document.getElementById("forwardRuleModal").style.display = "flex";
+}
+
+function editForwardRule(uuid) {
+    const r = window.forwardRulesData.find(x => x.uuid === uuid);
+    if (!r) return;
+    document.getElementById("forwardRuleModalTitle").textContent = "编辑转发规则";
+    document.getElementById("forwardRuleUUID").value = r.uuid;
+    document.getElementById("forwardRuleTargetIP").value = r.target_ip;
+    document.getElementById("forwardRuleTargetPort").value = r.target_port;
+    document.getElementById("forwardRuleListenPort").value = r.listen_port;
+    // 填充中转机下拉框
+    const select = document.getElementById("forwardRuleRelayUUID");
+    select.innerHTML = window.relayServersData.map(s =>
+        `<option value="${s.uuid}" ${s.uuid === r.relay_server_uuid ? 'selected' : ''}>${escapeHtml(s.name)} (${escapeHtml(s.ip)})</option>`
+    ).join('');
+    document.getElementById("forwardRuleModal").style.display = "flex";
+}
+
+function closeForwardRuleModal() {
+    document.getElementById("forwardRuleModal").style.display = "none";
+}
+
+async function saveForwardRule() {
+    const uuid = document.getElementById("forwardRuleUUID").value;
+    const data = {
+        uuid: uuid,
+        relay_server_uuid: document.getElementById("forwardRuleRelayUUID").value,
+        listen_port: parseInt(document.getElementById("forwardRuleListenPort").value),
+        target_ip: document.getElementById("forwardRuleTargetIP").value.trim(),
+        target_port: parseInt(document.getElementById("forwardRuleTargetPort").value),
+    };
+
+    if (!data.relay_server_uuid || !data.listen_port || !data.target_ip || !data.target_port) {
+        alert("所有字段不能为空");
+        return;
+    }
+
+    const url = uuid ? "/api/relay/rule/update" : "/api/relay/rule/add";
+    try {
+        const resp = await fetch(url, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(data),
+        });
+        const result = await resp.json();
+        if (result.status === "success") {
+            closeForwardRuleModal();
+            loadForwardRules();
+            // 同步可能新生成了直连节点，刷新节点列表
+            if (typeof loadNodesList === 'function') loadNodesList();
+        } else {
+            alert(result.message || "操作失败");
+        }
+    } catch(e) {
+        alert("网络错误");
+    }
+}
+
+function deleteForwardRule(uuid) {
+    document.getElementById("relayDeleteUUID").value = uuid;
+    document.getElementById("relayDeleteType").value = "rule";
+    document.getElementById("relayDeleteMsg").textContent = "确定要删除此转发规则吗？关联生成的直连节点可能会被清理。";
+    document.getElementById("relayDeleteModal").style.display = "flex";
+}
+
+// ---- 启动/停止转发 ----
+
+async function startForwardRule(uuid) {
+    try {
+        const resp = await fetch("/api/relay/rule/start", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({uuid: uuid}),
+        });
+        const result = await resp.json();
+        if (result.status === "success") {
+            loadForwardRules();
+        } else {
+            alert(result.message || "启动失败");
+        }
+    } catch(e) {
+        alert("网络错误");
+    }
+}
+
+async function stopForwardRule(uuid) {
+    try {
+        const resp = await fetch("/api/relay/rule/stop", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({uuid: uuid}),
+        });
+        const result = await resp.json();
+        if (result.status === "success") {
+            loadForwardRules();
+        } else {
+            alert(result.message || "停止失败");
+        }
+    } catch(e) {
+        alert("网络错误");
+    }
+}
+
+// ---- 通用删除确认 ----
+
+function closeRelayDeleteModal() {
+    document.getElementById("relayDeleteModal").style.display = "none";
+}
+
+async function confirmRelayDelete() {
+    const uuid = document.getElementById("relayDeleteUUID").value;
+    const type = document.getElementById("relayDeleteType").value;
+    if (!uuid) return;
+
+    const url = type === "server" ? "/api/relay/server/delete" : "/api/relay/rule/delete";
+    try {
+        const resp = await fetch(url, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({uuid: uuid}),
+        });
+        const result = await resp.json();
+        if (result.status === "success") {
+            closeRelayDeleteModal();
+            loadRelayServers();
+            loadForwardRules();
+            if (typeof loadNodesList === 'function') loadNodesList();
+        } else {
+            alert(result.message || "删除失败");
+        }
+    } catch(e) {
+        alert("网络错误");
+    }
+}
+
+// ---- 工具函数 ----
+
+// 确保 escapeHtml 可用 (可能已在其他模块定义)
+if (typeof window.relayEscapeHtml === 'undefined') {
+    window.relayEscapeHtml = function(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>"']/g, function(s) {
+            return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[s];
+        });
+    };
+}
+var escapeHtml = window.relayEscapeHtml;
+</script>
+{{end}}

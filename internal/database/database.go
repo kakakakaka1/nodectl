@@ -131,6 +131,9 @@ type NodePool struct {
 	TunnelToken             string            `gorm:"column:tunnel_token;type:text;default:''" json:"tunnel_token"`                         // 节点专属 Tunnel Token（每节点独立）
 	TunnelName              string            `gorm:"column:tunnel_name;type:varchar(128);default:''" json:"tunnel_name"`                   // 节点 Tunnel 名称
 	TunnelDomain            string            `gorm:"column:tunnel_domain;type:varchar(255);default:''" json:"tunnel_domain"`               // tunnel 加速域名
+	RelayGenerated          bool              `gorm:"column:relay_generated;default:false" json:"relay_generated"`                       // 是否由转发规则自动生成
+	SourceRelayUUID         string            `gorm:"column:source_relay_uuid;type:varchar(36);default:''" json:"source_relay_uuid"`     // 来源中转机 UUID
+	SourceLandingUUID       string            `gorm:"column:source_landing_uuid;type:varchar(36);default:''" json:"source_landing_uuid"` // 来源落地节点 UUID
 	CreatedAt               time.Time         `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt               time.Time         `gorm:"column:updated_at" json:"updated_at"`
 }
@@ -367,6 +370,8 @@ func autoMigrateAll(db *gorm.DB) error {
 		&AirportNode{},
 		&AirportSpeedTestHistory{},
 		&AirportSpeedTestResult{},
+		&RelayServer{},
+		&ForwardRule{},
 	)
 }
 
@@ -487,8 +492,12 @@ func GetDBStatus() DBStatus {
 	status.RecordInfo["airport_subs"] = count
 	DB.Model(&AirportNode{}).Count(&count)
 	status.RecordInfo["airport_nodes"] = count
+	DB.Model(&RelayServer{}).Count(&count)
+	status.RecordInfo["relay_servers"] = count
+	DB.Model(&ForwardRule{}).Count(&count)
+	status.RecordInfo["forward_rules"] = count
 
-	status.TableCount = 5
+	status.TableCount = 7
 	return status
 }
 
@@ -630,6 +639,16 @@ func MigrateToPostgres(pgCfg DBConfig) error {
 	// 4.7 迁移 AirportSpeedTestResult
 	if err := migrateTable[AirportSpeedTestResult](srcDB, dstDB, "airport_speed_test_results"); err != nil {
 		return fmt.Errorf("迁移 airport_speed_test_results 失败: %w", err)
+	}
+
+	// 4.8 迁移 RelayServer
+	if err := migrateTable[RelayServer](srcDB, dstDB, "relay_servers"); err != nil {
+		return fmt.Errorf("迁移 relay_servers 失败: %w", err)
+	}
+
+	// 4.9 迁移 ForwardRule
+	if err := migrateTable[ForwardRule](srcDB, dstDB, "forward_rules"); err != nil {
+		return fmt.Errorf("迁移 forward_rules 失败: %w", err)
 	}
 
 	// 5. 修正 PostgreSQL 自增序列，避免后续写入撞主键

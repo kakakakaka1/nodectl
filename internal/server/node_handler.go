@@ -173,6 +173,11 @@ func apiUpdateNode(w http.ResponseWriter, r *http.Request) {
 	}
 	service.UpdateNodeTrafficThresholdConfigFromNode(targetNode)
 
+	// 如果是落地节点，同步更新关联的中转直连节点
+	if targetNode.RoutingType == 2 {
+		go service.SyncByLandingNode(targetNode.UUID)
+	}
+
 	changedDetails := make([]string, 0)
 	if oldNode.Name != targetNode.Name {
 		changedDetails = append(changedDetails, fmt.Sprintf("name: %s -> %s", oldNode.Name, targetNode.Name))
@@ -1434,6 +1439,11 @@ func apiDeleteNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 如果是落地节点，清理所有由它生成的中转直连节点
+	if targetNode.RoutingType == 2 {
+		service.CleanupByLandingNode(targetNode.UUID)
+	}
+
 	// 3. 清理内存中的实时状态（Agent 连接、流量缓存、前端订阅）
 	service.CleanupNodeState(targetNode.InstallID, targetNode.UUID)
 	// 清理内存中可能残存的离线通知配置数据
@@ -1567,6 +1577,10 @@ func apiCallbackReport(w http.ResponseWriter, r *http.Request) {
 			logger.Log.Error("保存节点上报数据失败", "error", err, "name", node.Name, "ip", clientIP, "path", reqPath)
 			sendJSON(w, "error", "数据库保存失败")
 			return
+		}
+		// 如果是落地节点且 Links/IP 变更，同步中转直连节点
+		if node.RoutingType == 2 {
+			go service.SyncByLandingNode(node.UUID)
 		}
 	}
 

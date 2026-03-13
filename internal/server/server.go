@@ -313,6 +313,7 @@ func Start(tmplFS embed.FS) {
 
 	// ========== C. 公开/工具 路由 ==========
 	mux.HandleFunc("/api/public/install-script", withSecure(apiPublicScript)) // 安装脚本
+	mux.HandleFunc("/api/relay/install-script", apiRelayInstallScript)       // 中转机安装脚本
 	mux.HandleFunc("/api/callback/report", withSecure(apiCallbackReport))     // 节点上报
 	mux.HandleFunc("/api/callback/traffic/ws", apiCallbackTrafficWS)          // Agent WS 统一上报通道
 	// 实时流量订阅 (前端 WebSocket)
@@ -375,6 +376,20 @@ func Start(tmplFS embed.FS) {
 
 	// ========== Cloudflare IP 优选 ==========
 	mux.HandleFunc("/api/cf/ipopt/settings", withAuthAndSecure(apiCFIPOptSettings))                         // 读取/保存优选设置
+
+	// ========== 中转管理 ==========
+	mux.HandleFunc("/api/relay/servers", withAuthAndSecure(apiRelayServerList))       // 中转机列表
+	mux.HandleFunc("/api/relay/server/add", withAuthAndSecure(apiRelayServerAdd))     // 添加中转机
+	mux.HandleFunc("/api/relay/server/update", withAuthAndSecure(apiRelayServerUpdate)) // 更新中转机
+	mux.HandleFunc("/api/relay/server/delete", withAuthAndSecure(apiRelayServerDelete)) // 删除中转机
+	mux.HandleFunc("/api/relay/rules", withAuthAndSecure(apiForwardRuleList))         // 转发规则列表
+	mux.HandleFunc("/api/relay/rule/add", withAuthAndSecure(apiForwardRuleAdd))       // 添加转发规则
+	mux.HandleFunc("/api/relay/rule/update", withAuthAndSecure(apiForwardRuleUpdate)) // 更新转发规则
+	mux.HandleFunc("/api/relay/rule/delete", withAuthAndSecure(apiForwardRuleDelete)) // 删除转发规则
+	mux.HandleFunc("/api/relay/rule/start", withAuthAndSecure(apiForwardRuleStart))       // 启动转发 (agent模式)
+	mux.HandleFunc("/api/relay/rule/stop", withAuthAndSecure(apiForwardRuleStop))         // 停止转发 (agent模式)
+	mux.HandleFunc("/api/relay/server/check-status", withAuthAndSecure(apiRelayServerCheckStatus)) // 检测中转机状态
+	mux.HandleFunc("/api/callback/relay/ws", apiRelayAgentWS)                             // 中转 Agent WS 通道 (保留)
 	mux.HandleFunc("/api/cf/ipopt/binary/status", withAuthAndSecure(apiCFIPOptBinaryStatus))                // 二进制状态
 	mux.HandleFunc("/api/cf/ipopt/binary/download", withAuthAndSecure(apiCFIPOptBinaryDownload))            // 下载二进制 (SSE)
 	mux.HandleFunc("/api/cf/ipopt/start", withAuthAndSecure(apiCFIPOptStart))                               // 启动优选任务
