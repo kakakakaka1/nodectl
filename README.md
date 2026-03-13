@@ -2,6 +2,7 @@
 
 > 一个轻量、高效、功能强大的个人节点与订阅管理面板
 
+📢 **TG 频道**：https://t.me/nodectl
 ---
 
 ## 🤔 为什么选择 NodeCtl？
@@ -207,8 +208,6 @@ NodeCtl 还在持续进化中，以下是已完成和计划中的功能：
 NodeCtl 的定位很明确——**为个人用户提供一站式节点管理体验**。它不会做多用户、多订阅这些复杂功能，而是专注于让你用最简单的方式管理自己的代理服务。
 
 代码完全开源，欢迎 Star ⭐ 和 PR！
-
-📢 **TG 频道**：https://t.me/nodectl
 
 ![效果展示](https://nodectl-ipopt.hobin.net/Image/主页1.webp)
 ![效果展示](https://nodectl-ipopt.hobin.net/Image/主页2.webp)
